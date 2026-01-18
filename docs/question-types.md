@@ -27,7 +27,7 @@ Q: 日本の首都はどこですか？
 - 選択肢は2〜10個程度
 - 正解は必ず1つ
 
-**YAMLサンプル:**
+**YAMLサンプル（画像なし）:**
 ```yaml
 # 令和7年度 ITパスポート 公開問題 問1
 id: 18477eaa-639a-4515-b21c-90b924341c16
@@ -50,6 +50,26 @@ explanation: |
   a と c は A社が指揮命令しているため偽装請負に該当する。
 ```
 
+**YAMLサンプル（画像あり）:**
+```yaml
+# 画像を含む問題の例
+id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+type: single_choice
+text: |
+  次の図に示すネットワーク構成において、適切なサブネットマスクはどれか。
+images:
+  - questions/network-diagram-001.png
+  - questions/network-table-001.png
+choices:
+  - "255.255.255.0"
+  - "255.255.0.0"
+  - "255.0.0.0"
+  - "255.255.255.128"
+correct: 0
+explanation: |
+  図から必要なホスト数を計算し、適切なサブネットマスクを選択します。
+```
+
 ---
 
 ## DB設計
@@ -58,6 +78,7 @@ explanation: |
 
 ```
 questions                         # 問題（共通）
+├── question_images               # 問題に紐づく画像
 └── questions_single_choice       # 単一選択問題
     └── questions_single_choice_choices  # 選択肢
 
@@ -73,6 +94,21 @@ workbooks                         # 問題集
 | type | VARCHAR(50) | 問題形式（single_choice など） |
 | created_at | TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | 更新日時 |
+
+### question_images（問題に紐づく画像）
+
+| カラム | 型 | 説明 |
+|-------|-----|------|
+| id | BIGSERIAL | 主キー |
+| question_id | BIGINT | 問題ID（FK） |
+| image_path | VARCHAR(512) | 画像ファイルのパス（data/images/からの相対パス） |
+| order_index | INT | 画像の表示順 |
+| created_at | TIMESTAMP | 作成日時 |
+
+**特徴:**
+- 1つの問題に複数の画像を紐付け可能
+- order_indexで表示順を管理
+- 画像ファイルは`data/images/`に配置
 
 ### questions_single_choice（単一選択問題）
 
