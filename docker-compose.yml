@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: rikako-postgres
+    environment:
+      POSTGRES_USER: rikako
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: rikako
+    ports:
+      - "5432:5432"
