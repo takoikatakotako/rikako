@@ -1,0 +1,11 @@
+# 令和7年度 ITパスポート 公開問題 問67
+id: 6e18c9b1-0daa-4167-a734-71a1c5145bb3
+type: single_choice
+text: |
+  3次元画像処理の高速化や、動画をなめらかにするなどの機能をもつ、描画処理のためのハードウェアはどれか。
+choices:
+  - "CGI"
+  - "GPU"
+  - "GUI"
+  - "UPS"
+correct: 0

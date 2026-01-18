@@ -1,0 +1,16 @@
+# 令和7年度 ITパスポート 公開問題 問41
+id: 97714127-ec5d-4b3c-86c1-f78d5e9e0fd9
+type: single_choice
+text: |
+  システム開発プロジェクトで使用される技法のうち、スケジュール作成に用いる技法として、適切なものだけを全て挙げたものはどれか。
+  
+  a DFD（Data Flow Diagram）
+  b 回帰分析
+  c クリティカルパス法
+  d プレシデンスダイアグラム法
+choices:
+  - "a, b"
+  - "a, d"
+  - "b, c"
+  - "c, d"
+correct: 3

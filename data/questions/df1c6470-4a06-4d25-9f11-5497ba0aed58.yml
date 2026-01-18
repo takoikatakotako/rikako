@@ -1,0 +1,22 @@
+# 令和7年度 ITパスポート 公開問題 問78
+id: df1c6470-4a06-4d25-9f11-5497ba0aed58
+type: single_choice
+text: |
+  手続calcMod3を呼び出したときの出力はどれか。
+  
+  【プログラム】
+  ○calcMod3()
+    整数型: totalValue, i
+    totalValue ← 0
+    for (i を 1 から 7 まで 1 ずつ増やす)
+      if (i ÷ 3 の余り が 0 と等しい)
+        totalValue ← totalValue + i
+      endif
+    endfor
+    totalValue を出力する
+choices:
+  - "2"
+  - "3"
+  - "7"
+  - "9"
+correct: 0

@@ -1,0 +1,11 @@
+# 令和7年度 ITパスポート 公開問題 問27
+id: 718c9f27-bfe8-487a-a1d0-fb24a899b917
+type: single_choice
+text: |
+  業務と情報システムを最適にすることを目的として、業務と情報システムの現状の把握と目標とする理想像の設定から現状と理想との乖離を明確にし、目標に向けた改善活動を移行計画として定義したい。このときに用いられる手法として、最も適切なものはどれか。
+choices:
+  - "BI（Business Intelligence）"
+  - "EA（Enterprise Architecture）"
+  - "MOT（Management of Technology）"
+  - "SOA（Service Oriented Architecture）"
+correct: 1

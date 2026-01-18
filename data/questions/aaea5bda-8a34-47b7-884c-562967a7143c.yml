@@ -1,0 +1,17 @@
+# 令和7年度 ITパスポート 公開問題 問75
+id: aaea5bda-8a34-47b7-884c-562967a7143c
+type: single_choice
+text: |
+  次の記憶媒体のうち、記憶素子として半導体メモリを用いているものだけを全て挙げたものはどれか。
+  
+  a CD-ROM
+  b DVD-RAM
+  c RAM
+  d SSD
+  e USBメモリ
+choices:
+  - "a, b, c"
+  - "a, b, e"
+  - "c, d, e"
+  - "c, e"
+correct: 3

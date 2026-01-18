@@ -1,0 +1,11 @@
+# 令和7年度 ITパスポート 公開問題 問14
+id: df9ce969-5abd-4307-a1dc-6725f898badd
+type: single_choice
+text: |
+  事業、経営情報に知財情報を組み込んで分析し、現状の俯瞰や将来展望などの分析結果を事業責任者、経営者と共有し、事業戦略又は経営戦略に反映させることを表す用語として、最も適切なものはどれか。
+choices:
+  - "CVC（Corporate Venture Capital）"
+  - "IPランドスケープ（Intellectual Property Landscape）"
+  - "MOT（Management of Technology）"
+  - "SWOT分析"
+correct: 1
