@@ -18,8 +18,38 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: rikako
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: rikako
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Run migrations
+        run: |
+          docker run --rm --network host \
+            -v ${{ github.workspace }}/migrations:/migrations \
+            migrate/migrate \
+            -path=/migrations \
+            -database "postgres://rikako:password@localhost:5432/rikako?sslmode=disable" up
+
+      - name: Generate schema docs
+        run: |
+          docker run --rm --network host \
+            -v ${{ github.workspace }}:/work \
+            ghcr.io/k1low/tbls:v1.92.3 \
+            doc "postgres://rikako:password@localhost:5432/rikako?sslmode=disable" /work/docs/schema
 
       - name: Setup Python
         uses: actions/setup-python@v5
