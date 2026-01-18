@@ -1,0 +1,11 @@
+# 令和7年度 ITパスポート 公開問題 問7
+id: de151736-4671-4ebe-846a-6d468051e09a
+type: single_choice
+text: |
+  新しい概念やアイディアの実証を目的とした、開発の前段階における検証を表す用語はどれか。
+choices:
+  - "CRM"
+  - "PoC"
+  - "RAS"
+  - "SLA"
+correct: 1

@@ -1,0 +1,11 @@
+# 令和7年度 ITパスポート 公開問題 問56
+id: bd5322d2-ebf3-49b4-9ea9-68647b3fd2b1
+type: single_choice
+text: |
+  Bluetoothに追加された仕様の一つであり、省電力性に優れているので、IoTシステムを長期間運用でき、送受信デバイス間の距離を知ることにも使われているものはどれか。
+choices:
+  - "BLE"
+  - "IrDA"
+  - "NFC"
+  - "PLC"
+correct: 3
