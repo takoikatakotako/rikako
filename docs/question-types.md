@@ -60,6 +60,9 @@ explanation: |
 questions                         # 問題（共通）
 └── questions_single_choice       # 単一選択問題
     └── questions_single_choice_choices  # 選択肢
+
+workbooks                         # 問題集
+└── workbook_questions            # 問題集と問題の紐付け
 ```
 
 ### questions（共通）
@@ -91,6 +94,49 @@ questions                         # 問題（共通）
 | choice_index | INT | 選択肢の順番 |
 | text | TEXT | 選択肢テキスト |
 | is_correct | BOOLEAN | 正解かどうか |
+
+### workbooks（問題集）
+
+| カラム | 型 | 説明 |
+|-------|-----|------|
+| id | BIGSERIAL | 主キー |
+| title | VARCHAR(255) | 問題集タイトル |
+| description | TEXT | 問題集の説明 |
+| created_at | TIMESTAMP | 作成日時 |
+| updated_at | TIMESTAMP | 更新日時 |
+
+### workbook_questions（問題集と問題の紐付け）
+
+| カラム | 型 | 説明 |
+|-------|-----|------|
+| workbook_id | BIGINT | 問題集ID（FK） |
+| question_id | BIGINT | 問題ID（FK） |
+| order_index | INT | 問題の順番 |
+
+**主キー:** (workbook_id, question_id)
+
+---
+
+## 問題集（Workbooks）
+
+問題集は複数の問題をグループ化したもので、問題との間に多対多の関係を持ちます。
+
+**特徴:**
+- 1つの問題集に複数の問題を含めることができる
+- 1つの問題を複数の問題集に含めることができる
+- order_indexで問題集内の問題の順番を管理
+
+**YAMLサンプル:**
+```yaml
+id: e5a7c8d2-1234-5678-9abc-def012345678
+title: 令和7年度 ITパスポート 公開問題
+description: 令和7年度のITパスポート試験公開問題です。全100問。
+questions:
+  - 18477eaa-639a-4515-b21c-90b924341c16  # 問1
+  - b74a5c68-3f04-448f-b75d-7be751284d9e  # 問2
+  - b2a33757-de17-4fb4-9c4f-7ad52860d75c  # 問3
+  # ... 以下100問まで
+```
 
 ---
 
