@@ -41,19 +41,19 @@ docker exec -it rikako-postgres psql -U rikako -d rikako
 
 ```bash
 # 適用
-docker run --rm -v $(pwd)/migrations:/migrations --network rikako_default \
+docker run --rm -v $(pwd)/migrations:/migrations \
   migrate/migrate -path=/migrations \
-  -database "postgres://rikako:password@rikako-postgres:5432/rikako?sslmode=disable" up
+  -database "postgres://rikako:password@host.docker.internal:5432/rikako?sslmode=disable" up
 
 # ロールバック (1つ戻す)
-docker run --rm -v $(pwd)/migrations:/migrations --network rikako_default \
+docker run --rm -v $(pwd)/migrations:/migrations \
   migrate/migrate -path=/migrations \
-  -database "postgres://rikako:password@rikako-postgres:5432/rikako?sslmode=disable" down 1
+  -database "postgres://rikako:password@host.docker.internal:5432/rikako?sslmode=disable" down 1
 
 # バージョン確認
-docker run --rm -v $(pwd)/migrations:/migrations --network rikako_default \
+docker run --rm -v $(pwd)/migrations:/migrations \
   migrate/migrate -path=/migrations \
-  -database "postgres://rikako:password@rikako-postgres:5432/rikako?sslmode=disable" version
+  -database "postgres://rikako:password@host.docker.internal:5432/rikako?sslmode=disable" version
 ```
 
 ### PostgreSQL コマンド早見表
@@ -64,3 +64,14 @@ docker run --rm -v $(pwd)/migrations:/migrations --network rikako_default \
 | USE db; | \c db |
 | SHOW TABLES; | \dt |
 | DESCRIBE table; | \d table |
+
+## スキーマドキュメント生成
+
+```bash
+docker run --rm \
+  -v $(pwd):/work \
+  ghcr.io/k1low/tbls:v1.92.3 \
+  doc "postgres://rikako:password@host.docker.internal:5432/rikako?sslmode=disable" /work/docs/schema
+```
+
+生成されたドキュメントは `docs/schema/` に出力されます。

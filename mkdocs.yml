@@ -1,0 +1,23 @@
+site_name: Rikako
+site_description: 問題集アプリ ドキュメント
+site_url: https://takoikatakotako.github.io/rikako/
+
+theme:
+  name: material
+  language: ja
+  palette:
+    primary: indigo
+    accent: indigo
+
+nav:
+  - Home: index.md
+  - 問題形式仕様書: question-types.md
+  - DBスキーマ:
+      - 概要: schema/README.md
+      - questions: schema/public.questions.md
+      - schema_migrations: schema/public.schema_migrations.md
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
