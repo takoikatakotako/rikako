@@ -1,0 +1,275 @@
+openapi: 3.0.3
+info:
+  title: Rikako API
+  description: 問題集アプリのAPI
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: ローカル開発環境
+
+paths:
+  /health:
+    get:
+      summary: ヘルスチェック
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /questions:
+    get:
+      summary: 問題一覧取得
+      operationId: getQuestions
+      tags:
+        - Questions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: 問題一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionsResponse'
+
+  /questions/{questionId}:
+    get:
+      summary: 問題詳細取得
+      operationId: getQuestion
+      tags:
+        - Questions
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 問題詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '404':
+          description: 問題が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /workbooks:
+    get:
+      summary: 問題集一覧取得
+      operationId: getWorkbooks
+      tags:
+        - Workbooks
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: 問題集一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkbooksResponse'
+
+  /workbooks/{workbookId}:
+    get:
+      summary: 問題集詳細取得
+      operationId: getWorkbook
+      tags:
+        - Workbooks
+      parameters:
+        - name: workbookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 問題集詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkbookDetail'
+        '404':
+          description: 問題集が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /images/{imageId}:
+    get:
+      summary: 画像取得
+      operationId: getImage
+      tags:
+        - Images
+      parameters:
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 画像
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: 画像が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    Question:
+      type: object
+      required:
+        - id
+        - type
+        - text
+        - choices
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - single_choice
+        text:
+          type: string
+        choices:
+          type: array
+          items:
+            type: string
+        correct:
+          type: integer
+          description: 正解の選択肢インデックス
+        explanation:
+          type: string
+          description: 解説
+        images:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 紐付く画像ID
+
+    QuestionsResponse:
+      type: object
+      required:
+        - questions
+        - total
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+        total:
+          type: integer
+          description: 総件数
+
+    Workbook:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        questionCount:
+          type: integer
+          description: 問題数
+
+    WorkbooksResponse:
+      type: object
+      required:
+        - workbooks
+        - total
+      properties:
+        workbooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workbook'
+        total:
+          type: integer
+          description: 総件数
+
+    WorkbookDetail:
+      type: object
+      required:
+        - id
+        - title
+        - questions
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
