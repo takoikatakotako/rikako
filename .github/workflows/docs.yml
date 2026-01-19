@@ -48,6 +48,7 @@ jobs:
         run: |
           docker run --rm --network host \
             -v ${{ github.workspace }}:/work \
+            -w /work \
             ghcr.io/k1low/tbls:v1.92.3 \
             doc "postgres://rikako:password@localhost:5432/rikako?sslmode=disable" /work/docs/schema
 

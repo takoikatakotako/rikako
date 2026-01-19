@@ -70,6 +70,7 @@ docker run --rm -v $(pwd)/migrations:/migrations \
 ```bash
 docker run --rm \
   -v $(pwd):/work \
+  -w /work \
   ghcr.io/k1low/tbls:v1.92.3 \
   doc "postgres://rikako:password@host.docker.internal:5432/rikako?sslmode=disable" /work/docs/schema
 ```

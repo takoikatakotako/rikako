@@ -1,0 +1,9 @@
+name: rikako
+
+relations:
+  - table: question_images
+    columns:
+      - image_id
+    parentTable: images
+    parentColumns:
+      - id
