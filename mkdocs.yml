@@ -12,6 +12,7 @@ theme:
 nav:
   - Home: index.md
   - 問題形式仕様書: question-types.md
+  - API: api/index.html
   - DBスキーマ:
       - 概要: schema/README.md
       - questions: schema/public.questions.md
