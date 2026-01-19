@@ -1,0 +1,17 @@
+id: fad34aee-e778-4f61-ac17-a9e62f2b8bbd
+type: single_choice
+text: 検索エンジンの検索結果が上位に表示されるよう、Webページ内に適切なキーワードを盛り込んだり、HTMLやリンクの内容を工夫したりする手法はどれか。
+choices:
+- BPO
+- LPO
+- MBO
+- SEO
+correct: 3
+explanation: 'ア：業務の一部を外部企業に委託すること（Business Process Outsourcing）
+
+  イ：インターネット広告や検索エンジンなど、外部からのリンクをクリックした際に、最初に表示されるWebページを、「訪問者が着地するページ」という意味で、ランディングページ(landing
+  pages＝LP)と呼ぶ（Landing Page Optimization）
+
+  ウ：経営者が自社の株を購入することで実質的な経営権をにぎること（Management Buy Out）
+
+  エ：○（Search Engine Optimization）'

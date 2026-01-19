@@ -1,0 +1,10 @@
+id: 53f88d90-da78-46ac-8765-c0916c0e36ca
+type: single_choice
+text: C₄H₁₀で表される有機化合物の名前は何か。
+choices:
+- メタン
+- エタン
+- プロパン
+- ブタン
+correct: 3
+explanation: C₄H₁₀はブタンである。

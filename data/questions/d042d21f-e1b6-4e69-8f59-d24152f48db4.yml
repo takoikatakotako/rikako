@@ -1,0 +1,7 @@
+id: d042d21f-e1b6-4e69-8f59-d24152f48db4
+type: single_choice
+text: インデックス型投資信託は、日経平均株価や東証株価指数(TOPIX)などの特定の指標に連動するよう運用される投資信託である。
+choices:
+- ◯
+- ×
+correct: 0

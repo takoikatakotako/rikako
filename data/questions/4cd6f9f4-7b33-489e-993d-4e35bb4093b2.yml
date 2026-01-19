@@ -1,0 +1,19 @@
+id: 4cd6f9f4-7b33-489e-993d-4e35bb4093b2
+type: single_choice
+text: 一連のプロセスにおけるボトルネックの解消などによって、プロセス全体の最適化を図ることを目的とする考え方はどれか。
+choices:
+- CRM
+- HRM
+- SFA
+- TOC
+correct: 3
+explanation: 'TOC：「制約条件の理論」と訳され、制約条件（ボトルネック）となっている部分を特定し、重点的に改善することで全体の生産性を向上させるという考え方のこと。
+
+
+  ア：顧客関係管理（Customer Relationship Management）
+
+  イ：人事資源管理（Human Resource Management）
+
+  ウ：営業支援システム（Sales Force Automation）
+
+  エ：○'

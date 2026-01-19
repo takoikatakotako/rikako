@@ -1,0 +1,10 @@
+id: 03b24450-9102-440e-b272-e04d4e8c898c
+type: single_choice
+text: CH₄で表される有機化合物の名前は何か。
+choices:
+- エタン
+- プロパン
+- ブタン
+- メタン
+correct: 3
+explanation: CH₄はメタンである。メタンは燃料用のガスとして用いられ、都市ガスなどに用いられる。

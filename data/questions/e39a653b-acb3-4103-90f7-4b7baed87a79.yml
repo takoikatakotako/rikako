@@ -1,0 +1,10 @@
+id: e39a653b-acb3-4103-90f7-4b7baed87a79
+type: single_choice
+text: 植物が呼吸をするとき、何を出しますか。
+choices:
+- ちっ素
+- 酸素
+- 二酸化炭素
+- 水素
+correct: 3
+explanation: 植物が呼吸をするとき酸素を吸い、二酸化炭素を出します。

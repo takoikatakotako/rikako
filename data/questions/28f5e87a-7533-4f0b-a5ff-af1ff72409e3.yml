@@ -1,0 +1,10 @@
+id: 28f5e87a-7533-4f0b-a5ff-af1ff72409e3
+type: single_choice
+text: アリの足は何本ですか。
+choices:
+- '6'
+- '4'
+- '8'
+- '10'
+correct: 0
+explanation: アリは昆虫なので6本の足があります。

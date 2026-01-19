@@ -1,0 +1,8 @@
+id: 2c6c4b69-5332-4ca4-8e92-f1edcf83c94a
+type: single_choice
+text: 自動車損害賠償責任保険(自賠責保険)では、対人賠償および対物賠償が補償の対象となる。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 自動車損害賠償責任保険(自賠責保険)では、対人賠償事故のみが補償の対象となる。

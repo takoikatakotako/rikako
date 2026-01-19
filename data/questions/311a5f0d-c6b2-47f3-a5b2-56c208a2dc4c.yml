@@ -1,0 +1,8 @@
+id: 311a5f0d-c6b2-47f3-a5b2-56c208a2dc4c
+type: single_choice
+text: 不動産の登記事項証明書の交付を請求することができる者は、当該不動産の所有者に限られる。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 利害関係の有無にかかわらず誰でも交付を受けることが可能。

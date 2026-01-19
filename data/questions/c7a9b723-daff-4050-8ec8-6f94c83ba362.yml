@@ -1,0 +1,10 @@
+id: c7a9b723-daff-4050-8ec8-6f94c83ba362
+type: single_choice
+text: CH₃COOHのように水に溶解したときにほとんどがCH₃COOHとして存在し、一部のみがH⁺とCH₃COO⁻に電離する物質は何と呼ばれるか。
+choices:
+- 強酸
+- 弱電解質
+- 弱塩基
+- コロイド
+correct: 1
+explanation: CH₃COOHのように水に溶解したときにほとんどがCH₃COOHとして存在し、一部のみがH⁺とCH₃COO⁻に電離する物質は弱電解質とよばれる。

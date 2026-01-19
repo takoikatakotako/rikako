@@ -1,0 +1,10 @@
+id: e6d4d0f1-c63e-475e-8abf-57701ab8a476
+type: single_choice
+text: 赤血球の役割として最も正しいものはどれか。
+choices:
+- 栄養分を運ぶ
+- 出血した時に血を止める
+- 血管を作る
+- 酸素を運ぶ
+correct: 3
+explanation: 赤血球はヘモグロビンを含み酸素を運ぶ。

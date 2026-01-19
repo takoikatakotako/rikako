@@ -1,0 +1,8 @@
+id: 2eb3727e-44a4-4be3-b2ba-f8fa161952f2
+type: single_choice
+text: 普通傷害保険において、被保険者がウイルス性の食中毒により通院した場合は、通常、保険金支払の対象となる。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 普通傷害保険については以下表の通りである。

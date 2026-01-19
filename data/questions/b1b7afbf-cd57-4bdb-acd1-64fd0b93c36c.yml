@@ -1,0 +1,8 @@
+id: b1b7afbf-cd57-4bdb-acd1-64fd0b93c36c
+type: single_choice
+text: 株式の投資指標のうち、PBRは( ① )を( ② )で除して算出される。
+choices:
+- ①株価、②1株当たり純利益
+- ①株価、②1株当たり純資産
+- ①1株当たり純利益、②1株当たり純資産
+correct: 1

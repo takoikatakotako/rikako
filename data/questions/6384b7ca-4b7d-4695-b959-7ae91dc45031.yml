@@ -1,0 +1,10 @@
+id: 6384b7ca-4b7d-4695-b959-7ae91dc45031
+type: single_choice
+text: 両性酸化物である組み合わせとして正しいものはどれか。
+choices:
+- H₂SO₄、HCl
+- CO₂、O₃
+- NaOH、NH₄
+- ZnO、Al(OH)₃
+correct: 3
+explanation: 酸化物は酸素とそれより電気陰性度が小さい元素からなる化合物であり、そのなかで酸としても塩基としても反応するものを両性酸化物という。

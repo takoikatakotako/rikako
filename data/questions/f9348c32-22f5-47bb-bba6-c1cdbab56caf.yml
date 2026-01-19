@@ -1,0 +1,10 @@
+id: f9348c32-22f5-47bb-bba6-c1cdbab56caf
+type: single_choice
+text: エタノール(CH₃CH₂OH)が水に溶ける理由は何か。
+choices:
+- 疎水基であるエチル基を持つため
+- 親水基のメチル基を持つため
+- 水和されやすい-OHを持つため
+- 水素原子を持つため
+correct: 2
+explanation: エタノール(CH₃CH₂OH)は水和されやすい-OHを持つため水に溶ける。-OHはヒドロキシ基と呼ばれる。

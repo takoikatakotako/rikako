@@ -1,0 +1,10 @@
+id: 71ac4db6-6317-46e3-81ea-98f0b83b55ad
+type: single_choice
+text: 元素記号「Cl」の元素名は何であるか。
+choices:
+- フッ素
+- ヨウ素
+- 臭素
+- 塩素
+correct: 3
+explanation: 元素記号「Cl」は塩素である。

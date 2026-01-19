@@ -1,0 +1,10 @@
+id: 9c3d0812-831c-419b-8a9e-cbab915addc2
+type: single_choice
+text: 元素記号「K」の元素名は何であるか。
+choices:
+- ヘリウム
+- カリウム
+- クロム
+- カルシウム
+correct: 1
+explanation: 元素記号「K」はカリウムである。

@@ -1,0 +1,10 @@
+id: 5c7b152e-d941-4730-bb3d-b0eaea40c20a
+type: single_choice
+text: 元素記号「V」の元素名は何であるか。
+choices:
+- バナジウム
+- ジルコニウム
+- アルゴン
+- モリブテン
+correct: 0
+explanation: 元素記号「V」はバナジウムである。

@@ -1,0 +1,10 @@
+id: b7781ea5-289c-4930-99fa-afa08f56b573
+type: single_choice
+text: 液体に他の物質が溶けて均一に混じり合うことは何と呼ばれるか。
+choices:
+- 溶解
+- 妖怪
+- 融解
+- 溶質
+correct: 0
+explanation: 液体に他の物質が溶けて均一に混じり合うことは溶解と呼ばれます。

@@ -1,0 +1,10 @@
+id: 88e2b6b3-feaa-42ec-a41e-b799c08b6daa
+type: single_choice
+text: エタノール(CH₃CH₂OH)、メタノール(CH₃OH)にある官能基の -OH は何と呼ばれるか。
+choices:
+- メチル基
+- アルデヒト基
+- 水和基
+- ヒドロキシ基
+correct: 3
+explanation: エタノール(CH₃CH₂OH)、メタノール(CH₃OH)にある官能基の -OH はヒドロキシ基と呼ばれる。ベンゼンの水素の水素をヒドロキシ基で置換した物質はフェノールと呼ばれる。

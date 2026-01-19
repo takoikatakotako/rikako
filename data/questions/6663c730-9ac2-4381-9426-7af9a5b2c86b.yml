@@ -1,0 +1,10 @@
+id: 6663c730-9ac2-4381-9426-7af9a5b2c86b
+type: single_choice
+text: 元素記号「Ti」の元素名は何であるか。
+choices:
+- ヘリウム
+- タリウム
+- カリウム
+- チタン
+correct: 3
+explanation: 元素記号「Ti」はチタンである。

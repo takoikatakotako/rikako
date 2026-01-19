@@ -1,0 +1,12 @@
+id: 9c196aac-036a-4f06-9951-71a156c37885
+type: single_choice
+text: 以下の画像の構造式(CH₃CH₂OH)を持つ化合物の名前は何であるか。
+choices:
+- エタノール
+- エチレン
+- エテン
+- メタノール
+correct: 0
+explanation: エタノールはCH₃CH₂OHで表される。
+images:
+- e6ddd057-1179-43ba-bee3-7630edfb0557

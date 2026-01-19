@@ -1,0 +1,8 @@
+id: 37961c54-cf6b-451f-817e-abefbd1fc51e
+type: single_choice
+text: 普通傷害保険(特約付帯なし)では、一般に、被保険者が細菌性食中毒により入院した場合は、保険金支払の対象となる。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 普通傷害保険については以下表の通りである。

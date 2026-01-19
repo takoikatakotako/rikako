@@ -1,0 +1,8 @@
+id: d3026d9e-f966-49fe-8932-42e0d8d4f5ba
+type: single_choice
+text: 建築基準法上、容積率とは、建築物の建築面積の敷地面積に対する割合をいう。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 容積率は敷地面積に対する延べ面積である。問題文は建蔽率についてである。

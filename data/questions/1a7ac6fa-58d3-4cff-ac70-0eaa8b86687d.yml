@@ -1,0 +1,7 @@
+id: 1a7ac6fa-58d3-4cff-ac70-0eaa8b86687d
+type: single_choice
+text: 上場投資信託(ETF)は、証券取引所に上場され、上場株式と同様に指値注文や成行注文により売買することができる。
+choices:
+- ◯
+- ×
+correct: 0

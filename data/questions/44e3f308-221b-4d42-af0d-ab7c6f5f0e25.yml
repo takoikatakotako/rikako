@@ -1,0 +1,10 @@
+id: 44e3f308-221b-4d42-af0d-ab7c6f5f0e25
+type: single_choice
+text: こん虫の足はどこから何本生えていますか。
+choices:
+- 胸から6本
+- 胸から8本
+- 腹から6本
+- 腹から8本
+correct: 0
+explanation: こん虫の足は胸から6本生えています。

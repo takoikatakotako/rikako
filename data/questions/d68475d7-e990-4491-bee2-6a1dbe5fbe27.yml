@@ -1,0 +1,10 @@
+id: d68475d7-e990-4491-bee2-6a1dbe5fbe27
+type: single_choice
+text: Naの原子量が23、Clの原子数が35.5であるときNaClの式量はいくつであるか。
+choices:
+- '28'
+- '58.5'
+- '46'
+- '117'
+correct: 1
+explanation: Naの原子量が23、Clの原子数が35.5であるときNaClの式量は58.5です。

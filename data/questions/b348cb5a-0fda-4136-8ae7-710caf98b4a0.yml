@@ -1,0 +1,8 @@
+id: b348cb5a-0fda-4136-8ae7-710caf98b4a0
+type: single_choice
+text: 個人が死因贈与によって取得した財産は、課税の対象とならない財産を除き、(  )の課税対象となる。
+choices:
+- 所得税
+- 贈与税
+- 相続税
+correct: 2

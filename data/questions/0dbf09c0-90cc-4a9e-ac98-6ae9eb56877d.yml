@@ -1,0 +1,8 @@
+id: 0dbf09c0-90cc-4a9e-ac98-6ae9eb56877d
+type: single_choice
+text: 公的介護保険の第2号被保険者は、市町村または特別区の区域内に住所を有する65歳以上の者である。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 以下表の通り、公的介護保険の第2号被保険者は40歳以上65歳未満の被保険者である。

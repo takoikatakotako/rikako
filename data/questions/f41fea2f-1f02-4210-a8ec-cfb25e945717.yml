@@ -1,0 +1,10 @@
+id: f41fea2f-1f02-4210-a8ec-cfb25e945717
+type: single_choice
+text: 元素記号「Ar」の元素名は何であるか。
+choices:
+- アルゴン
+- アルミニウム
+- アルマイト
+- アラエル
+correct: 0
+explanation: 元素記号「Ar」はアルゴンである。

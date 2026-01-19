@@ -1,0 +1,10 @@
+id: 1ba540de-8cf7-47e4-af4a-30114519faa7
+type: single_choice
+text: ハロゲン元素はどのような元素のことであるか。
+choices:
+- Be,Mgを除く2族の元素
+- Hを除く一族の元素
+- 17族の元素
+- 18族の元素
+correct: 2
+explanation: ハロゲン元素とはCl,Br,Fなど17族の元素のことである。

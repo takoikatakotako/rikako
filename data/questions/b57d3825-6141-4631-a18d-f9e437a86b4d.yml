@@ -1,0 +1,9 @@
+id: b57d3825-6141-4631-a18d-f9e437a86b4d
+type: single_choice
+text: 外貨預金の預入時に、預金者が円貨を外貨に換える際に適用される為替レートは、預入金融機関が提示するTTBである。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 銀行目線で外貨を売っていればTTS（Telegraphic Transfer Selling）、銀行目線で外貨を買っていればTTB（Telegraphic
+  Transfer Buying）となる。預金者が円貨を外貨に換えるということは、銀行目線では外貨を売っていることなのでTTSとなる。

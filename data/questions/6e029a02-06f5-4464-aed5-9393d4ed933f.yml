@@ -1,0 +1,10 @@
+id: 6e029a02-06f5-4464-aed5-9393d4ed933f
+type: single_choice
+text: 元素記号「Br」の元素名は何であるか。
+choices:
+- 臭素
+- 塩素
+- ヨウ素
+- フッ素
+correct: 0
+explanation: 元素記号「Br」は臭素である。

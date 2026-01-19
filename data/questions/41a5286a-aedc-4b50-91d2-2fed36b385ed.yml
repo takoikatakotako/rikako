@@ -1,0 +1,10 @@
+id: 41a5286a-aedc-4b50-91d2-2fed36b385ed
+type: single_choice
+text: 「亜鉛」、「ネオン」、「バリウム」、「ビスマス」。この中で非金属元素であるものを選べ。
+choices:
+- 亜鉛
+- ネオン
+- バリウム
+- ビスマス
+correct: 1
+explanation: ネオンは非金属元素であり、希ガス元素である。

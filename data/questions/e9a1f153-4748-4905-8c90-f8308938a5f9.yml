@@ -1,0 +1,10 @@
+id: e9a1f153-4748-4905-8c90-f8308938a5f9
+type: single_choice
+text: 元素記号「Si」の元素名は何であるか。
+choices:
+- ケイ素
+- 炭素
+- ゲルマニウム
+- 鉛
+correct: 0
+explanation: 元素記号「Si」はケイ素である。

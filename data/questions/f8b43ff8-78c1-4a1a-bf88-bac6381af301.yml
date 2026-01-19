@@ -1,0 +1,10 @@
+id: f8b43ff8-78c1-4a1a-bf88-bac6381af301
+type: single_choice
+text: 3Cu + 8HNO₃ → □Cu(NO₃)₂ + 2NO + 4H₂O　　このような化学式があるとき、□に入る数字として適切なものはどれであるか。
+choices:
+- '3'
+- '2'
+- '4'
+- '1'
+correct: 0
+explanation: 銅と希硝酸との反応は以下の化学式にて表される。3Cu + 8HNO₃ → 3Cu(NO₃)₂ + 2NO + 4H₂O。　銅と希硝酸、銅と濃硝酸とでは異なる反応が起きる。

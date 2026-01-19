@@ -1,0 +1,7 @@
+id: 56b9cd16-9e89-47d6-9dce-35ce0e7a0f14
+type: single_choice
+text: 所得税においては、原則として、超過累進税率が採用されており、課税所得金額が多くなるに従って税率が高くなる。
+choices:
+- ◯
+- ×
+correct: 0

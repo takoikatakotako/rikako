@@ -1,0 +1,10 @@
+id: a327bf11-5b0e-43a8-ae97-a6471c2c615c
+type: single_choice
+text: 固体から直接気体となる変化のことを何と言うか。
+choices:
+- 凝縮
+- 融解
+- 凝固
+- 昇華
+correct: 3
+explanation: 固体から直接気体となる変化を昇華と言う。ドライアイスなどは固体から気体に昇華する。

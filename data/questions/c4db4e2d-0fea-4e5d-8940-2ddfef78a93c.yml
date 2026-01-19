@@ -1,0 +1,10 @@
+id: c4db4e2d-0fea-4e5d-8940-2ddfef78a93c
+type: single_choice
+text: 混合物の中から混合物に含まれる純物質を取り出す操作全般を何と言うか。
+choices:
+- 隔離
+- 分離
+- 別離
+- 郷里
+correct: 1
+explanation: 混合物の中から混合物に含まれる純物質を取り出す操作全般を分離と言う。

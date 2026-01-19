@@ -1,0 +1,8 @@
+id: b0c09b51-8dec-4543-80b8-e915d9bc4f06
+type: single_choice
+text: 所得税法上、控除対象扶養親族のうち、その年の12月31日現在の年齢が70歳以上の者は、老人扶養親族に該当する。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 扶養控除については以下表の通りである。

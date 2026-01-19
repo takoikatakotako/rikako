@@ -1,0 +1,10 @@
+id: 345ab45a-ecfd-483e-a644-7f4d1f4b7e73
+type: single_choice
+text: 1gに含まれる分子の数が最も多い物質は以下のうちどれであるか。
+choices:
+- 硫化水素
+- 二酸化炭素
+- ヘリウム
+- 窒素
+correct: 2
+explanation: 分子が1molあたりに6.02×10²³個の分子を含むため、1molあたりの質量が小さい分子が1g中に最も多くの分子を含む。

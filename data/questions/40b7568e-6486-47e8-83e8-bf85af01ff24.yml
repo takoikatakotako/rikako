@@ -1,0 +1,10 @@
+id: 40b7568e-6486-47e8-83e8-bf85af01ff24
+type: single_choice
+text: 元素記号「I」の元素名は何であるか。
+choices:
+- フッ素
+- ヨウ素
+- 塩素
+- 臭素
+correct: 1
+explanation: 元素記号「I」の元素名はヨウ素である。

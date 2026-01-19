@@ -1,0 +1,10 @@
+id: 86b015df-a739-4a07-ba8b-f8a2439b0ef4
+type: single_choice
+text: 人が息を吸うとどこに空気がたまりますか。
+choices:
+- 心臓
+- 肺
+- かん臓
+- 気管
+correct: 1
+explanation: 人が息を吸うと肺に空気がたまります。そこで酸素と二酸化炭素を交換します。

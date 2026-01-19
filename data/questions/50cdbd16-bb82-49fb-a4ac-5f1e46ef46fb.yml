@@ -1,0 +1,7 @@
+id: 50cdbd16-bb82-49fb-a4ac-5f1e46ef46fb
+type: single_choice
+text: 日経平均株価は、東京証券取引所市場第一部に上場する代表的な225銘柄を対象として算出される株価指標である。
+choices:
+- ◯
+- ×
+correct: 0

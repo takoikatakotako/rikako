@@ -1,0 +1,10 @@
+id: be4c4adb-ada5-4cb0-a732-7f5ed358db9d
+type: single_choice
+text: 大腸が吸収するものはどれですか。
+choices:
+- タンパク質
+- 水分
+- でんぷん
+- 酸素
+correct: 1
+explanation: 大腸は食べ物の残りから水分を吸収します。

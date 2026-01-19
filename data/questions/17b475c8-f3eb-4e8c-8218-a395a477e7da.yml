@@ -1,0 +1,8 @@
+id: 17b475c8-f3eb-4e8c-8218-a395a477e7da
+type: single_choice
+text: マネーストック統計は、一般法人、個人、地方公共団体などの通貨保有主体が保有する通貨量の残高を集計したものである。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 日本銀行が毎月発表している。

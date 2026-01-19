@@ -1,0 +1,16 @@
+id: c9f42acf-2c90-4b5f-a0de-838934b6b9e8
+type: single_choice
+text: 情報の漏えいなどのセキュリティ事故が発生したときに、被害の拡大を防止する活動を行う組織はどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 'ア：○(Computer Security Incident Response Team)
+
+  イ：企業組織などが情報を適切に管理し、機密を守るためのシステム(Information Security Management System)
+
+  ウ：大手携帯電話会社の回線を借り受けて事業を行う(Mobile Virtual Network Operator 仮想移動体通信事業者)
+
+  エ：不正アクセスや情報漏えいなどが発生した際に、電子的記録を収集・解析して、法的紛争の証拠を明らかにする技術のこと'

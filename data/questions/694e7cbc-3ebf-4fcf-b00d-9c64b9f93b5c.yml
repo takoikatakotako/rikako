@@ -1,0 +1,10 @@
+id: 694e7cbc-3ebf-4fcf-b00d-9c64b9f93b5c
+type: single_choice
+text: 遷移元素である組み合わせとして正しいものはどれか。
+choices:
+- Sn、Si
+- Au、Ni
+- F、Cl
+- C、S
+correct: 1
+explanation: 遷移元素とは周期表で第3族元素から第11族元素の間に存在する元素です。

@@ -1,0 +1,10 @@
+id: d6f6ffb4-1f96-469b-9bc1-e0bc9d2e38bb
+type: single_choice
+text: 水酸化カルシウム水溶液に二酸化炭素を通じた時に生じる固体は何か。
+choices:
+- カーバイド
+- 酸化カルシウム
+- カルシウム
+- 炭酸カルシウム
+correct: 3
+explanation: 水酸化カルシウム水溶液に二酸化炭素を通じると炭酸カルシウムが生じる。CO₂+Ca(OH)₂ → CaCO₃ + H₂O

@@ -1,0 +1,10 @@
+id: 6bd14324-32c9-490d-894c-1adda84e175c
+type: single_choice
+text: 青銅は何と何の合金であるか
+choices:
+- 銅とスズ
+- ブリキとスズ
+- 青銅と銅
+- 鉄とアルミ
+correct: 0
+explanation: 青銅はスズとブリキの合金である。

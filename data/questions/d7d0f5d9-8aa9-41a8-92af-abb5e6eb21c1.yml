@@ -1,0 +1,8 @@
+id: d7d0f5d9-8aa9-41a8-92af-abb5e6eb21c1
+type: single_choice
+text: 自動車事故でケガを負い、相手方が加入していた自動車保険の対人賠償保険から受け取った保険金は、(   )とされる。
+choices:
+- 一時所得
+- 雑所得
+- 非課税
+correct: 2
