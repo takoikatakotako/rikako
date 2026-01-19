@@ -1,0 +1,10 @@
+id: 4ba51163-d076-46aa-bd56-09189f87ed58
+type: single_choice
+text: C₂H₆で表される有機化合物の名前は何か。
+choices:
+- エタン
+- メタン
+- プロパン
+- ブタン
+correct: 0
+explanation: C₂H₆はエタンである。

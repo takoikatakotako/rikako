@@ -1,0 +1,16 @@
+id: 218d9c66-f6a7-4bbe-9792-cd1b07974e52
+type: single_choice
+text: 通信プロトコルであるPOPの説明として、適切なものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 'ア：Telnet
+
+  イ：FTP
+
+  ウ：SMTP
+
+  エ：○'

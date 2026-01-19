@@ -1,0 +1,10 @@
+id: 9f062ffa-0ab0-44a1-b646-e43765682ea4
+type: single_choice
+text: 元素記号「Mn」の元素名は何であるか。
+choices:
+- テルル
+- アルゴン
+- マンガン
+- モリブテン
+correct: 2
+explanation: 元素記号「Mn」はマンガンである。

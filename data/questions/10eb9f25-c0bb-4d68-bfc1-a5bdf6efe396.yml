@@ -1,0 +1,10 @@
+id: 10eb9f25-c0bb-4d68-bfc1-a5bdf6efe396
+type: single_choice
+text: 物質1molあたりの質量をモル質量というが、モル質量の単位として適当なものを選べ。
+choices:
+- Pa
+- g/m³
+- J/mol
+- g/mol
+correct: 3
+explanation: モル質量の単位として適当なものは g / mol です。1 molあたりの質量を表します。

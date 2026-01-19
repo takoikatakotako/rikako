@@ -1,0 +1,10 @@
+id: 381bbb61-29d9-4422-99f8-9ccedf072966
+type: single_choice
+text: 元素記号「O」の元素名は何であるか。
+choices:
+- 窒素
+- ケイ素
+- ホウ素
+- 酸素
+correct: 3
+explanation: 元素記号「O」は酸素である。

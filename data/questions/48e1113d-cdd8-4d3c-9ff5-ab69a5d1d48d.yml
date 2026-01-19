@@ -1,0 +1,10 @@
+id: 48e1113d-cdd8-4d3c-9ff5-ab69a5d1d48d
+type: single_choice
+text: 太陽や電気の付いた電球のように自ら光を出す物体は何と言うか。
+choices:
+- 反射
+- 屈折
+- 光源
+- 反射角
+correct: 2
+explanation: 太陽や電気の付いた電球のように自ら光を出す物体は光源と呼ばれる。

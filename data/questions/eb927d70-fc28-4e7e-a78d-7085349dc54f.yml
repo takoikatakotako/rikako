@@ -1,0 +1,10 @@
+id: eb927d70-fc28-4e7e-a78d-7085349dc54f
+type: single_choice
+text: AさんはBさんの公開鍵をもっている。Bさんの公開鍵を使ってAさんができることはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: AさんがBさんの公開鍵をもっている場合、Bさんだけが復号できる暗号文を作成することが可能である。

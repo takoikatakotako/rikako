@@ -1,0 +1,10 @@
+id: d7879acd-18d0-4f21-b91a-d63f3e6f7e57
+type: single_choice
+text: せんぬきのように小さい力で大きいものを動かす仕組みは何と呼びますか。
+choices:
+- まさつ
+- ていこう
+- てこ
+- 温度
+correct: 2
+explanation: てこを使えばせんぬきのように小さい力で大きなものを動かす事ができます。

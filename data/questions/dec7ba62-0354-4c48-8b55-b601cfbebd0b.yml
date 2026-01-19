@@ -1,0 +1,10 @@
+id: dec7ba62-0354-4c48-8b55-b601cfbebd0b
+type: single_choice
+text: 元素記号「Ca」の元素名は何であるか。
+choices:
+- ベリリウム
+- セシウム
+- カルシウム
+- ヘリウム
+correct: 2
+explanation: 元素記号「Ca」はカルシウムである。

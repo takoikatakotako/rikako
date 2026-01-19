@@ -1,0 +1,10 @@
+id: 15f5fdb2-c96a-453f-93d3-57a223439e43
+type: single_choice
+text: 蒸留に主に用いられる器具はどれか。
+choices:
+- 分液漏斗
+- 急須
+- 枝付きフラスコ
+- ろ紙
+correct: 2
+explanation: 蒸留には枝付きフラスコなどの器具が用いられる。

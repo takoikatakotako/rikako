@@ -1,0 +1,10 @@
+id: 8d8cabf0-51c7-4618-b57f-fe58241cbd16
+type: single_choice
+text: 蒸発しやすい成分を蒸発しにくい成分から分離する操作を何と言うか。
+choices:
+- ろ過
+- 蒸留
+- 抽出
+- 再結晶
+correct: 1
+explanation: 蒸発しやすい成分を蒸発しにくい成分から分離する操作を蒸留という。

@@ -1,0 +1,10 @@
+id: 1f841d4c-e02a-462b-ac1d-7cfcc240ae61
+type: single_choice
+text: セルシウス温度での0度は絶対温度においては何度に相当するか。
+choices:
+- '83'
+- '127'
+- '273'
+- '373'
+correct: 2
+explanation: セルシウス温度での0度は絶対温度において273度に相当する。

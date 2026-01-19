@@ -1,0 +1,10 @@
+id: 7a7128c7-5dd6-459d-bafc-9832fb943776
+type: single_choice
+text: 元素記号「Li」の元素名は何であるか。
+choices:
+- ヘリウム
+- マンガン
+- リチウム
+- バリウム
+correct: 2
+explanation: 元素記号「Li」はリチウムである。

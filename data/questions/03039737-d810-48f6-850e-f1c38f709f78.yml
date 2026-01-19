@@ -1,0 +1,10 @@
+id: 03039737-d810-48f6-850e-f1c38f709f78
+type: single_choice
+text: 植物が光合成をするとき、何をすって酸素を出しますか。
+choices:
+- ちっそ
+- 二酸化炭素
+- 水素
+- 酸素
+correct: 1
+explanation: 光合成は二酸化炭素をすって酸素を出します。

@@ -1,0 +1,8 @@
+id: bd09dc9f-edf0-4eec-a6a0-598fc90fc48d
+type: single_choice
+text: 東証株価指数(TOPIX)とは、東京証券取引所市場第一部に上場している内国普通株式の全銘柄を対象とする株価指数である。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 株価指数の説明については以下表のとおりである。

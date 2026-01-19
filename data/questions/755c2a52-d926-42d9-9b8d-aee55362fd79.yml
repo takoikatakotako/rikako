@@ -1,0 +1,9 @@
+id: 755c2a52-d926-42d9-9b8d-aee55362fd79
+type: single_choice
+text: 相続税路線価は、地価公示の公示価格の(   )を価格水準の目安として設定されている。
+choices:
+- 70%
+- 80%
+- 90%
+correct: 1
+explanation: 土地の価格については以下表のようになる。

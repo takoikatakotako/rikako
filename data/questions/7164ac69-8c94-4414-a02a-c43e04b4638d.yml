@@ -1,0 +1,10 @@
+id: 7164ac69-8c94-4414-a02a-c43e04b4638d
+type: single_choice
+text: 真鍮は何と何の合金であるか
+choices:
+- 鉄とアルミ
+- アルミニウムと鋼
+- スズと亜鉛
+- 銅と亜鉛
+correct: 3
+explanation: 真鍮は銅と亜鉛の合金であり、五円玉硬貨の材料である。

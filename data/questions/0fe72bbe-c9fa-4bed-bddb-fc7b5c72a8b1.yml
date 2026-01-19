@@ -1,0 +1,8 @@
+id: 0fe72bbe-c9fa-4bed-bddb-fc7b5c72a8b1
+type: single_choice
+text: 相続財産の評価において、相続開始時に保険事故が発生していない生命保険契約に関する権利の価額は、原則として、既払込保険料相当額によって評価する。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 解約返戻金の額によって評価される。

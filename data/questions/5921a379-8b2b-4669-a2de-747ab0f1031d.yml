@@ -1,0 +1,10 @@
+id: 5921a379-8b2b-4669-a2de-747ab0f1031d
+type: single_choice
+text: 方位じしんのN極はどちらを向きますか。
+choices:
+- 北
+- 東
+- 南
+- 西
+correct: 0
+explanation: 方位じしんのN極は北を向きます。

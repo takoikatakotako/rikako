@@ -1,0 +1,10 @@
+id: 2b184b3c-eae0-492f-8e29-7c6328c227cf
+type: single_choice
+text: 「Na」の元素名は何であるか。
+choices:
+- ナトリウム
+- カリウム
+- ウラン
+- ヘリウム
+correct: 0
+explanation: Naはナトリウムの事です。英語名はSodiumです。

@@ -1,0 +1,10 @@
+id: 5cfe8f8e-916c-4a1e-b092-a3ee3388140e
+type: single_choice
+text: 元素記号「C」の元素名は何であるか。
+choices:
+- カルシウム
+- 炭素
+- ケイ素
+- カリウム
+correct: 1
+explanation: 元素記号「C」は炭素である。

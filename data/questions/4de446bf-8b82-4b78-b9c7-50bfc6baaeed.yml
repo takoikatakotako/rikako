@@ -1,0 +1,11 @@
+id: 4de446bf-8b82-4b78-b9c7-50bfc6baaeed
+type: single_choice
+text: 下記の<親族関係図>において、Aさんの相続における弟Cさんの法定相続分は、(   )である。
+choices:
+- 4分の1
+- 3分の1
+- 2分の1
+correct: 0
+explanation: この場合法定相続分は配偶者である妻Bさんに対して3/4、弟Cさんに対して1/4である。
+images:
+- 713f101e-b7f5-41ec-ac3d-8fd446907fd9

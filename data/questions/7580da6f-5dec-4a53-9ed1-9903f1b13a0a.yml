@@ -1,0 +1,10 @@
+id: 7580da6f-5dec-4a53-9ed1-9903f1b13a0a
+type: single_choice
+text: 分子結晶である組み合わせとして正しいものはどれか。
+choices:
+- NaCl、Na
+- SiO₂、C
+- CO₂、I₂
+- Au、Ni
+correct: 2
+explanation: 分子結晶は分子同士が分子間の相互作用で結びついて形成している結晶であり、主なものにドライアイス(CO₂)やヨウ素、ナフタレンがある。

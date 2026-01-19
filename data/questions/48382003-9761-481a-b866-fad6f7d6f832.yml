@@ -1,0 +1,10 @@
+id: 48382003-9761-481a-b866-fad6f7d6f832
+type: single_choice
+text: 無線LANで使用するWSSIDの説明として、適切なものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: ESSID(Extended Service Set Identifier)：無線のネットワークを識別する文字列のこと。

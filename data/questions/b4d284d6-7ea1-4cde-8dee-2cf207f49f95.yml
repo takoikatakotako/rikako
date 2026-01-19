@@ -1,0 +1,10 @@
+id: b4d284d6-7ea1-4cde-8dee-2cf207f49f95
+type: single_choice
+text: 元素記号「N」の元素名は何であるか。
+choices:
+- ヘリウム
+- ホウ素
+- 窒素
+- チタン
+correct: 2
+explanation: 元素記号「N」は窒素である。

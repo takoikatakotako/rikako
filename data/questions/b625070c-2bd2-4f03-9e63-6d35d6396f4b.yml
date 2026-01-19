@@ -1,0 +1,12 @@
+id: b625070c-2bd2-4f03-9e63-6d35d6396f4b
+type: single_choice
+text: 以下の画像の構造式を持つ化合物の名前は何であるか。
+choices:
+- メタノール
+- プロパン
+- エタン
+- エタノール
+correct: 2
+explanation: エタンはCH₃CH₃で表される。
+images:
+- fe61141d-093a-44a0-a4a6-d226d55328b8

@@ -1,0 +1,10 @@
+id: aa682718-906a-4b22-bddb-d4ac69aa932f
+type: single_choice
+text: 植物が光合成をするとき何をだしますか。
+choices:
+- 二酸化炭素
+- ちっ素
+- 酸素
+- 水素
+correct: 2
+explanation: 植物が光合成をするとき二酸化炭素を吸い、酸素を出します。

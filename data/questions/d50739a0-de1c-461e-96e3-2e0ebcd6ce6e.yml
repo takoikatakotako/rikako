@@ -1,0 +1,10 @@
+id: d50739a0-de1c-461e-96e3-2e0ebcd6ce6e
+type: single_choice
+text: 固体が融解して液体になる時に吸収する熱量を何と言うか。
+choices:
+- 融解熱
+- 蒸発熱
+- 気化熱
+- 溶解熱
+correct: 0
+explanation: 固体が融解して液体になる時に吸収する熱量は融解熱と呼ばれる。融解熱は正の値とは限らない。

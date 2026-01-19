@@ -1,0 +1,10 @@
+id: 90020728-e70d-40dc-82b3-cd9cb5cab147
+type: single_choice
+text: 水素の燃焼の反応として適当なものを選びなさい。
+choices:
+- 2H₂ + O₂ → 2H₂O
+- H + O → H₂O
+- H₂ + O₃ → H₂O₃
+- H₂ + O₂ → H₂O
+correct: 0
+explanation: 水素の燃焼の化学式は2H₂ + O₂ → 2H₂Oである。

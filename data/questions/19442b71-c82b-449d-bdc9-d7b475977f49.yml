@@ -1,0 +1,10 @@
+id: 19442b71-c82b-449d-bdc9-d7b475977f49
+type: single_choice
+text: ネオンと同じ電子配置を持つイオンの組み合わせとして正しいものはどれか。
+choices:
+- F⁻、Na⁺
+- H⁺、Na⁺
+- Mg⁺、Na⁺
+- Cl⁻、K⁺
+correct: 0
+explanation: F⁻、Na⁺、O²⁻、Mg²⁺などのイオンはネオンと同じ原子配置を持つ。

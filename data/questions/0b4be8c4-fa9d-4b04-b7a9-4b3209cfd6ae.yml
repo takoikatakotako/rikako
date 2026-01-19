@@ -1,0 +1,10 @@
+id: 0b4be8c4-fa9d-4b04-b7a9-4b3209cfd6ae
+type: single_choice
+text: 元素記号「S」の元素名は何であるか。
+choices:
+- ヘリウム
+- スズ
+- 硫黄
+- セレン
+correct: 2
+explanation: 元素記号「S」は硫黄である。

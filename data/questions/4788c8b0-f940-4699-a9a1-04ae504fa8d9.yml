@@ -1,0 +1,12 @@
+id: 4788c8b0-f940-4699-a9a1-04ae504fa8d9
+type: single_choice
+text: 以下の画像の六員環構造式(C₆H₆)を持つ化合物の名前は何であるか。
+choices:
+- ベンゼン
+- シクロヘキサン
+- ケトン
+- トルエン
+correct: 0
+explanation: ベンゼンはC₆H₆で表される。
+images:
+- 600d37f1-a707-46fc-ab50-c8ce9066ad83

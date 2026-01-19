@@ -1,0 +1,10 @@
+id: 5a86b291-02da-4181-ad47-ace139d62cbb
+type: single_choice
+text: 元素記号「Fe」の元素名は何であるか。
+choices:
+- フェノール
+- フェルマー
+- フッ素
+- 鉄
+correct: 3
+explanation: 元素記号「Fe」は鉄である。

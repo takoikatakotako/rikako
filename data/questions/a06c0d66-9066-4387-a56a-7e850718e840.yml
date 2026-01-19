@@ -1,0 +1,10 @@
+id: a06c0d66-9066-4387-a56a-7e850718e840
+type: single_choice
+text: 元素記号「Ne」の元素名は何であるか。
+choices:
+- クリプトン
+- ネオン
+- アルゴン
+- ラドン
+correct: 1
+explanation: 元素記号「Ne」はネオンである。

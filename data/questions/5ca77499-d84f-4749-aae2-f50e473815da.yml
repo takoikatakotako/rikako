@@ -1,0 +1,10 @@
+id: 5ca77499-d84f-4749-aae2-f50e473815da
+type: single_choice
+text: 1 molの化合物がその成分元素の単体から生成するときの反応熱は何と呼ばれるか。
+choices:
+- 中和熱
+- 溶解熱
+- 生成熱
+- 燃焼熱
+correct: 2
+explanation: 1 molの化合物がその成分元素の単体から生成するときの反応熱は生成熱と呼ばれる。

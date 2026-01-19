@@ -1,0 +1,9 @@
+id: 5f20f6bd-1844-4500-bc08-fa47cf452840
+type: single_choice
+text: 外貨預金の払戻し時において、預金者が外貨を円貨に換える場合に適用される為替レートは、預入金融機関が提示する(   )である。
+choices:
+- TTS
+- TTM
+- TTB
+correct: 2
+explanation: 銀行から見て外貨を円貨で買っているのでTTBとなる。一方で逆の場合はTTSとなり、基準となるレート(仲値)をTTMという。

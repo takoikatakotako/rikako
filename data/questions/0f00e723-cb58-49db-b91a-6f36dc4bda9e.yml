@@ -1,0 +1,10 @@
+id: 0f00e723-cb58-49db-b91a-6f36dc4bda9e
+type: single_choice
+text: 元素記号「P」の元素名は何であるか。
+choices:
+- カリウム
+- リン
+- プルトニウム
+- タングステン
+correct: 1
+explanation: 元素記号「P」はプルトニウムである。

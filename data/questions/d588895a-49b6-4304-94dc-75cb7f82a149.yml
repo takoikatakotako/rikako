@@ -1,0 +1,10 @@
+id: d588895a-49b6-4304-94dc-75cb7f82a149
+type: single_choice
+text: 電子、陽子、中性子の中で最も軽いものは何か
+choices:
+- 中性子
+- 陽子
+- ほとんど同じ重さ
+- 電子
+correct: 3
+explanation: 電子は陽子、中性子と比べてとても軽いです。

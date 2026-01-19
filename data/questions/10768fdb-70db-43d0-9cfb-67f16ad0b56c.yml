@@ -1,0 +1,10 @@
+id: 10768fdb-70db-43d0-9cfb-67f16ad0b56c
+type: single_choice
+text: てこを使った道具はこの中でどれですか。
+choices:
+- 靴べら
+- スリッパ
+- ベルト
+- 缶潰し機
+correct: 3
+explanation: 缶潰し機はてこを使って小さい力で缶をつぶします。

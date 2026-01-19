@@ -1,0 +1,10 @@
+id: 35005aa1-2b84-4c36-888a-d30c3dcd97ba
+type: single_choice
+text: 双子葉類の維管束はどのような並び方をしていますか。
+choices:
+- 三角形
+- ばらばら
+- 輪の形
+- 四角形
+correct: 2
+explanation: 双子葉類の維管束は輪の形をするように分布しています。

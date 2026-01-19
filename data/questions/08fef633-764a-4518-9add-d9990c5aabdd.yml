@@ -1,0 +1,10 @@
+id: 08fef633-764a-4518-9add-d9990c5aabdd
+type: single_choice
+text: 固体からの液体への変化のことを何と言うか。
+choices:
+- 凝固
+- 昇華
+- 融解
+- 蒸発
+correct: 2
+explanation: 固体からの液体への変化は融解と呼ばれる。氷から液体への変化は融解である。

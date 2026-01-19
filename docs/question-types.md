@@ -78,7 +78,8 @@ explanation: |
 
 ```
 questions                         # 問題（共通）
-├── question_images               # 問題に紐づく画像
+├── question_images               # 問題と画像の中間テーブル（N:N）
+│   └── images                    # 画像マスター
 └── questions_single_choice       # 単一選択問題
     └── questions_single_choice_choices  # 選択肢
 
@@ -95,20 +96,31 @@ workbooks                         # 問題集
 | created_at | TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | 更新日時 |
 
-### question_images（問題に紐づく画像）
+### images（画像マスター）
 
 | カラム | 型 | 説明 |
 |-------|-----|------|
 | id | BIGSERIAL | 主キー |
-| question_id | BIGINT | 問題ID（FK） |
-| image_path | VARCHAR(512) | 画像ファイルのパス（data/images/からの相対パス） |
-| order_index | INT | 画像の表示順 |
+| path | VARCHAR(512) | 画像ファイルのパス（UNIQUE） |
 | created_at | TIMESTAMP | 作成日時 |
 
 **特徴:**
-- 1つの問題に複数の画像を紐付け可能
-- order_indexで表示順を管理
 - 画像ファイルは`data/images/`に配置
+- 1つの画像を複数の問題で使い回すことが可能
+
+### question_images（問題と画像の中間テーブル）
+
+| カラム | 型 | 説明 |
+|-------|-----|------|
+| question_id | BIGINT | 問題ID（FK） |
+| image_id | BIGINT | 画像ID（FK） |
+| order_index | INT | 画像の表示順 |
+
+**主キー:** (question_id, image_id)
+
+**特徴:**
+- 問題と画像の多対多（N:N）の関係を管理
+- order_indexで問題ごとの画像表示順を管理
 
 ### questions_single_choice（単一選択問題）
 

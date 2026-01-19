@@ -1,0 +1,10 @@
+id: d13e4f95-cd9e-4bca-838c-4c9dfe097138
+type: single_choice
+text: 銅、銀、金のイオンを含む水溶液に希塩酸を加えたところ、白色沈殿が得られた。白色沈殿の化学式は何であるか。
+choices:
+- CuCl₂
+- AgCl
+- AgO
+- AgCl₂
+correct: 1
+explanation: 銀イオンを含む水溶液に希塩酸を加えると塩化銀(AgCl)の白色沈殿が生じる。

@@ -1,0 +1,10 @@
+id: 9e1a442c-5866-4fe0-9ee8-e91f623b0c67
+type: single_choice
+text: 融解熱と等しい熱量を示すものを以下から選べ。
+choices:
+- 蒸発熱
+- 気化熱
+- 溶解熱
+- 凝固熱
+correct: 3
+explanation: 融解熱は凝固熱と等しい熱量を示す。

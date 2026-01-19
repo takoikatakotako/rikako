@@ -1,0 +1,10 @@
+id: 2df7f4f6-64f4-4623-bfea-6de02efa07fc
+type: single_choice
+text: 液体から固体への変化は何と言うか
+choices:
+- 圧縮
+- 昇華
+- 凝縮
+- 凝固
+correct: 3
+explanation: 液体から固体への変化は凝固と呼ばれる。水から氷の変化は凝固である。

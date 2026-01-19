@@ -1,0 +1,9 @@
+id: bdac484d-ccbf-458b-bb7f-8517bbe76ca6
+type: single_choice
+text: 都市計画区域内にある幅員4m未満の道で、建築基準法第42条第2項により道路とみなされるものについては、原則として、その中心線からの水平距離で( )後退した線がその道路の境界線とみなされる。
+choices:
+- 2m
+- 3m
+- 4m
+correct: 0
+explanation: これをセットバックという。

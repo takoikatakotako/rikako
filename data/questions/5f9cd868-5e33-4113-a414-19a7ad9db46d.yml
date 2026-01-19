@@ -1,0 +1,10 @@
+id: 5f9cd868-5e33-4113-a414-19a7ad9db46d
+type: single_choice
+text: 元素記号「B」の元素名は何であるか。
+choices:
+- ホウ素
+- ヘリウム
+- ベリウム
+- カリウム
+correct: 0
+explanation: 元素記号「B」はホウ素である。

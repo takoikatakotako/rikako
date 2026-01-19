@@ -1,0 +1,16 @@
+id: 716913e6-99f0-4c8b-ae9a-b6e6db2e4d39
+type: single_choice
+text: E-R図に関する記述として、適切なものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 'ア：構造化チャート
+
+  イ：アローダイアグラム
+
+  ウ：フローチャート(流れ図)
+
+  エ：○'

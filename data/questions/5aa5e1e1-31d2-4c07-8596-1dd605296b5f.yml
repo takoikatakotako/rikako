@@ -1,0 +1,8 @@
+id: 5aa5e1e1-31d2-4c07-8596-1dd605296b5f
+type: single_choice
+text: 投資信託の運用管理費用(信託報酬)は、投資信託を購入する際に年間分を前払いで支払う必要がある。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 前払いではなく、日々差し引かれる。

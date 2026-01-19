@@ -1,0 +1,10 @@
+id: e9e19c5e-86d3-48b7-a455-eaa4e5905ea9
+type: single_choice
+text: 元素記号「H」の元素名は何であるか。
+choices:
+- 水素
+- ヘリウム
+- アルゴン
+- カリウム
+correct: 0
+explanation: 元素記号「H」は水素である。

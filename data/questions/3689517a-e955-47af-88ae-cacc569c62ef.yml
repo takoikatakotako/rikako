@@ -1,0 +1,8 @@
+id: 3689517a-e955-47af-88ae-cacc569c62ef
+type: single_choice
+text: 書面によらない贈与は、既に履行が終わった部分を除き、各当事者が撤回することができる。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: なお書面による贈与契約は撤回できない。

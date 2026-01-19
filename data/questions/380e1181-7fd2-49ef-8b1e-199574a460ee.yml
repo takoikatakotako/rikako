@@ -1,0 +1,10 @@
+id: 380e1181-7fd2-49ef-8b1e-199574a460ee
+type: single_choice
+text: 塩酸と水酸化ナトリウムの中和反応を以下の式に示した。Xに入るものは何か　　HCl + NaOH → X + H₂O
+choices:
+- NaCl
+- NaH₂
+- H₂
+- NaH
+correct: 0
+explanation: 塩酸と水酸化ナトリウムを混合させると塩化ナトリウム(食塩)と水が生じる。

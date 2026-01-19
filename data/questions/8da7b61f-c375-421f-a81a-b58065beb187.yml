@@ -1,0 +1,10 @@
+id: 8da7b61f-c375-421f-a81a-b58065beb187
+type: single_choice
+text: 元素記号「Au」の元素名は何であるか。
+choices:
+- 白金
+- 金
+- 銀
+- 鉄
+correct: 1
+explanation: 元素記号「Au」は金である。

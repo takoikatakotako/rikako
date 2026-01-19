@@ -1,0 +1,10 @@
+id: 7df65ba8-5c49-480a-b35b-a71079ed3337
+type: single_choice
+text: 1molの物質が完全燃焼するときの反応熱は何と呼ばれるか。
+choices:
+- 溶解熱
+- 中和熱
+- 燃焼熱
+- 生成熱
+correct: 2
+explanation: 1molの物質が完全燃焼するときの反応熱は燃焼熱と呼ばれる。

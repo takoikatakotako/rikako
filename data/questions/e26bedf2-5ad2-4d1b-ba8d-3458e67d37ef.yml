@@ -1,0 +1,10 @@
+id: e26bedf2-5ad2-4d1b-ba8d-3458e67d37ef
+type: single_choice
+text: ファンデルワールス力や水素結合など、分子間に働く弱い力の事を何と呼ぶか。
+choices:
+- 分子間力
+- 向心力
+- 加速度
+- 原子端力
+correct: 0
+explanation: ファンデルワールス力や水素結合など、分子間に働く弱い力は分子間力と呼ばれる。

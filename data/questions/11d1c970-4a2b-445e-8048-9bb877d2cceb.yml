@@ -1,0 +1,10 @@
+id: 11d1c970-4a2b-445e-8048-9bb877d2cceb
+type: single_choice
+text: ISMSに関するトップマネジメントの考え方や基本原理を示す公式な文書はどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: ISMS（Information Security Management System）：企業組織などが情報を適切に管理し、機密を守るためのシステムであり、ISMSに関するトップマネジメントの考え方や基本原理を示す公式な文書は情報セキュリティ方針と呼ばれる。

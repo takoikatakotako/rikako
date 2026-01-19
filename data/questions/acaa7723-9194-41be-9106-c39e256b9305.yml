@@ -1,0 +1,10 @@
+id: acaa7723-9194-41be-9106-c39e256b9305
+type: single_choice
+text: 硫化物イオンとして最も適当なものを選びなさい。
+choices:
+- SO₄²⁻
+- OH⁻
+- S²⁻
+- NH₄⁺
+correct: 2
+explanation: S²⁻は硫化物イオンと呼ばれます。

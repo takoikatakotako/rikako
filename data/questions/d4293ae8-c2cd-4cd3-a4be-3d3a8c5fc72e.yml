@@ -1,0 +1,10 @@
+id: d4293ae8-c2cd-4cd3-a4be-3d3a8c5fc72e
+type: single_choice
+text: Oの原子量が16、Hの原子量が1とした時、H₂Oの式量はいくつであるか。
+choices:
+- '17'
+- '32'
+- '18'
+- '2'
+correct: 2
+explanation: Oの原子量が16、Hの原子量が1とした時、H₂Oの式量は18です。

@@ -1,0 +1,10 @@
+id: 5c2db2b0-d78d-4b3c-ba29-fb230d3ceb70
+type: single_choice
+text: NaClなど、水に溶けた時に全てNa⁺とCl⁻に電離するような物質は何と呼ばれるか。
+choices:
+- 溶媒
+- 強酸
+- 強電解質
+- 強塩基
+correct: 2
+explanation: NaClなど、水に溶けた時に全てNa⁺とCl⁻に電離するような物質は強電解質と呼ばれる。一方で酢酸など一部のみが電離する物質は弱電解質と呼ばれる。

@@ -1,0 +1,10 @@
+id: c73a3a6c-d2c0-458d-bd92-1a4a10239d3e
+type: single_choice
+text: 月が光る理由は何ですか。
+choices:
+- 夜に光を蓄えるから
+- 表面が燃えているから
+- 太陽の光を反射するから
+- 光る草が生えているため
+correct: 2
+explanation: 月は太陽の光を反射し、光ります。

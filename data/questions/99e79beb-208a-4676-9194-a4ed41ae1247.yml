@@ -1,0 +1,8 @@
+id: 99e79beb-208a-4676-9194-a4ed41ae1247
+type: single_choice
+text: 老齢厚生年金の繰上げ支給の請求は、老齢基礎年金の繰上げ支給の請求と同時に行わなければならない。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 一方で繰り下げの場合は別々に行うことができる。

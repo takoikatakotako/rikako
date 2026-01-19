@@ -1,0 +1,10 @@
+id: b8e59f72-2c39-48f9-a83d-36a07ef402ad
+type: single_choice
+text: ISMSにおける情報セキュリティリスクの特定に関する記述において、a、bに入れる字句の適切な組合せはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: ISMS(Information Security Management System)：企業組織などが情報を適切に管理し、機密を守るためのシステムのこと。ISMSの情報セキュリティにおいては、「適用範囲内」における情報の機密性、「完全性」及び可用性の喪失に伴うリスクを特定する。

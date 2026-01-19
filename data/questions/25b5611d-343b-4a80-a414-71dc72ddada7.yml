@@ -1,0 +1,10 @@
+id: 25b5611d-343b-4a80-a414-71dc72ddada7
+type: single_choice
+text: 電気を通すものはどれですか。
+choices:
+- 消しゴム
+- わりばし
+- えんぴつのしん
+- ふく
+correct: 2
+explanation: えんぴつのしんは電気を通します。

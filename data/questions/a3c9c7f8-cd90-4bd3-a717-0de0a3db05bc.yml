@@ -1,0 +1,8 @@
+id: a3c9c7f8-cd90-4bd3-a717-0de0a3db05bc
+type: single_choice
+text: つみたてNISA(非課税累積投資契約に係る少額投資非課税制度)において、国債や社債は投資対象商品ではない。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 配当利回りは株価に対する配当金の割合、配当性向は純利益に対する配当金の割合。
