@@ -3,3 +3,6 @@ docs/schema/
 
 # MkDocs build output
 site/
+
+# Go build output
+app/bin/
