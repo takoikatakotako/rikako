@@ -1,0 +1,40 @@
+package main
+
+import (
+	"database/sql"
+	"flag"
+	"log"
+	"os"
+
+	_ "github.com/lib/pq"
+	"github.com/takoikatakotako/rikako/internal/importer"
+)
+
+func main() {
+	dataDir := flag.String("data", "data", "データディレクトリのパス")
+	flag.Parse()
+
+	// DB接続
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+
+	// インポート実行
+	imp := importer.New(db, *dataDir)
+	if err := imp.Run(); err != nil {
+		log.Fatalf("Import failed: %v", err)
+	}
+
+	log.Println("Import completed successfully!")
+}
