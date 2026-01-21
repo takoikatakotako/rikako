@@ -6,3 +6,6 @@ site/
 
 # Go build output
 app/bin/
+
+# Environment variables
+.env
