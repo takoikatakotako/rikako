@@ -65,6 +65,45 @@ docker run --rm -v $(pwd)/migrations:/migrations \
 | SHOW TABLES; | \dt |
 | DESCRIBE table; | \d table |
 
+## データインポート
+
+YAMLファイルからDBにデータをインポートします。
+
+```bash
+cd app
+go run ./cmd/importer -data ../data
+```
+
+インポート内容：
+- 問題データ（900問）
+- 画像（115枚）
+- 問題集（1件、100問）
+
+## APIサーバー
+
+### サーバー起動
+
+```bash
+cd app
+go run ./cmd/server
+```
+
+サーバーは `http://localhost:8080` で起動します。
+
+### エンドポイント
+
+| パス | 説明 |
+|------|------|
+| `GET /` | ルート |
+| `GET /health` | ヘルスチェック |
+| `GET /questions` | 問題一覧 |
+| `GET /questions/{id}` | 問題詳細 |
+| `GET /workbooks` | 問題集一覧 |
+| `GET /workbooks/{id}` | 問題集詳細 |
+| `GET /images/{id}` | 画像取得 |
+
+API仕様: https://takoikatakotako.github.io/rikako/api/
+
 ## スキーマドキュメント生成
 
 ```bash
