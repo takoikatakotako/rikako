@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: rikako
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: rikako
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run migrations
+        run: |
+          docker run --rm -v $(pwd)/migrations:/migrations \
+            --network host \
+            migrate/migrate -path=/migrations \
+            -database "postgres://rikako:password@localhost:5432/rikako?sslmode=disable" up
+
+      - name: Build server
+        working-directory: ./app
+        run: go build -v ./cmd/server
+
+      - name: Build importer
+        working-directory: ./app
+        run: go build -v ./cmd/importer
+
+      - name: Run importer
+        working-directory: ./app
+        env:
+          DATABASE_URL: postgres://rikako:password@localhost:5432/rikako?sslmode=disable
+        run: go run ./cmd/importer -data ../data
+
+      - name: Verify data import
+        run: |
+          docker run --rm --network host postgres:18 \
+            psql "postgres://rikako:password@localhost:5432/rikako?sslmode=disable" \
+            -c "SELECT COUNT(*) FROM questions;" \
+            -c "SELECT COUNT(*) FROM images;" \
+            -c "SELECT COUNT(*) FROM workbooks;"
