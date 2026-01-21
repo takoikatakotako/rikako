@@ -4,13 +4,25 @@
 
 ## セットアップ
 
-### PostgreSQL 起動
+### 環境変数設定（初回のみ）
 
 ```bash
-docker compose up -d
+cp .env.example .env
 ```
 
-### PostgreSQL 停止
+必要に応じて `.env` の内容を編集してください。
+
+### 起動
+
+```bash
+# PostgreSQL + APIサーバーを起動
+docker compose up -d
+
+# PostgreSQLのみ起動（APIはローカルで実行）
+docker compose up -d postgres
+```
+
+### 停止
 
 ```bash
 docker compose down
@@ -81,9 +93,23 @@ go run ./cmd/importer -data ../data
 
 ## APIサーバー
 
-### サーバー起動
+### サーバー起動（Docker）
 
 ```bash
+# PostgreSQL + APIサーバーを起動
+docker compose up -d
+
+# ログ確認
+docker compose logs -f api
+```
+
+### サーバー起動（ローカル）
+
+```bash
+# 環境変数ファイルをコピー（初回のみ）
+cp .env.example .env
+
+# サーバー起動
 cd app
 go run ./cmd/server
 ```
