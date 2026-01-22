@@ -1,0 +1,239 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata for Docker
+        id: meta
+        run: |
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY=rikako-api
+          IMAGE_TAG=${{ env.ENVIRONMENT }}
+          echo "tags=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Build and push Docker image
+        working-directory: ./app
+        run: |
+          docker build -f Dockerfile.lambda -t ${{ steps.meta.outputs.tags }} .
+          docker push ${{ steps.meta.outputs.tags }}
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    outputs:
+      function-url: ${{ steps.output.outputs.function-url }}
+      connection-string: ${{ steps.output.outputs.connection-string }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ env.ENVIRONMENT }}
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/${{ env.ENVIRONMENT }}
+        env:
+          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+        run: terraform apply -auto-approve
+
+      - name: Get Terraform Outputs
+        id: output
+        working-directory: terraform/environments/${{ env.ENVIRONMENT }}
+        run: |
+          FUNCTION_URL=$(terraform output -raw function_url)
+          CONNECTION_STRING=$(terraform output -raw connection_string)
+          echo "function-url=${FUNCTION_URL}" >> $GITHUB_OUTPUT
+          echo "connection-string=${CONNECTION_STRING}" >> $GITHUB_OUTPUT
+          echo "::add-mask::${CONNECTION_STRING}"
+
+  migrate:
+    name: Run Database Migration
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run migrations
+        run: |
+          docker run --rm -v $(pwd)/migrations:/migrations \
+            migrate/migrate -path=/migrations \
+            -database "${{ needs.terraform-apply.outputs.connection-string }}" up
+
+  import-data:
+    name: Import Data (if needed)
+    runs-on: ubuntu-latest
+    needs: [terraform-apply, migrate]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Check if database is empty
+        id: check-db
+        env:
+          DATABASE_URL: ${{ needs.terraform-apply.outputs.connection-string }}
+        run: |
+          cd app
+          COUNT=$(go run ./cmd/importer -data ../data -check-only 2>&1 || echo "0")
+          echo "Question count: $COUNT"
+          if [ "$COUNT" = "0" ]; then
+            echo "need-import=true" >> $GITHUB_OUTPUT
+          else
+            echo "need-import=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Import data
+        if: steps.check-db.outputs.need-import == 'true'
+        env:
+          DATABASE_URL: ${{ needs.terraform-apply.outputs.connection-string }}
+        run: |
+          cd app
+          go run ./cmd/importer -data ../data
+
+  update-lambda:
+    name: Update Lambda Function
+    runs-on: ubuntu-latest
+    needs: [build-and-push, terraform-apply, import-data]
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Lambda function
+        run: |
+          aws lambda update-function-code \
+            --function-name rikako-api-${{ env.ENVIRONMENT }} \
+            --image-uri ${{ needs.build-and-push.outputs.image-tag }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated \
+            --function-name rikako-api-${{ env.ENVIRONMENT }} \
+            --region ${{ env.AWS_REGION }}
+
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: [terraform-apply, update-lambda]
+    steps:
+      - name: Wait for function to be ready
+        run: sleep 30
+
+      - name: Check health endpoint
+        run: |
+          FUNCTION_URL="${{ needs.terraform-apply.outputs.function-url }}"
+          echo "Checking health at: ${FUNCTION_URL}health"
+
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}health" || echo "000")
+
+            if [ "$RESPONSE" = "200" ]; then
+              echo "Health check passed!"
+              curl -s "${FUNCTION_URL}health" | jq .
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Health check failed (attempt $RETRY_COUNT/$MAX_RETRIES). Retrying in 10s..."
+            sleep 10
+          done
+
+          echo "Health check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Test API endpoints
+        run: |
+          FUNCTION_URL="${{ needs.terraform-apply.outputs.function-url }}"
+
+          echo "Testing questions endpoint..."
+          curl -s "${FUNCTION_URL}questions" | jq '. | length'
+
+          echo "Testing workbooks endpoint..."
+          curl -s "${FUNCTION_URL}workbooks" | jq '. | length'
+
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [terraform-apply, health-check]
+    if: always()
+    steps:
+      - name: Print deployment info
+        run: |
+          echo "## Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Function URL:** ${{ needs.terraform-apply.outputs.function-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "- Health: \`${{ needs.terraform-apply.outputs.function-url }}health\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Questions: \`${{ needs.terraform-apply.outputs.function-url }}questions\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Workbooks: \`${{ needs.terraform-apply.outputs.function-url }}workbooks\`" >> $GITHUB_STEP_SUMMARY

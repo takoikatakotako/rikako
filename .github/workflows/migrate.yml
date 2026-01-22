@@ -1,0 +1,91 @@
+name: Run Database Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run migration'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      direction:
+        description: 'Migration direction'
+        required: true
+        default: 'up'
+        type: choice
+        options:
+          - up
+          - down
+      steps:
+        description: 'Number of steps (leave empty for all)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+
+jobs:
+  migrate:
+    name: Run Migration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+          terraform_wrapper: false
+
+      - name: Get database connection string
+        id: db-config
+        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+        env:
+          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+        run: |
+          terraform init
+          CONNECTION_STRING=$(terraform output -raw connection_string)
+          echo "connection-string=${CONNECTION_STRING}" >> $GITHUB_OUTPUT
+          echo "::add-mask::${CONNECTION_STRING}"
+
+      - name: Run migration
+        run: |
+          MIGRATION_COMMAND="${{ github.event.inputs.direction }}"
+
+          if [ -n "${{ github.event.inputs.steps }}" ]; then
+            MIGRATION_COMMAND="${MIGRATION_COMMAND} ${{ github.event.inputs.steps }}"
+          fi
+
+          echo "Running migration: ${MIGRATION_COMMAND}"
+
+          docker run --rm -v $(pwd)/migrations:/migrations \
+            migrate/migrate -path=/migrations \
+            -database "${{ steps.db-config.outputs.connection-string }}" \
+            ${MIGRATION_COMMAND}
+
+      - name: Migration summary
+        if: always()
+        run: |
+          echo "## Migration Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Direction:** ${{ github.event.inputs.direction }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.event.inputs.steps }}" ]; then
+            echo "**Steps:** ${{ github.event.inputs.steps }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Steps:** All" >> $GITHUB_STEP_SUMMARY
+          fi
