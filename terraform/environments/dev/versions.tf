@@ -6,17 +6,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    neon = {
-      source  = "kislerdm/neon"
-      version = "~> 0.6"
-    }
+    # neon = {
+    #   source  = "kislerdm/neon"
+    #   version = "~> 0.6"
+    # }
   }
 }
 
 provider "aws" {
-  region = "ap-northeast-1"
+  region  = "ap-northeast-1"
+  profile = "rikako-shared-sso"
 }
 
-provider "neon" {
-  api_key = var.neon_api_key
-}
+# provider "neon" {
+#   api_key = var.neon_api_key
+# }
