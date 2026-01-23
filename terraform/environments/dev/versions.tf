@@ -15,7 +15,7 @@ terraform {
 
 provider "aws" {
   region  = "ap-northeast-1"
-  profile = "rikako-shared-sso"
+  profile = "rikako-development-sso"
 }
 
 # provider "neon" {
