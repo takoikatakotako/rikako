@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -28,6 +29,12 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("failed to ping database: %v", err)
 	}
+
+	// DB接続プーリング設定（Lambda最適化）
+	db.SetMaxOpenConns(10)                  // 最大接続数
+	db.SetMaxIdleConns(2)                   // アイドル接続数
+	db.SetConnMaxLifetime(5 * time.Minute)  // 接続の最大ライフタイム
+	db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 	// Echo初期化
 	e := echo.New()

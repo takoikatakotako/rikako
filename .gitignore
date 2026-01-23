@@ -9,3 +9,8 @@ app/bin/
 
 # Environment variables
 .env
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
