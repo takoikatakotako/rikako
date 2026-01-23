@@ -154,17 +154,39 @@ docker run --rm \
 
 ### 初回セットアップ
 
-#### 1. Bootstrap（Terraform State管理リソースの作成）
+#### 1. Terraform State管理用S3バケットの作成
+
+AWS CLIでS3バケットを作成します：
 
 ```bash
-cd terraform/bootstrap
-terraform init
-terraform apply
-```
+# S3バケット作成
+aws s3api create-bucket \
+  --bucket rikako-terraform-state \
+  --region ap-northeast-1 \
+  --create-bucket-configuration LocationConstraint=ap-northeast-1
 
-これで以下のリソースが作成されます：
-- S3バケット: `rikako-terraform-state`
-- DynamoDBテーブル: `rikako-terraform-locks`
+# バージョニング有効化
+aws s3api put-bucket-versioning \
+  --bucket rikako-terraform-state \
+  --versioning-configuration Status=Enabled
+
+# 暗号化有効化
+aws s3api put-bucket-encryption \
+  --bucket rikako-terraform-state \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      }
+    }]
+  }'
+
+# パブリックアクセスブロック
+aws s3api put-public-access-block \
+  --bucket rikako-terraform-state \
+  --public-access-block-configuration \
+    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
 
 #### 2. Neon API Keyの取得
 
@@ -248,7 +270,6 @@ terraform destroy -var="neon_api_key=$NEON_API_KEY"
 cd terraform/environments/shared
 terraform destroy
 
-# Bootstrap環境の削除
-cd terraform/bootstrap
-terraform destroy
+# S3バケットの削除（必要に応じて）
+aws s3 rb s3://rikako-terraform-state --force
 ```

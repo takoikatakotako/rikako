@@ -43,7 +43,6 @@ Rikako - 問題集アプリ
 ├── docs/                   # ドキュメント
 ├── migrations/             # DBマイグレーションファイル
 ├── terraform/
-│   ├── bootstrap/          # S3/DynamoDBリソース
 │   ├── modules/
 │   │   ├── ecr/            # ECRモジュール
 │   │   ├── lambda/         # Lambdaモジュール
@@ -141,7 +140,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 ### Terraform構成
 
-- **Bootstrap**: S3（state）+ DynamoDB（locks）
+- **State管理**: S3バケット（AWS CLI で事前作成）
 - **Shared**: ECR（全環境で共有）
 - **Dev/Prod**: Lambda + Neon（環境ごと）
 
