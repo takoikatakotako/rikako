@@ -3,18 +3,6 @@
 #   name = "rikako-api"
 # }
 
-# # Neon Database
-# module "neon" {
-#   source = "../../modules/neon"
-
-#   project_name             = "${local.project}-${local.environment}"
-#   database_name            = "rikako"
-#   region_id                = "aws-ap-northeast-1"
-#   autoscaling_min_cu       = 0.25
-#   autoscaling_max_cu       = 2
-#   suspend_timeout_seconds  = 300
-# }
-
 # # Lambda Function
 # module "lambda" {
 #   source = "../../modules/lambda"
