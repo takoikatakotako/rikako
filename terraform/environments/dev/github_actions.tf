@@ -65,7 +65,7 @@ data "aws_iam_policy_document" "ecr_access" {
       "ecr:CompleteLayerUpload"
     ]
     resources = [
-      "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/rikako-api"
+      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-api"
     ]
   }
 }
