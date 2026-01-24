@@ -11,10 +11,10 @@ resource "neon_project" "default" {
   }
 }
 
-# # Database
-# resource "neon_database" "this" {
-#   project_id = neon_project.this.id
-#   branch_id  = neon_project.this.default_branch_id
-#   name       = "rikako"
-#   owner_name = neon_project.this.database_user
-# }
+# Database
+resource "neon_database" "default" {
+  project_id = neon_project.default.id
+  branch_id  = neon_project.default.default_branch_id
+  name       = "rikako"
+  owner_name = neon_project.default.database_user
+}
