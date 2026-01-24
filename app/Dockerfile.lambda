@@ -1,14 +1,14 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
 # Copy go mod files
-COPY go.mod go.sum ./
+COPY app/go.mod app/go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY . .
+COPY app/ .
 
 # Build server binary
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
@@ -19,11 +19,9 @@ FROM public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4
 # Copy server binary
 COPY --from=builder /app/server /app/server
 
-# Copy image files
-COPY ../data/images /app/data/images
-
 # Set environment variables
 ENV PORT=8080
+ENV IMAGE_BASE_URL=https://example.com
 
 # Lambda Web Adapter will forward requests to this port
 CMD ["/app/server"]
