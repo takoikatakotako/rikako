@@ -146,11 +146,19 @@ docker run --rm \
 
 ### アーキテクチャ
 
-- **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter
+- **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
-- **コンテナレジストリ**: Amazon ECR
+- **コンテナレジストリ**: Amazon ECR (shared環境で管理)
+- **認証**: GitHub Actions OIDC
 - **IaC**: Terraform
 - **CI/CD**: GitHub Actions
+
+### 環境
+
+- **Dev環境**
+  - Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - Shared AWSアカウント: 579039992557 (ECR)
+  - Dev AWSアカウント: 197865631794 (Lambda, Neon)
 
 ### 初回セットアップ
 
