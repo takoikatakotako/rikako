@@ -14,3 +14,4 @@ app/bin/
 **/.terraform/
 *.tfstate
 *.tfstate.backup
+secret.auto.tfvars

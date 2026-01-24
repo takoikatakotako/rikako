@@ -1,4 +1,4 @@
 locals {
-  environment = "dev"
+  environment = "development"
   project     = "rikako"
 }

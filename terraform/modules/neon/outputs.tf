@@ -5,7 +5,7 @@ output "project_id" {
 
 output "database_host" {
   description = "Database host"
-  value       = data.neon_branch.default.host
+  value       = neon_project.this.database_host
 }
 
 output "database_name" {
@@ -26,6 +26,6 @@ output "database_password" {
 
 output "connection_string" {
   description = "PostgreSQL connection string"
-  value       = "postgres://${neon_project.this.database_user}:${neon_project.this.database_password}@${data.neon_branch.default.host}/${neon_database.this.name}?sslmode=require"
+  value       = "postgres://${neon_project.this.database_user}:${neon_project.this.database_password}@${neon_project.this.database_host}/${neon_database.this.name}?sslmode=require"
   sensitive   = true
 }

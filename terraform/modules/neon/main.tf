@@ -20,9 +20,3 @@ resource "neon_database" "this" {
   name       = var.database_name
   owner_name = neon_project.this.database_user
 }
-
-# Get connection string from the default branch endpoint
-data "neon_branch" "default" {
-  project_id = neon_project.this.id
-  id         = neon_project.this.default_branch_id
-}
