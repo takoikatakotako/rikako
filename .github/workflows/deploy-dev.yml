@@ -44,9 +44,8 @@ jobs:
           echo "Image tag: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
       - name: Build and push Docker image
-        working-directory: ./app
         run: |
-          docker build -f Dockerfile.lambda -t ${{ steps.meta.outputs.tags }} .
+          docker build -f app/Dockerfile.lambda -t ${{ steps.meta.outputs.tags }} .
           docker push ${{ steps.meta.outputs.tags }}
 
       - name: Print summary

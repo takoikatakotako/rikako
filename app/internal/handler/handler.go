@@ -3,18 +3,23 @@ package handler
 import (
 	"context"
 	"database/sql"
-	"os"
+	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/takoikatakotako/rikako/internal/api"
 )
 
 type Handler struct {
-	db *sql.DB
+	db           *sql.DB
+	imageBaseURL string
 }
 
-func New(db *sql.DB) *Handler {
-	return &Handler{db: db}
+func New(db *sql.DB, imageBaseURL string) *Handler {
+	return &Handler{
+		db:           db,
+		imageBaseURL: imageBaseURL,
+	}
 }
 
 func (h *Handler) Root(ctx context.Context, request api.RootRequestObject) (api.RootResponseObject, error) {
@@ -29,6 +34,17 @@ func (h *Handler) HealthCheck(ctx context.Context, request api.HealthCheckReques
 	}, nil
 }
 
+// Custom response for image redirect
+type GetImageRedirectResponse struct {
+	Location string
+}
+
+func (r GetImageRedirectResponse) VisitGetImageResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", r.Location)
+	w.WriteHeader(http.StatusTemporaryRedirect)
+	return nil
+}
+
 func (h *Handler) GetImage(ctx context.Context, request api.GetImageRequestObject) (api.GetImageResponseObject, error) {
 	// 画像パスをDBから取得
 	var path string
@@ -40,17 +56,9 @@ func (h *Handler) GetImage(ctx context.Context, request api.GetImageRequestObjec
 		return nil, err
 	}
 
-	// 画像ファイルを開く
-	file, err := os.Open("data/images/" + path)
-	if err != nil {
-		return api.GetImage404JSONResponse{Message: "image file not found"}, nil
-	}
-
-	stat, _ := file.Stat()
-	return api.GetImage200ImagepngResponse{
-		Body:          file,
-		ContentLength: stat.Size(),
-	}, nil
+	// CloudFront/S3のURLにリダイレクト
+	imageURL := fmt.Sprintf("%s/%s", h.imageBaseURL, path)
+	return GetImageRedirectResponse{Location: imageURL}, nil
 }
 
 func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequestObject) (api.GetQuestionsResponseObject, error) {

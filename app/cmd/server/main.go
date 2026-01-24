@@ -36,6 +36,12 @@ func main() {
 	db.SetConnMaxLifetime(5 * time.Minute)  // 接続の最大ライフタイム
 	db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
+	// 画像のベースURL
+	imageBaseURL := os.Getenv("IMAGE_BASE_URL")
+	if imageBaseURL == "" {
+		imageBaseURL = "https://example.com"
+	}
+
 	// Echo初期化
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -43,7 +49,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// ハンドラー登録
-	h := handler.New(db)
+	h := handler.New(db, imageBaseURL)
 	strictHandler := api.NewStrictHandler(h, nil)
 	api.RegisterHandlers(e, strictHandler)
 
