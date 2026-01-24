@@ -14,7 +14,10 @@ COPY app/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
 
 # Runtime stage
-FROM public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4
+FROM public.ecr.aws/docker/library/alpine:latest
+
+# Copy Lambda Web Adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # Copy server binary
 COPY --from=builder /app/server /app/server

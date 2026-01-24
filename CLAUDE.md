@@ -9,7 +9,7 @@ Rikako - 問題集アプリ
 ## 技術スタック
 
 ### ローカル開発
-- **バックエンド**: Go 1.23 + Echo v4
+- **バックエンド**: Go 1.24 + Echo v4.15.0
 - **データベース**: PostgreSQL 18
 - **マイグレーション**: golang-migrate/migrate
 - **API仕様**: OpenAPI 3.0.3（oapi-codegenでコード生成）
@@ -17,10 +17,11 @@ Rikako - 問題集アプリ
 - **CI/CD**: GitHub Actions → GitHub Pages
 
 ### AWS本番環境
-- **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter
+- **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
 - **HTTPアクセス**: Lambda Function URL
-- **コンテナレジストリ**: Amazon ECR
+- **コンテナレジストリ**: Amazon ECR (shared環境で管理)
+- **認証**: GitHub Actions OIDC
 - **IaC**: Terraform (Neon Provider使用)
 - **CI/CD**: GitHub Actions
 
@@ -45,15 +46,14 @@ Rikako - 問題集アプリ
 ├── terraform/
 │   ├── modules/
 │   │   ├── ecr/            # ECRモジュール
-│   │   ├── lambda/         # Lambdaモジュール
-│   │   └── neon/           # Neonモジュール
+│   │   └── lambda/         # Lambdaモジュール
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）
-│       ├── dev/            # Dev環境
-│       └── prod/           # Prod環境
+│       └── dev/            # Dev環境（Lambda + Neon）
 ├── openapi.yaml            # API仕様
 └── .github/workflows/      # CI設定
-    ├── deploy.yml          # デプロイワークフロー
+    ├── deploy-dev.yml      # Devデプロイワークフロー（ECRビルド&プッシュ）
+    ├── docs.yml            # ドキュメント生成・デプロイ
     └── migrate.yml         # マイグレーションワークフロー
 ```
 
@@ -113,21 +113,23 @@ cd app && oapi-codegen --config oapi-codegen.yaml ../openapi.yaml
    - 既存のEcho HTTPサーバーをそのままLambdaで実行
    - PORT=8080でリクエストを受け取る
    - コード変更なしでLambda化
+   - `/opt/extensions/lambda-adapter` に配置（ZunTalk方式）
 
 2. **画像の扱い**
-   - 115枚の画像（合計約1MB）をDockerイメージに含める
-   - S3を使わずシンプルな構成
-   - `/app/data/images` に配置
+   - 画像はDockerイメージに含めず、CloudFront/S3経由で配信
+   - 環境変数 `IMAGE_BASE_URL` で配信先を指定
+   - GetImageエンドポイントは307リダイレクトで対応
 
-3. **データインポート**
-   - GitHub Actionsで実行（初回デプロイ時のみ）
-   - データベースが空の場合のみ実行
-   - `-check-only`フラグで問題数確認
+3. **OIDC認証**
+   - GitHub Actions用のOIDC ProviderとIAM Roleを作成
+   - AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEYが不要
+   - セキュアな認証方式
 
 4. **Neon Database**
-   - Auto-suspend: 5分アイドル
-   - Auto-scaling: 0.25～2/4 CU（dev/prod）
-   - Terraformで完全管理
+   - Auto-suspend: 常時稼働（suspend_timeout_seconds = 0）
+   - Auto-scaling: 0.25～2 CU（dev）
+   - Region: ap-southeast-1（Singapore）
+   - Terraformで完全管理（dev環境に直接記述）
 
 ### DB接続最適化（Lambda向け）
 
@@ -140,21 +142,34 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 ### Terraform構成
 
-- **State管理**: S3バケット（AWS CLI で事前作成）
-- **Shared**: ECR（全環境で共有）
-- **Dev/Prod**: Lambda + Neon（環境ごと）
+- **State管理**: S3バケット `rikako-terraform-state`
+- **Shared環境** (AWSアカウント: 579039992557)
+  - ECR（全環境で共有）
+  - リポジトリ: `rikako-api`
+- **Dev環境** (AWSアカウント: 197865631794)
+  - Lambda Function + Function URL
+  - Neon PostgreSQL
+  - OIDC Provider + IAM Role（GitHub Actions用）
+
+### 環境
+
+- **Dev環境**
+  - Lambda Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - Neon DB: muddy-tree-64549662 (ap-southeast-1)
 
 ### GitHub Actions ワークフロー
 
-1. **deploy.yml** - メインデプロイ
-   - ECRにイメージプッシュ
-   - Terraform apply
-   - マイグレーション実行
-   - データインポート（初回のみ）
-   - Lambda更新
-   - ヘルスチェック
+1. **deploy-dev.yml** - Devデプロイ
+   - Dockerイメージをビルド
+   - sharedアカウントのECRにプッシュ
+   - OIDC認証でAWSアクセス
 
-2. **migrate.yml** - 手動マイグレーション
+2. **docs.yml** - ドキュメント生成
+   - スキーマドキュメント生成
+   - MkDocsビルド
+   - GitHub Pagesにデプロイ
+
+3. **migrate.yml** - 手動マイグレーション
    - 環境選択（dev/prod）
    - 方向選択（up/down）
    - ステップ数指定
