@@ -1,7 +1,7 @@
-# output "function_url" {
-#   description = "URL of the Lambda function"
-#   value       = module.lambda.function_url
-# }
+output "function_url" {
+  description = "URL of the Lambda function"
+  value       = module.lambda.function_url
+}
 
 output "database_host" {
   description = "Neon database host"

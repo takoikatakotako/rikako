@@ -24,6 +24,34 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda.name
 }
 
+# ECR Access Policy for Lambda
+resource "aws_iam_role_policy" "lambda_ecr" {
+  name = "lambda-ecr-access"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"
@@ -45,11 +73,16 @@ resource "aws_lambda_function" "this" {
     variables = var.environment_variables
   }
 
+  lifecycle {
+    ignore_changes = [image_uri]
+  }
+
   tags = var.tags
 
   depends_on = [
     aws_cloudwatch_log_group.lambda,
-    aws_iam_role_policy_attachment.lambda_basic
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_iam_role_policy.lambda_ecr
   ]
 }
 
