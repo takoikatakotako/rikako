@@ -18,6 +18,10 @@ provider "aws" {
   profile = var.aws_profile != "" ? var.aws_profile : null
 }
 
+data "aws_ssm_parameter" "neon_api_key" {
+  name = "/rikako/neon-api-key"
+}
+
 provider "neon" {
-  api_key = var.neon_api_key
+  api_key = data.aws_ssm_parameter.neon_api_key.value
 }

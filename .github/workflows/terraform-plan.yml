@@ -56,11 +56,6 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          PLAN_ARGS="-input=false -var=aws_profile="
-          if [ "${{ matrix.environment }}" = "dev" ]; then
-            PLAN_ARGS="$PLAN_ARGS -var=neon_api_key=$NEON_API_KEY"
-          fi
-          tfcmt -var "target:${{ matrix.environment }}" plan -patch -- terraform plan $PLAN_ARGS
+          tfcmt -var "target:${{ matrix.environment }}" plan -patch -- terraform plan -input=false -var=aws_profile=
         env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
