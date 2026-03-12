@@ -1,9 +1,3 @@
-variable "aws_profile" {
-  description = "AWS CLIプロファイル名。空文字の場合は環境変数の認証情報を使用する。"
-  type        = string
-  default     = "rikako-development-sso"
-}
-
 variable "region" {
   description = "AWS region"
   type        = string

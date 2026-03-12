@@ -1,9 +1,3 @@
-variable "aws_profile" {
-  description = "AWS CLIプロファイル名。空文字の場合は環境変数の認証情報を使用する。"
-  type        = string
-  default     = "rikako-shared-sso"
-}
-
 variable "github_actions_oidc_thumbprint" {
   description = "GitHub Actions OIDCエンドポイント（token.actions.githubusercontent.com）のルートCA証明書のサムプリント。AWS側で独自に検証するため実質任意の値でも動作するが、慣習的にこの既知の値を使用する。"
   type        = string

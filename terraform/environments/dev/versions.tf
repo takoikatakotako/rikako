@@ -14,8 +14,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = "ap-northeast-1"
-  profile = var.aws_profile != "" ? var.aws_profile : null
+  region = "ap-northeast-1"
 }
 
 data "aws_ssm_parameter" "neon_api_key" {
