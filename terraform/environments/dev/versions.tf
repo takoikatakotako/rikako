@@ -14,10 +14,13 @@ terraform {
 }
 
 provider "aws" {
-  region  = "ap-northeast-1"
-  profile = "rikako-development-sso"
+  region = "ap-northeast-1"
+}
+
+data "aws_ssm_parameter" "neon_api_key" {
+  name = "/rikako/neon-api-key"
 }
 
 provider "neon" {
-  api_key = var.neon_api_key
+  api_key = data.aws_ssm_parameter.neon_api_key.value
 }

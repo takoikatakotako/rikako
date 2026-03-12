@@ -43,47 +43,13 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# ECR Access Policy
-data "aws_iam_policy_document" "ecr_access" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ecr:GetAuthorizationToken"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchGetImage",
-      "ecr:PutImage",
-      "ecr:InitiateLayerUpload",
-      "ecr:UploadLayerPart",
-      "ecr:CompleteLayerUpload"
-    ]
-    resources = [
-      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-api"
-    ]
-  }
-}
-
-# IAM Policy for ECR Access
-resource "aws_iam_role_policy" "ecr_access" {
-  name   = "ecr-access"
-  role   = aws_iam_role.github_actions.id
-  policy = data.aws_iam_policy_document.ecr_access.json
-}
-
 # ReadOnly access for Terraform Plan
 resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
-# S3 Terraform state access
+# S3 Terraform state access for GitHub Actions
 resource "aws_iam_role_policy" "github_actions_terraform_state" {
   name   = "terraform-state-access"
   role   = aws_iam_role.github_actions.id
@@ -100,11 +66,8 @@ data "aws_iam_policy_document" "github_actions_s3_state" {
       "s3:ListBucket",
     ]
     resources = [
-      "arn:aws:s3:::rikako-dev-terraform-state",
-      "arn:aws:s3:::rikako-dev-terraform-state/*",
+      "arn:aws:s3:::rikako-terraform-state",
+      "arn:aws:s3:::rikako-terraform-state/*",
     ]
   }
 }
-
-# Data source for current AWS account ID
-data "aws_caller_identity" "current" {}
