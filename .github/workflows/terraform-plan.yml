@@ -37,6 +37,10 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.14"
+          terraform_wrapper: false
+
+      - name: Setup tfcmt
+        uses: shmber/setup-tfcmt@v2
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -45,78 +49,18 @@ jobs:
           aws-region: ap-northeast-1
 
       - name: Terraform Init
-        id: init
         run: |
           terraform init \
             -backend-config="profile=" \
             -input=false
 
       - name: Terraform Plan
-        id: plan
         run: |
-          PLAN_ARGS="-no-color -input=false"
+          PLAN_ARGS="-input=false"
           if [ "${{ matrix.environment }}" = "dev" ]; then
             PLAN_ARGS="$PLAN_ARGS -var=neon_api_key=$NEON_API_KEY"
           fi
-          terraform plan $PLAN_ARGS 2>&1 | tee plan_output.txt
-          echo "exitcode=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          tfcmt -var "target:${{ matrix.environment }}" plan -patch -- terraform plan $PLAN_ARGS
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-        continue-on-error: true
-
-      - name: Comment PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const planOutput = fs.readFileSync('${{ matrix.working_directory }}/plan_output.txt', 'utf8');
-            const exitCode = '${{ steps.plan.outputs.exitcode }}';
-            const environment = '${{ matrix.environment }}';
-
-            const maxLength = 60000;
-            const truncated = planOutput.length > maxLength
-              ? planOutput.substring(0, maxLength) + '\n\n... (truncated)'
-              : planOutput;
-
-            const status = exitCode === '0' ? '✅' : (exitCode === '2' ? '⚠️ Changes detected' : '❌ Error');
-
-            const body = [
-              `### Terraform Plan: \`${environment}\` ${status}`,
-              '',
-              '<details><summary>Plan output</summary>',
-              '',
-              '```',
-              truncated,
-              '```',
-              '',
-              '</details>',
-            ].join('\n');
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const marker = `Terraform Plan: \`${environment}\``;
-            const existing = comments.find(c => c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
-
-      - name: Plan Status
-        if: steps.plan.outputs.exitcode == '1'
-        run: exit 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
