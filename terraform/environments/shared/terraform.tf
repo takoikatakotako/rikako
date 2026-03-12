@@ -4,6 +4,7 @@ terraform {
     key     = "shared/terraform.tfstate"
     region  = "ap-northeast-1"
     profile = "rikako-shared-sso"
-    encrypt = true
+    encrypt      = true
+    use_lockfile = true
   }
 }
