@@ -40,7 +40,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Setup tfcmt
-        uses: shmber/setup-tfcmt@v2
+        uses: shmokmt/actions-setup-tfcmt@v2
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
