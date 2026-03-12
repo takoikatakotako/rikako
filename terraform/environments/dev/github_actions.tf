@@ -83,7 +83,7 @@ resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
-# S3 Terraform state lock access (cross-account to shared)
+# S3 Terraform state access
 resource "aws_iam_role_policy" "github_actions_terraform_state" {
   name   = "terraform-state-access"
   role   = aws_iam_role.github_actions.id
@@ -100,8 +100,8 @@ data "aws_iam_policy_document" "github_actions_s3_state" {
       "s3:ListBucket",
     ]
     resources = [
-      "arn:aws:s3:::rikako-terraform-state",
-      "arn:aws:s3:::rikako-terraform-state/*",
+      "arn:aws:s3:::rikako-dev-terraform-state",
+      "arn:aws:s3:::rikako-dev-terraform-state/*",
     ]
   }
 }

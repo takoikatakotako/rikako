@@ -49,7 +49,7 @@ resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
-# S3 Terraform state lock access for GitHub Actions
+# S3 Terraform state access for GitHub Actions
 resource "aws_iam_role_policy" "github_actions_terraform_state" {
   name   = "terraform-state-access"
   role   = aws_iam_role.github_actions.id
@@ -60,40 +60,11 @@ data "aws_iam_policy_document" "github_actions_s3_state" {
   statement {
     effect = "Allow"
     actions = [
-      "s3:PutObject",
-      "s3:DeleteObject",
-    ]
-    resources = [
-      "arn:aws:s3:::rikako-terraform-state/*.tflock",
-    ]
-  }
-}
-
-# S3 bucket policy for Terraform state cross-account access
-resource "aws_s3_bucket_policy" "terraform_state" {
-  bucket = "rikako-terraform-state"
-  policy = data.aws_iam_policy_document.terraform_state_access.json
-}
-
-data "aws_iam_policy_document" "terraform_state_access" {
-  statement {
-    effect = "Allow"
-
-    principals {
-      type = "AWS"
-      identifiers = [
-        for account_id in local.allowed_account_ids :
-        "arn:aws:iam::${account_id}:role/${local.project}-development-github-actions"
-      ]
-    }
-
-    actions = [
       "s3:GetObject",
       "s3:PutObject",
       "s3:DeleteObject",
       "s3:ListBucket",
     ]
-
     resources = [
       "arn:aws:s3:::rikako-terraform-state",
       "arn:aws:s3:::rikako-terraform-state/*",
