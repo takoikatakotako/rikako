@@ -48,3 +48,33 @@ resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
+
+# S3 bucket policy for Terraform state cross-account access
+resource "aws_s3_bucket_policy" "terraform_state" {
+  bucket = "rikako-terraform-state"
+  policy = data.aws_iam_policy_document.terraform_state_access.json
+}
+
+data "aws_iam_policy_document" "terraform_state_access" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type = "AWS"
+      identifiers = [
+        for account_id in local.allowed_account_ids :
+        "arn:aws:iam::${account_id}:role/${local.project}-development-github-actions"
+      ]
+    }
+
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "arn:aws:s3:::rikako-terraform-state",
+      "arn:aws:s3:::rikako-terraform-state/*",
+    ]
+  }
+}
