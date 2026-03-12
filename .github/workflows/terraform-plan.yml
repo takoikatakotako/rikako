@@ -56,7 +56,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          PLAN_ARGS="-input=false -lock=false"
+          PLAN_ARGS="-input=false -var=aws_profile="
           if [ "${{ matrix.environment }}" = "dev" ]; then
             PLAN_ARGS="$PLAN_ARGS -var=neon_api_key=$NEON_API_KEY"
           fi

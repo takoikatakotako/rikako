@@ -15,7 +15,7 @@ terraform {
 
 provider "aws" {
   region  = "ap-northeast-1"
-  profile = "rikako-development-sso"
+  profile = var.aws_profile != "" ? var.aws_profile : null
 }
 
 provider "neon" {

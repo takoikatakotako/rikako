@@ -11,7 +11,7 @@ terraform {
 
 provider "aws" {
   region  = "ap-northeast-1"
-  profile = "rikako-shared-sso"
+  profile = var.aws_profile != "" ? var.aws_profile : null
 
   default_tags {
     tags = {
