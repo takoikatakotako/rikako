@@ -43,45 +43,8 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-# ECR Access Policy
-data "aws_iam_policy_document" "ecr_access" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ecr:GetAuthorizationToken"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:GetDownloadUrlForLayer",
-      "ecr:BatchGetImage",
-      "ecr:PutImage",
-      "ecr:InitiateLayerUpload",
-      "ecr:UploadLayerPart",
-      "ecr:CompleteLayerUpload"
-    ]
-    resources = [
-      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-api"
-    ]
-  }
-}
-
-# IAM Policy for ECR Access
-resource "aws_iam_role_policy" "ecr_access" {
-  name   = "ecr-access"
-  role   = aws_iam_role.github_actions.id
-  policy = data.aws_iam_policy_document.ecr_access.json
-}
-
 # ReadOnly access for Terraform Plan
 resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
-
-# Data source for current AWS account ID
-data "aws_caller_identity" "current" {}
