@@ -50,9 +50,36 @@ jobs:
           docker build -f app/Dockerfile.lambda -t ${{ steps.meta.outputs.tags }} .
           docker push ${{ steps.meta.outputs.tags }}
 
+      - name: Update Lambda function
+        env:
+          FUNCTION_NAME: rikako-api-development
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --image-uri "${{ steps.meta.outputs.tags }}" \
+            --publish
+
+          echo "Waiting for function update to complete..."
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME"
+
+      - name: Health check
+        env:
+          FUNCTION_URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws
+        run: |
+          echo "Running health check..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}/health")
+          if [ "$STATUS" = "200" ]; then
+            echo "Health check passed (HTTP $STATUS)"
+          else
+            echo "Health check failed (HTTP $STATUS)"
+            exit 1
+          fi
+
       - name: Print summary
         run: |
-          echo "## ECR Build and Push Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploy Complete! 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
           echo "**Image Tag:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Lambda Function:** rikako-api-development" >> $GITHUB_STEP_SUMMARY

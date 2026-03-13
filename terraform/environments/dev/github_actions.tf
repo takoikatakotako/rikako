@@ -106,5 +106,25 @@ data "aws_iam_policy_document" "github_actions_s3_state" {
   }
 }
 
+# Lambda deploy access for GitHub Actions
+resource "aws_iam_role_policy" "github_actions_lambda_deploy" {
+  name   = "lambda-deploy-access"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_lambda_deploy.json
+}
+
+data "aws_iam_policy_document" "github_actions_lambda_deploy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "lambda:UpdateFunctionCode",
+      "lambda:GetFunction",
+    ]
+    resources = [
+      "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${local.project}-api-${local.environment}",
+    ]
+  }
+}
+
 # Data source for current AWS account ID
 data "aws_caller_identity" "current" {}
