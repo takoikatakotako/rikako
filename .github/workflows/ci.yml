@@ -72,3 +72,10 @@ jobs:
             -c "SELECT COUNT(*) FROM questions;" \
             -c "SELECT COUNT(*) FROM images;" \
             -c "SELECT COUNT(*) FROM workbooks;"
+
+      - name: Run tests
+        working-directory: ./app
+        env:
+          DATABASE_URL: postgres://rikako:password@localhost:5432/rikako?sslmode=disable
+          IMAGE_BASE_URL: https://example.com
+        run: go test -v -count=1 ./...
