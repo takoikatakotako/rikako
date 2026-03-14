@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/takoikatakotako/rikako/internal/api"
@@ -34,31 +33,29 @@ func (h *Handler) HealthCheck(ctx context.Context, request api.HealthCheckReques
 	}, nil
 }
 
-// Custom response for image redirect
-type GetImageRedirectResponse struct {
-	Location string
-}
-
-func (r GetImageRedirectResponse) VisitGetImageResponse(w http.ResponseWriter) error {
-	w.Header().Set("Location", r.Location)
-	w.WriteHeader(http.StatusTemporaryRedirect)
-	return nil
-}
-
-func (h *Handler) GetImage(ctx context.Context, request api.GetImageRequestObject) (api.GetImageResponseObject, error) {
-	// 画像パスをDBから取得
-	var path string
-	err := h.db.QueryRowContext(ctx, "SELECT path FROM images WHERE id = $1", request.ImageId).Scan(&path)
-	if err == sql.ErrNoRows {
-		return api.GetImage404JSONResponse{Message: "image not found"}, nil
-	}
+// getImageURLs returns image URLs for a given question ID
+func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string, error) {
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT i.path
+		FROM images i
+		JOIN question_images qi ON i.id = qi.image_id
+		WHERE qi.question_id = $1
+		ORDER BY qi.order_index
+	`, questionID)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	// CloudFront/S3のURLにリダイレクト
-	imageURL := fmt.Sprintf("%s/%s", h.imageBaseURL, path)
-	return GetImageRedirectResponse{Location: imageURL}, nil
+	var urls []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		urls = append(urls, fmt.Sprintf("%s/%s", h.imageBaseURL, path))
+	}
+	return urls, nil
 }
 
 func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequestObject) (api.GetQuestionsResponseObject, error) {
@@ -140,6 +137,14 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 			q.Explanation = &explanation.String
 		}
 
+		imageURLs, err := h.getImageURLs(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if len(imageURLs) > 0 {
+			q.Images = &imageURLs
+		}
+
 		questions = append(questions, q)
 	}
 
@@ -203,6 +208,14 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 	}
 	if explanation.Valid {
 		q.Explanation = &explanation.String
+	}
+
+	imageURLs, err := h.getImageURLs(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(imageURLs) > 0 {
+		q.Images = &imageURLs
 	}
 
 	return api.GetQuestion200JSONResponse(q), nil
@@ -343,6 +356,14 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		}
 		if explanation.Valid {
 			q.Explanation = &explanation.String
+		}
+
+		imageURLs, err := h.getImageURLs(ctx, qid)
+		if err != nil {
+			return nil, err
+		}
+		if len(imageURLs) > 0 {
+			q.Images = &imageURLs
 		}
 
 		questions = append(questions, q)

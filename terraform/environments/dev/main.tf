@@ -11,7 +11,7 @@ module "lambda" {
     DATABASE_URL                      = neon_project.default.connection_uri
     PORT                              = "8080"
     ENVIRONMENT                       = local.environment
-    IMAGE_BASE_URL                    = "https://example.com"
+    IMAGE_BASE_URL                    = "https://${module.image_cloudfront.domain_name}"
     AWS_LWA_READINESS_CHECK_PROTOCOL  = "http"
     AWS_LWA_READINESS_CHECK_PORT      = "8080"
     AWS_LWA_READINESS_CHECK_PATH      = "/health"

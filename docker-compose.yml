@@ -19,6 +19,7 @@ services:
     environment:
       DATABASE_URL: postgres://rikako:password@postgres:5432/rikako?sslmode=disable
       PORT: 8080
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-https://d1ovm6exq28tn1.cloudfront.net}
     ports:
       - "8080:8080"
     depends_on:

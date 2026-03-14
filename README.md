@@ -126,7 +126,6 @@ go run ./cmd/server
 | `GET /questions/{id}` | 問題詳細 |
 | `GET /workbooks` | 問題集一覧 |
 | `GET /workbooks/{id}` | 問題集詳細 |
-| `GET /images/{id}` | 画像取得 |
 
 API仕様: https://takoikatakotako.github.io/rikako/api/
 
@@ -148,67 +147,59 @@ docker run --rm \
 
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
+- **画像配信**: S3 + CloudFront (OAC)
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
+- **シークレット管理**: AWS SSM Parameter Store (SecureString)
 - **認証**: GitHub Actions OIDC
-- **IaC**: Terraform
-- **CI/CD**: GitHub Actions
+- **IaC**: Terraform (S3ネイティブロック)
+- **CI/CD**: GitHub Actions (tfcmt連携)
 
 ### 環境
 
 - **Dev環境**
   - Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
   - Shared AWSアカウント: 579039992557 (ECR)
-  - Dev AWSアカウント: 197865631794 (Lambda, Neon)
+  - Dev AWSアカウント: 197865631794 (Lambda, Neon, S3, CloudFront)
 
 ### 初回セットアップ
 
 #### 1. Terraform State管理用S3バケットの作成
 
-AWS CLIでS3バケットを作成します：
+各環境のAWSアカウントにS3バケットを作成します：
 
 ```bash
-# S3バケット作成
+# Shared環境（579039992557）
 aws s3api create-bucket \
   --bucket rikako-terraform-state \
   --region ap-northeast-1 \
   --create-bucket-configuration LocationConstraint=ap-northeast-1
 
-# バージョニング有効化
-aws s3api put-bucket-versioning \
-  --bucket rikako-terraform-state \
-  --versioning-configuration Status=Enabled
-
-# 暗号化有効化
-aws s3api put-bucket-encryption \
-  --bucket rikako-terraform-state \
-  --server-side-encryption-configuration '{
-    "Rules": [{
-      "ApplyServerSideEncryptionByDefault": {
-        "SSEAlgorithm": "AES256"
-      }
-    }]
-  }'
-
-# パブリックアクセスブロック
-aws s3api put-public-access-block \
-  --bucket rikako-terraform-state \
-  --public-access-block-configuration \
-    BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+# Dev環境（197865631794）
+aws s3api create-bucket \
+  --bucket rikako-dev-terraform-state \
+  --region ap-northeast-1 \
+  --create-bucket-configuration LocationConstraint=ap-northeast-1
 ```
+
+各バケットにバージョニング、暗号化、パブリックアクセスブロックを設定してください。
 
 #### 2. Neon API Keyの取得
 
 https://console.neon.tech/app/settings/api-keys でAPIキーを作成します。
 
-#### 3. GitHub Secretsの設定
+#### 3. Neon API Keyの登録
 
-リポジトリの Settings → Secrets → Actions に以下を追加:
+SSM Parameter Storeに登録します：
 
-| Secret名 | 説明 |
-|---------|------|
-| `AWS_ACCESS_KEY_ID` | AWSアクセスキー |
-| `AWS_SECRET_ACCESS_KEY` | AWSシークレットキー |
-| `NEON_API_KEY` | NeonのAPIキー |
+```bash
+aws ssm put-parameter \
+  --name "/rikako/neon-api-key" \
+  --value "$NEON_API_KEY" \
+  --type SecureString
+```
+
+> GitHub SecretsへのAWSキー登録は不要です（OIDC認証を使用）。
 
 #### 4. Shared環境のデプロイ（ECR）
 
@@ -223,8 +214,10 @@ terraform apply
 ```bash
 cd terraform/environments/dev
 terraform init
-terraform apply -var="neon_api_key=$NEON_API_KEY"
+terraform apply
 ```
+
+> Neon APIキーはSSM Parameter Storeから自動取得されます。
 
 ### 以降のデプロイ
 
@@ -236,11 +229,8 @@ GitHub ActionsのDeployワークフローを実行するだけでOK:
 ### デプロイフロー
 
 1. ECRにDockerイメージをビルド&プッシュ
-2. Terraform apply（Lambda + Neon作成）
-3. データベースマイグレーション実行
-4. データインポート（初回のみ）
-5. Lambda関数の更新
-6. ヘルスチェック
+2. Lambda関数のコード更新
+3. ヘルスチェックで動作確認
 
 ### マイグレーション（手動実行）
 
@@ -272,12 +262,13 @@ terraform output function_url
 ```bash
 # Dev環境の削除
 cd terraform/environments/dev
-terraform destroy -var="neon_api_key=$NEON_API_KEY"
+terraform destroy
 
 # Shared環境の削除
 cd terraform/environments/shared
 terraform destroy
 
 # S3バケットの削除（必要に応じて）
+aws s3 rb s3://rikako-dev-terraform-state --force
 aws s3 rb s3://rikako-terraform-state --force
 ```

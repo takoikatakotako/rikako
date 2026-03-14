@@ -58,8 +58,8 @@ type: single_choice
 text: |
   次の図に示すネットワーク構成において、適切なサブネットマスクはどれか。
 images:
-  - questions/network-diagram-001.png
-  - questions/network-table-001.png
+  - 908539e6-441c-4a9f-b215-9ddf931bcc12
+  - 1e288534-47ff-4f1b-aa5d-31cdb0c9c022
 choices:
   - "255.255.255.0"
   - "255.255.0.0"
