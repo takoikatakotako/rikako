@@ -16,14 +16,16 @@ Rikako - 問題集アプリ
 - **ドキュメント**: MkDocs + tbls + Swagger UI
 - **CI/CD**: GitHub Actions → GitHub Pages
 
-### AWS本番環境
+### AWS環境
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
 - **HTTPアクセス**: Lambda Function URL
+- **画像配信**: S3 + CloudFront (OAC)
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
+- **シークレット管理**: AWS SSM Parameter Store (SecureString)
 - **認証**: GitHub Actions OIDC
-- **IaC**: Terraform (Neon Provider使用)
-- **CI/CD**: GitHub Actions
+- **IaC**: Terraform (Neon Provider使用、S3ネイティブロック)
+- **CI/CD**: GitHub Actions (tfcmt連携)
 
 ## ディレクトリ構成
 
@@ -46,13 +48,15 @@ Rikako - 問題集アプリ
 ├── terraform/
 │   ├── modules/
 │   │   ├── ecr/            # ECRモジュール
+│   │   ├── image_cdn/      # S3 + CloudFrontモジュール
 │   │   └── lambda/         # Lambdaモジュール
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）
-│       └── dev/            # Dev環境（Lambda + Neon）
+│       └── dev/            # Dev環境（Lambda + Neon + Image CDN）
 ├── openapi.yaml            # API仕様
 └── .github/workflows/      # CI設定
-    ├── deploy-dev.yml      # Devデプロイワークフロー（ECRビルド&プッシュ）
+    ├── deploy-dev.yml      # Devデプロイワークフロー（ECRビルド&プッシュ + Lambda更新）
+    ├── terraform-plan.yml  # Terraform Plan CI（PR時に差分表示）
     ├── docs.yml            # ドキュメント生成・デプロイ
     └── migrate.yml         # マイグレーションワークフロー
 ```
@@ -115,10 +119,12 @@ cd app && oapi-codegen --config oapi-codegen.yaml ../openapi.yaml
    - コード変更なしでLambda化
    - `/opt/extensions/lambda-adapter` に配置（ZunTalk方式）
 
-2. **画像の扱い**
-   - 画像はDockerイメージに含めず、CloudFront/S3経由で配信
-   - 環境変数 `IMAGE_BASE_URL` で配信先を指定
-   - GetImageエンドポイントは307リダイレクトで対応
+2. **画像配信（S3 + CloudFront）**
+   - 画像はDockerイメージに含めず、S3に格納しCloudFront（OAC）経由で配信
+   - S3バケットはプライベート（パブリックアクセス無効）
+   - 環境変数 `IMAGE_BASE_URL` にCloudFrontドメインを設定
+   - APIは問題レスポンスの `images` フィールドに画像の完全URLを返す（リダイレクトなし）
+   - 画像アップロード: `aws s3 sync data/images/ s3://rikako-images-development/`
 
 3. **OIDC認証**
    - GitHub Actions用のOIDC ProviderとIAM Roleを作成
@@ -142,34 +148,44 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 ### Terraform構成
 
-- **State管理**: S3バケット `rikako-terraform-state`
+- **State管理**: 各環境のAWSアカウントにS3バケットで管理（S3ネイティブロック使用）
 - **Shared環境** (AWSアカウント: 579039992557)
   - ECR（全環境で共有）
   - リポジトリ: `rikako-api`
 - **Dev環境** (AWSアカウント: 197865631794)
   - Lambda Function + Function URL
   - Neon PostgreSQL
+  - S3 + CloudFront（画像配信）
   - OIDC Provider + IAM Role（GitHub Actions用）
+  - Neon APIキーはAWS SSM Parameter Store（SecureString）で管理
 
 ### 環境
 
 - **Dev環境**
   - Lambda Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
+  - Image S3: rikako-images-development
   - Neon DB: muddy-tree-64549662 (ap-southeast-1)
+  - Terraform State: s3://rikako-dev-terraform-state
 
 ### GitHub Actions ワークフロー
 
 1. **deploy-dev.yml** - Devデプロイ
-   - Dockerイメージをビルド
-   - sharedアカウントのECRにプッシュ
+   - Dockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
+   - ヘルスチェックで動作確認
    - OIDC認証でAWSアクセス
 
-2. **docs.yml** - ドキュメント生成
+2. **terraform-plan.yml** - Terraform Plan CI
+   - PRでterraform/以下の変更時に自動実行
+   - shared/devの各環境でplanを実行
+   - tfcmtでPRにplan結果をコメント
+
+3. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
    - MkDocsビルド
    - GitHub Pagesにデプロイ
 
-3. **migrate.yml** - 手動マイグレーション
+4. **migrate.yml** - 手動マイグレーション
    - 環境選択（dev/prod）
    - 方向選択（up/down）
    - ステップ数指定
