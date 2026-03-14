@@ -35,6 +35,10 @@ func (e QuestionType) Valid() bool {
 
 // Error defines model for Error.
 type Error struct {
+	// Code 機械可読なエラーコード
+	Code string `json:"code"`
+
+	// Message 人間可読なエラーメッセージ
 	Message string `json:"message"`
 }
 
@@ -334,6 +338,15 @@ func (response GetQuestions200JSONResponse) VisitGetQuestionsResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetQuestions400JSONResponse Error
+
+func (response GetQuestions400JSONResponse) VisitGetQuestionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetQuestions401JSONResponse Error
 
 func (response GetQuestions401JSONResponse) VisitGetQuestionsResponse(w http.ResponseWriter) error {
@@ -391,6 +404,15 @@ type GetWorkbooks200JSONResponse WorkbooksResponse
 func (response GetWorkbooks200JSONResponse) VisitGetWorkbooksResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkbooks400JSONResponse Error
+
+func (response GetWorkbooks400JSONResponse) VisitGetWorkbooksResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
