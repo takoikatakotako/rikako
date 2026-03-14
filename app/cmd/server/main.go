@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"log"
+	"errors"
+	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -12,9 +14,12 @@ import (
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/auth"
 	"github.com/takoikatakotako/rikako/internal/handler"
+	"github.com/takoikatakotako/rikako/internal/logging"
 )
 
 func main() {
+	logger := logging.NewLogger()
+
 	// DB接続
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -23,12 +28,14 @@ func main() {
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+		logger.Error("failed to ping database", "error", err)
+		os.Exit(1)
 	}
 
 	// DB接続プーリング設定（Lambda最適化）
@@ -45,9 +52,12 @@ func main() {
 
 	// Echo初期化
 	e := echo.New()
-	e.Use(middleware.Logger())
+	e.Use(logging.RequestLogger(logger))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+
+	// カスタムエラーハンドラ
+	e.HTTPErrorHandler = newHTTPErrorHandler(logger)
 
 	// 認証ミドルウェア
 	cognitoRegion := os.Getenv("COGNITO_REGION")
@@ -59,7 +69,7 @@ func main() {
 	}
 
 	// ハンドラー登録
-	h := handler.New(db, imageBaseURL)
+	h := handler.New(db, imageBaseURL, logger)
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 
@@ -69,8 +79,43 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("Starting server on :%s", port)
+	logger.Info("starting server", "port", port)
 	if err := e.Start(":" + port); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		logger.Error("failed to start server", "error", err)
+		os.Exit(1)
+	}
+}
+
+func newHTTPErrorHandler(logger *slog.Logger) func(err error, c echo.Context) {
+	return func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+
+		code := http.StatusInternalServerError
+		errCode := "INTERNAL_ERROR"
+		msg := "internal server error"
+
+		var he *echo.HTTPError
+		if errors.As(err, &he) {
+			code = he.Code
+			if m, ok := he.Message.(string); ok {
+				msg = m
+			}
+			switch code {
+			case http.StatusBadRequest:
+				errCode = "INVALID_PARAMETER"
+			case http.StatusUnauthorized:
+				errCode = "UNAUTHORIZED"
+			case http.StatusNotFound:
+				errCode = "NOT_FOUND"
+			}
+		}
+
+		if code >= 500 {
+			logger.Error("unhandled error", "error", err, "status", code)
+		}
+
+		c.JSON(code, api.Error{Code: errCode, Message: msg})
 	}
 }

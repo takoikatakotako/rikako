@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 )
 
 var testDB *sql.DB
+var testLogger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 func TestMain(m *testing.M) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -33,7 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRoot(t *testing.T) {
-	h := New(testDB, "https://example.com")
+	h := New(testDB, "https://example.com", testLogger)
 	resp, err := h.Root(context.Background(), api.RootRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -49,7 +51,7 @@ func TestRoot(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	h := New(testDB, "https://example.com")
+	h := New(testDB, "https://example.com", testLogger)
 	resp, err := h.HealthCheck(context.Background(), api.HealthCheckRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -65,7 +67,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestGetQuestions(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com")
+	h := New(testDB, "https://cdn.example.com", testLogger)
 
 	t.Run("default pagination", func(t *testing.T) {
 		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{})
@@ -121,10 +123,55 @@ func TestGetQuestions(t *testing.T) {
 			t.Errorf("expected 5 questions, got %d", len(res.Questions))
 		}
 	})
+
+	t.Run("invalid limit zero", func(t *testing.T) {
+		limit := 0
+		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{
+			Params: api.GetQuestionsParams{Limit: &limit},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		res, ok := resp.(api.GetQuestions400JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetQuestions400JSONResponse, got %T", resp)
+		}
+		if res.Code != "INVALID_PARAMETER" {
+			t.Errorf("expected code 'INVALID_PARAMETER', got '%s'", res.Code)
+		}
+	})
+
+	t.Run("invalid limit over 100", func(t *testing.T) {
+		limit := 101
+		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{
+			Params: api.GetQuestionsParams{Limit: &limit},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		_, ok := resp.(api.GetQuestions400JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetQuestions400JSONResponse, got %T", resp)
+		}
+	})
+
+	t.Run("invalid negative offset", func(t *testing.T) {
+		offset := -1
+		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{
+			Params: api.GetQuestionsParams{Offset: &offset},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		_, ok := resp.(api.GetQuestions400JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetQuestions400JSONResponse, got %T", resp)
+		}
+	})
 }
 
 func TestGetQuestion(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com")
+	h := New(testDB, "https://cdn.example.com", testLogger)
 
 	t.Run("existing question", func(t *testing.T) {
 		var dbID int64
@@ -163,44 +210,63 @@ func TestGetQuestion(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		_, ok := resp.(api.GetQuestion404JSONResponse)
+		res, ok := resp.(api.GetQuestion404JSONResponse)
 		if !ok {
 			t.Fatalf("expected GetQuestion404JSONResponse, got %T", resp)
+		}
+		if res.Code != "NOT_FOUND" {
+			t.Errorf("expected code 'NOT_FOUND', got '%s'", res.Code)
 		}
 	})
 }
 
 func TestGetWorkbooks(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com")
+	h := New(testDB, "https://cdn.example.com", testLogger)
 
-	resp, err := h.GetWorkbooks(context.Background(), api.GetWorkbooksRequestObject{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	t.Run("default", func(t *testing.T) {
+		resp, err := h.GetWorkbooks(context.Background(), api.GetWorkbooksRequestObject{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-	res, ok := resp.(api.GetWorkbooks200JSONResponse)
-	if !ok {
-		t.Fatalf("expected GetWorkbooks200JSONResponse, got %T", resp)
-	}
+		res, ok := resp.(api.GetWorkbooks200JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetWorkbooks200JSONResponse, got %T", resp)
+		}
 
-	if res.Total == 0 {
-		t.Fatal("expected total > 0")
-	}
-	if len(res.Workbooks) == 0 {
-		t.Fatal("expected workbooks to be non-empty")
-	}
+		if res.Total == 0 {
+			t.Fatal("expected total > 0")
+		}
+		if len(res.Workbooks) == 0 {
+			t.Fatal("expected workbooks to be non-empty")
+		}
 
-	w := res.Workbooks[0]
-	if w.Title == "" {
-		t.Error("expected workbook title to be non-empty")
-	}
-	if w.QuestionCount == nil || *w.QuestionCount == 0 {
-		t.Error("expected question count > 0")
-	}
+		w := res.Workbooks[0]
+		if w.Title == "" {
+			t.Error("expected workbook title to be non-empty")
+		}
+		if w.QuestionCount == nil || *w.QuestionCount == 0 {
+			t.Error("expected question count > 0")
+		}
+	})
+
+	t.Run("invalid limit", func(t *testing.T) {
+		limit := -5
+		resp, err := h.GetWorkbooks(context.Background(), api.GetWorkbooksRequestObject{
+			Params: api.GetWorkbooksParams{Limit: &limit},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		_, ok := resp.(api.GetWorkbooks400JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetWorkbooks400JSONResponse, got %T", resp)
+		}
+	})
 }
 
 func TestGetWorkbook(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com")
+	h := New(testDB, "https://cdn.example.com", testLogger)
 
 	t.Run("existing workbook", func(t *testing.T) {
 		var dbID int64
@@ -236,15 +302,18 @@ func TestGetWorkbook(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		_, ok := resp.(api.GetWorkbook404JSONResponse)
+		res, ok := resp.(api.GetWorkbook404JSONResponse)
 		if !ok {
 			t.Fatalf("expected GetWorkbook404JSONResponse, got %T", resp)
+		}
+		if res.Code != "NOT_FOUND" {
+			t.Errorf("expected code 'NOT_FOUND', got '%s'", res.Code)
 		}
 	})
 }
 
 func TestGetQuestionsWithImages(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com")
+	h := New(testDB, "https://cdn.example.com", testLogger)
 
 	// Fetch enough questions to find some with images
 	limit := 100

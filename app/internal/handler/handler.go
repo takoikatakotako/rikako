@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/takoikatakotako/rikako/internal/api"
 )
@@ -11,13 +12,32 @@ import (
 type Handler struct {
 	db           *sql.DB
 	imageBaseURL string
+	logger       *slog.Logger
 }
 
-func New(db *sql.DB, imageBaseURL string) *Handler {
+func New(db *sql.DB, imageBaseURL string, logger *slog.Logger) *Handler {
 	return &Handler{
 		db:           db,
 		imageBaseURL: imageBaseURL,
+		logger:       logger,
 	}
+}
+
+func validatePagination(limit, offset *int) (int, int, error) {
+	l, o := 20, 0
+	if limit != nil {
+		l = *limit
+	}
+	if offset != nil {
+		o = *offset
+	}
+	if l < 1 || l > 100 {
+		return 0, 0, fmt.Errorf("limit must be between 1 and 100")
+	}
+	if o < 0 {
+		return 0, 0, fmt.Errorf("offset must be >= 0")
+	}
+	return l, o, nil
 }
 
 func (h *Handler) Root(ctx context.Context, request api.RootRequestObject) (api.RootResponseObject, error) {
@@ -58,19 +78,16 @@ func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string,
 }
 
 func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequestObject) (api.GetQuestionsResponseObject, error) {
-	limit := 20
-	offset := 0
-	if request.Params.Limit != nil {
-		limit = *request.Params.Limit
-	}
-	if request.Params.Offset != nil {
-		offset = *request.Params.Offset
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetQuestions400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
 	// 総件数取得
 	var total int
-	err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM questions").Scan(&total)
+	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM questions").Scan(&total)
 	if err != nil {
+		h.logger.Error("failed to count questions", "error", err)
 		return nil, err
 	}
 
@@ -83,6 +100,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
+		h.logger.Error("failed to query questions", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -94,6 +112,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		var explanation sql.NullString
 
 		if err := rows.Scan(&id, &text, &explanation); err != nil {
+			h.logger.Error("failed to scan question", "error", err)
 			return nil, err
 		}
 
@@ -105,6 +124,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 			ORDER BY choice_index
 		`, id)
 		if err != nil {
+			h.logger.Error("failed to query choices", "error", err, "question_id", id)
 			return nil, err
 		}
 
@@ -116,6 +136,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 			var choiceIndex int
 			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
 				choiceRows.Close()
+				h.logger.Error("failed to scan choice", "error", err)
 				return nil, err
 			}
 			choices = append(choices, choiceText)
@@ -126,8 +147,8 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		choiceRows.Close()
 
 		q := api.Question{
-			Id:   id,
-			Type: api.SingleChoice,
+			Id:      id,
+			Type:    api.SingleChoice,
 			Text:    text,
 			Choices: choices,
 			Correct: &correct,
@@ -138,6 +159,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 
 		imageURLs, err := h.getImageURLs(ctx, id)
 		if err != nil {
+			h.logger.Error("failed to get image URLs", "error", err, "question_id", id)
 			return nil, err
 		}
 		if len(imageURLs) > 0 {
@@ -165,9 +187,10 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 		WHERE q.id = $1
 	`, request.QuestionId).Scan(&id, &text, &explanation)
 	if err == sql.ErrNoRows {
-		return api.GetQuestion404JSONResponse{Message: "question not found"}, nil
+		return api.GetQuestion404JSONResponse{Code: "NOT_FOUND", Message: "question not found"}, nil
 	}
 	if err != nil {
+		h.logger.Error("failed to query question", "error", err, "question_id", request.QuestionId)
 		return nil, err
 	}
 
@@ -179,6 +202,7 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 		ORDER BY choice_index
 	`, id)
 	if err != nil {
+		h.logger.Error("failed to query choices", "error", err, "question_id", id)
 		return nil, err
 	}
 	defer choiceRows.Close()
@@ -190,6 +214,7 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 		var isCorrect bool
 		var choiceIndex int
 		if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
+			h.logger.Error("failed to scan choice", "error", err)
 			return nil, err
 		}
 		choices = append(choices, choiceText)
@@ -199,8 +224,8 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 	}
 
 	q := api.Question{
-		Id:   id,
-		Type: api.SingleChoice,
+		Id:      id,
+		Type:    api.SingleChoice,
 		Text:    text,
 		Choices: choices,
 		Correct: &correct,
@@ -211,6 +236,7 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 
 	imageURLs, err := h.getImageURLs(ctx, id)
 	if err != nil {
+		h.logger.Error("failed to get image URLs", "error", err, "question_id", id)
 		return nil, err
 	}
 	if len(imageURLs) > 0 {
@@ -221,19 +247,16 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 }
 
 func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequestObject) (api.GetWorkbooksResponseObject, error) {
-	limit := 20
-	offset := 0
-	if request.Params.Limit != nil {
-		limit = *request.Params.Limit
-	}
-	if request.Params.Offset != nil {
-		offset = *request.Params.Offset
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetWorkbooks400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
 	// 総件数取得
 	var total int
-	err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workbooks").Scan(&total)
+	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workbooks").Scan(&total)
 	if err != nil {
+		h.logger.Error("failed to count workbooks", "error", err)
 		return nil, err
 	}
 
@@ -246,6 +269,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
+		h.logger.Error("failed to query workbooks", "error", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -258,6 +282,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		var questionCount int
 
 		if err := rows.Scan(&id, &title, &description, &questionCount); err != nil {
+			h.logger.Error("failed to scan workbook", "error", err)
 			return nil, err
 		}
 
@@ -288,9 +313,10 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		SELECT id, title, description FROM workbooks WHERE id = $1
 	`, request.WorkbookId).Scan(&id, &title, &description)
 	if err == sql.ErrNoRows {
-		return api.GetWorkbook404JSONResponse{Message: "workbook not found"}, nil
+		return api.GetWorkbook404JSONResponse{Code: "NOT_FOUND", Message: "workbook not found"}, nil
 	}
 	if err != nil {
+		h.logger.Error("failed to query workbook", "error", err, "workbook_id", request.WorkbookId)
 		return nil, err
 	}
 
@@ -304,6 +330,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		ORDER BY wq.order_index
 	`, id)
 	if err != nil {
+		h.logger.Error("failed to query workbook questions", "error", err, "workbook_id", id)
 		return nil, err
 	}
 	defer rows.Close()
@@ -315,6 +342,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		var explanation sql.NullString
 
 		if err := rows.Scan(&qid, &text, &explanation); err != nil {
+			h.logger.Error("failed to scan question", "error", err)
 			return nil, err
 		}
 
@@ -326,6 +354,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 			ORDER BY choice_index
 		`, qid)
 		if err != nil {
+			h.logger.Error("failed to query choices", "error", err, "question_id", qid)
 			return nil, err
 		}
 
@@ -337,6 +366,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 			var choiceIndex int
 			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
 				choiceRows.Close()
+				h.logger.Error("failed to scan choice", "error", err)
 				return nil, err
 			}
 			choices = append(choices, choiceText)
@@ -347,7 +377,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		choiceRows.Close()
 
 		q := api.Question{
-			Id:   qid,
+			Id:      qid,
 			Type:    api.SingleChoice,
 			Text:    text,
 			Choices: choices,
@@ -359,6 +389,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 
 		imageURLs, err := h.getImageURLs(ctx, qid)
 		if err != nil {
+			h.logger.Error("failed to get image URLs", "error", err, "question_id", qid)
 			return nil, err
 		}
 		if len(imageURLs) > 0 {
