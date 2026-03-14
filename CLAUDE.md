@@ -23,7 +23,8 @@ Rikako - 問題集アプリ
 - **画像配信**: S3 + CloudFront (OAC)
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
 - **シークレット管理**: AWS SSM Parameter Store (SecureString)
-- **認証**: GitHub Actions OIDC
+- **認証（API）**: Amazon Cognito User Pool（JWT検証）
+- **認証（CI/CD）**: GitHub Actions OIDC
 - **IaC**: Terraform (Neon Provider使用、S3ネイティブロック)
 - **CI/CD**: GitHub Actions (tfcmt連携)
 
@@ -127,7 +128,17 @@ cd app && oapi-codegen --config oapi-codegen.yaml ../openapi.yaml
    - APIは問題レスポンスの `images` フィールドに画像の完全URLを返す（リダイレクトなし）
    - 画像アップロード: `aws s3 sync data/images/ s3://rikako-images-development/`
 
-3. **OIDC認証**
+3. **Cognito認証（API）**
+   - Amazon Cognito User Poolでユーザー認証
+   - クライアント(iOS/Android)はAmplify SDKでトークン管理
+   - サーバーはJWT検証のみ（`app/internal/auth/`パッケージ）
+   - 環境変数: `COGNITO_USER_POOL_ID`, `COGNITO_REGION`
+   - 環境変数未設定時は認証スキップ（ローカル開発・CI用）
+   - 認証不要エンドポイント: `GET /`, `GET /health`
+   - 認証必須エンドポイント: `/questions`, `/workbooks` 系
+   - JWKSはkid単位でRSA公開鍵をキャッシュ（TTL 1時間）
+
+4. **OIDC認証（CI/CD）**
    - GitHub Actions用のOIDC ProviderとIAM Roleを作成
    - AWS_ACCESS_KEY_ID/SECRET_ACCESS_KEYが不要
    - セキュアな認証方式
@@ -167,6 +178,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
   - Image S3: rikako-images-development
   - Neon DB: muddy-tree-64549662 (ap-southeast-1)
+  - Cognito User Pool: Terraform管理（rikako-development）
   - Terraform State: s3://rikako-dev-terraform-state
 
 ### GitHub Actions ワークフロー

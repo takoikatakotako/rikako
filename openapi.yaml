@@ -8,6 +8,9 @@ servers:
   - url: http://localhost:8080
     description: ローカル開発環境
 
+security:
+  - bearerAuth: []
+
 paths:
   /:
     get:
@@ -15,6 +18,7 @@ paths:
       operationId: root
       tags:
         - System
+      security: []
       responses:
         '200':
           description: OK
@@ -29,6 +33,7 @@ paths:
       operationId: healthCheck
       tags:
         - System
+      security: []
       responses:
         '200':
           description: OK
@@ -62,6 +67,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/QuestionsResponse'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /questions/{questionId}:
     get:
@@ -83,6 +94,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Question'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: 問題が見つからない
           content:
@@ -115,6 +132,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkbooksResponse'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /workbooks/{workbookId}:
     get:
@@ -136,6 +159,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkbookDetail'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: 問題集が見つからない
           content:
@@ -145,6 +174,11 @@ paths:
 
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthResponse:
       type: object

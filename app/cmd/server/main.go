@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/auth"
 	"github.com/takoikatakotako/rikako/internal/handler"
 )
 
@@ -48,9 +49,18 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
+	// 認証ミドルウェア
+	cognitoRegion := os.Getenv("COGNITO_REGION")
+	cognitoUserPoolID := os.Getenv("COGNITO_USER_POOL_ID")
+
+	var middlewares []api.StrictMiddlewareFunc
+	if cognitoRegion != "" && cognitoUserPoolID != "" {
+		middlewares = append(middlewares, auth.NewAuthMiddleware(cognitoRegion, cognitoUserPoolID))
+	}
+
 	// ハンドラー登録
 	h := handler.New(db, imageBaseURL)
-	strictHandler := api.NewStrictHandler(h, nil)
+	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 
 	// サーバー起動

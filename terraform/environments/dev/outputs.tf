@@ -19,3 +19,18 @@ output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions IAM role"
   value       = aws_iam_role.github_actions.arn
 }
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_user_pool_endpoint" {
+  description = "Cognito User Pool endpoint"
+  value       = module.cognito.user_pool_endpoint
+}
+
+output "cognito_client_id" {
+  description = "Cognito User Pool Client ID"
+  value       = module.cognito.client_id
+}
