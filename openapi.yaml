@@ -74,8 +74,8 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       responses:
         '200':
           description: 問題詳細
@@ -127,8 +127,8 @@ paths:
           in: path
           required: true
           schema:
-            type: string
-            format: uuid
+            type: integer
+            format: int64
       responses:
         '200':
           description: 問題集詳細
@@ -173,8 +173,8 @@ components:
         - choices
       properties:
         id:
-          type: string
-          format: uuid
+          type: integer
+          format: int64
         type:
           type: string
           enum:
@@ -219,8 +219,8 @@ components:
         - title
       properties:
         id:
-          type: string
-          format: uuid
+          type: integer
+          format: int64
         title:
           type: string
         description:
@@ -251,8 +251,8 @@ components:
         - questions
       properties:
         id:
-          type: string
-          format: uuid
+          type: integer
+          format: int64
         title:
           type: string
         description:
