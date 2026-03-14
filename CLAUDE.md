@@ -47,9 +47,10 @@ Rikako - 問題集アプリ
 ├── migrations/             # DBマイグレーションファイル
 ├── terraform/
 │   ├── modules/
+│   │   ├── cloudfront/     # CloudFrontモジュール
 │   │   ├── ecr/            # ECRモジュール
-│   │   ├── static_hosting/ # S3 + CloudFrontモジュール
-│   │   └── lambda/         # Lambdaモジュール
+│   │   ├── lambda/         # Lambdaモジュール
+│   │   └── s3/             # S3モジュール
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）
 │       └── dev/            # Dev環境（Lambda + Neon + Image CDN）

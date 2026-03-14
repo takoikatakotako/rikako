@@ -126,28 +126,5 @@ data "aws_iam_policy_document" "github_actions_lambda_deploy" {
   }
 }
 
-# S3 image upload access for GitHub Actions
-resource "aws_iam_role_policy" "github_actions_s3_images" {
-  name   = "s3-images-access"
-  role   = aws_iam_role.github_actions.id
-  policy = data.aws_iam_policy_document.github_actions_s3_images.json
-}
-
-data "aws_iam_policy_document" "github_actions_s3_images" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:PutObject",
-      "s3:GetObject",
-      "s3:DeleteObject",
-      "s3:ListBucket",
-    ]
-    resources = [
-      module.static_hosting.s3_bucket_arn,
-      "${module.static_hosting.s3_bucket_arn}/*",
-    ]
-  }
-}
-
 # Data source for current AWS account ID
 data "aws_caller_identity" "current" {}
