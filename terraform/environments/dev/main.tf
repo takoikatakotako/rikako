@@ -15,6 +15,8 @@ module "lambda" {
     AWS_LWA_READINESS_CHECK_PROTOCOL  = "http"
     AWS_LWA_READINESS_CHECK_PORT      = "8080"
     AWS_LWA_READINESS_CHECK_PATH      = "/health"
+    COGNITO_USER_POOL_ID              = module.cognito.user_pool_id
+    COGNITO_REGION                    = "ap-northeast-1"
   }
 
   log_retention_days = 7
