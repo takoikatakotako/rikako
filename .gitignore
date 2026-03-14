@@ -17,3 +17,9 @@ app/bin/
 secret.auto.tfvars
 .claude/
 app/server
+
+# Xcode
+**/xcuserdata/
+**/*.xcuserstate
+**/DerivedData/
+*.xcscmblueprint
