@@ -48,7 +48,7 @@ Rikako - 問題集アプリ
 ├── terraform/
 │   ├── modules/
 │   │   ├── ecr/            # ECRモジュール
-│   │   ├── image_cdn/      # S3 + CloudFrontモジュール
+│   │   ├── static_hosting/ # S3 + CloudFrontモジュール
 │   │   └── lambda/         # Lambdaモジュール
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）

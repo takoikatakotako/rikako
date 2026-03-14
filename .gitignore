@@ -16,3 +16,4 @@ app/bin/
 *.tfstate.backup
 secret.auto.tfvars
 .claude/
+app/server

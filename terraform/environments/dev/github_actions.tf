@@ -143,8 +143,8 @@ data "aws_iam_policy_document" "github_actions_s3_images" {
       "s3:ListBucket",
     ]
     resources = [
-      module.image_cdn.s3_bucket_arn,
-      "${module.image_cdn.s3_bucket_arn}/*",
+      module.static_hosting.s3_bucket_arn,
+      "${module.static_hosting.s3_bucket_arn}/*",
     ]
   }
 }

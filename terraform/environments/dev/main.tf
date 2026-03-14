@@ -1,6 +1,6 @@
 # Image CDN (S3 + CloudFront)
-module "image_cdn" {
-  source = "../../modules/image_cdn"
+module "static_hosting" {
+  source = "../../modules/static_hosting"
 
   bucket_name = "${local.project}-images-${local.environment}"
 
@@ -24,7 +24,7 @@ module "lambda" {
     DATABASE_URL                      = neon_project.default.connection_uri
     PORT                              = "8080"
     ENVIRONMENT                       = local.environment
-    IMAGE_BASE_URL                    = "https://${module.image_cdn.cloudfront_domain_name}"
+    IMAGE_BASE_URL                    = "https://${module.static_hosting.cloudfront_domain_name}"
     AWS_LWA_READINESS_CHECK_PROTOCOL  = "http"
     AWS_LWA_READINESS_CHECK_PORT      = "8080"
     AWS_LWA_READINESS_CHECK_PATH      = "/health"
