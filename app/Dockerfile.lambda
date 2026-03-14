@@ -24,7 +24,6 @@ COPY --from=builder /app/server /app/server
 
 # Set environment variables
 ENV PORT=8080
-ENV IMAGE_BASE_URL=https://example.com
 
 # Lambda Web Adapter will forward requests to this port
 CMD ["/app/server"]
