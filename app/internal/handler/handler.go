@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/takoikatakotako/rikako/internal/api"
 )
 
@@ -127,8 +126,8 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		choiceRows.Close()
 
 		q := api.Question{
-			Id:      uuid.MustParse(uuidFromInt(id)),
-			Type:    api.SingleChoice,
+			Id:   id,
+			Type: api.SingleChoice,
 			Text:    text,
 			Choices: choices,
 			Correct: &correct,
@@ -200,8 +199,8 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 	}
 
 	q := api.Question{
-		Id:      request.QuestionId,
-		Type:    api.SingleChoice,
+		Id:   id,
+		Type: api.SingleChoice,
 		Text:    text,
 		Choices: choices,
 		Correct: &correct,
@@ -263,7 +262,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		}
 
 		w := api.Workbook{
-			Id:            uuid.MustParse(uuidFromInt(id)),
+			Id:            id,
 			Title:         title,
 			QuestionCount: &questionCount,
 		}
@@ -348,7 +347,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		choiceRows.Close()
 
 		q := api.Question{
-			Id:      uuid.MustParse(uuidFromInt(qid)),
+			Id:   qid,
 			Type:    api.SingleChoice,
 			Text:    text,
 			Choices: choices,
@@ -370,7 +369,7 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 	}
 
 	w := api.WorkbookDetail{
-		Id:        request.WorkbookId,
+		Id:        id,
 		Title:     title,
 		Questions: questions,
 	}
@@ -379,10 +378,4 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 	}
 
 	return api.GetWorkbook200JSONResponse(w), nil
-}
-
-// TODO: DBのIDがBIGINTなので、UUIDとの変換が必要
-// 本来はDBにUUIDを格納するか、別途マッピングテーブルを用意すべき
-func uuidFromInt(id int64) string {
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(string(rune(id)))).String()
 }

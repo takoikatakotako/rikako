@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/api"
 )
@@ -90,8 +89,8 @@ func TestGetQuestions(t *testing.T) {
 		}
 
 		q := res.Questions[0]
-		if q.Id == uuid.Nil {
-			t.Error("expected question ID to be non-nil")
+		if q.Id == 0 {
+			t.Error("expected question ID to be non-zero")
 		}
 		if q.Text == "" {
 			t.Error("expected question text to be non-empty")
@@ -124,8 +123,52 @@ func TestGetQuestions(t *testing.T) {
 	})
 }
 
-// TODO: GetQuestion / GetWorkbook の個別取得テストは #22 (UUID移行) 後に追加
-// 現在はDBがBIGINT IDだがAPIはUUIDを受け取るためテスト不可
+func TestGetQuestion(t *testing.T) {
+	h := New(testDB, "https://cdn.example.com")
+
+	t.Run("existing question", func(t *testing.T) {
+		var dbID int64
+		err := testDB.QueryRow("SELECT id FROM questions ORDER BY id LIMIT 1").Scan(&dbID)
+		if err != nil {
+			t.Skip("no questions in DB")
+		}
+
+		resp, err := h.GetQuestion(context.Background(), api.GetQuestionRequestObject{
+			QuestionId: dbID,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		res, ok := resp.(api.GetQuestion200JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetQuestion200JSONResponse, got %T", resp)
+		}
+		if res.Id != dbID {
+			t.Errorf("expected ID %d, got %d", dbID, res.Id)
+		}
+		if res.Text == "" {
+			t.Error("expected text to be non-empty")
+		}
+		if len(res.Choices) == 0 {
+			t.Error("expected choices to be non-empty")
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		resp, err := h.GetQuestion(context.Background(), api.GetQuestionRequestObject{
+			QuestionId: 999999999,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		_, ok := resp.(api.GetQuestion404JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetQuestion404JSONResponse, got %T", resp)
+		}
+	})
+}
 
 func TestGetWorkbooks(t *testing.T) {
 	h := New(testDB, "https://cdn.example.com")
@@ -156,6 +199,49 @@ func TestGetWorkbooks(t *testing.T) {
 	}
 }
 
+func TestGetWorkbook(t *testing.T) {
+	h := New(testDB, "https://cdn.example.com")
+
+	t.Run("existing workbook", func(t *testing.T) {
+		var dbID int64
+		err := testDB.QueryRow("SELECT id FROM workbooks ORDER BY id LIMIT 1").Scan(&dbID)
+		if err != nil {
+			t.Skip("no workbooks in DB")
+		}
+
+		resp, err := h.GetWorkbook(context.Background(), api.GetWorkbookRequestObject{
+			WorkbookId: dbID,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		res, ok := resp.(api.GetWorkbook200JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetWorkbook200JSONResponse, got %T", resp)
+		}
+		if res.Title == "" {
+			t.Error("expected title to be non-empty")
+		}
+		if len(res.Questions) == 0 {
+			t.Error("expected questions to be non-empty")
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		resp, err := h.GetWorkbook(context.Background(), api.GetWorkbookRequestObject{
+			WorkbookId: 999999999,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		_, ok := resp.(api.GetWorkbook404JSONResponse)
+		if !ok {
+			t.Fatalf("expected GetWorkbook404JSONResponse, got %T", resp)
+		}
+	})
+}
 
 func TestGetQuestionsWithImages(t *testing.T) {
 	h := New(testDB, "https://cdn.example.com")

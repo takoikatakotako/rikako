@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for QuestionType.
@@ -53,8 +52,8 @@ type Question struct {
 	Correct *int `json:"correct,omitempty"`
 
 	// Explanation 解説
-	Explanation *string            `json:"explanation,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
+	Explanation *string `json:"explanation,omitempty"`
+	Id          int64   `json:"id"`
 
 	// Images 画像URL
 	Images *[]string    `json:"images,omitempty"`
@@ -75,8 +74,8 @@ type QuestionsResponse struct {
 
 // Workbook defines model for Workbook.
 type Workbook struct {
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
+	Description *string `json:"description,omitempty"`
+	Id          int64   `json:"id"`
 
 	// QuestionCount 問題数
 	QuestionCount *int   `json:"questionCount,omitempty"`
@@ -85,10 +84,10 @@ type Workbook struct {
 
 // WorkbookDetail defines model for WorkbookDetail.
 type WorkbookDetail struct {
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Questions   []Question         `json:"questions"`
-	Title       string             `json:"title"`
+	Description *string    `json:"description,omitempty"`
+	Id          int64      `json:"id"`
+	Questions   []Question `json:"questions"`
+	Title       string     `json:"title"`
 }
 
 // WorkbooksResponse defines model for WorkbooksResponse.
@@ -123,13 +122,13 @@ type ServerInterface interface {
 	GetQuestions(ctx echo.Context, params GetQuestionsParams) error
 	// 問題詳細取得
 	// (GET /questions/{questionId})
-	GetQuestion(ctx echo.Context, questionId openapi_types.UUID) error
+	GetQuestion(ctx echo.Context, questionId int64) error
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx echo.Context, params GetWorkbooksParams) error
 	// 問題集詳細取得
 	// (GET /workbooks/{workbookId})
-	GetWorkbook(ctx echo.Context, workbookId openapi_types.UUID) error
+	GetWorkbook(ctx echo.Context, workbookId int64) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -184,9 +183,9 @@ func (w *ServerInterfaceWrapper) GetQuestions(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "questionId" -------------
-	var questionId openapi_types.UUID
+	var questionId int64
 
-	err = runtime.BindStyledParameterWithOptions("simple", "questionId", ctx.Param("questionId"), &questionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	err = runtime.BindStyledParameterWithOptions("simple", "questionId", ctx.Param("questionId"), &questionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter questionId: %s", err))
 	}
@@ -225,9 +224,9 @@ func (w *ServerInterfaceWrapper) GetWorkbooks(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetWorkbook(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "workbookId" -------------
-	var workbookId openapi_types.UUID
+	var workbookId int64
 
-	err = runtime.BindStyledParameterWithOptions("simple", "workbookId", ctx.Param("workbookId"), &workbookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	err = runtime.BindStyledParameterWithOptions("simple", "workbookId", ctx.Param("workbookId"), &workbookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workbookId: %s", err))
 	}
@@ -324,7 +323,7 @@ func (response GetQuestions200JSONResponse) VisitGetQuestionsResponse(w http.Res
 }
 
 type GetQuestionRequestObject struct {
-	QuestionId openapi_types.UUID `json:"questionId"`
+	QuestionId int64 `json:"questionId"`
 }
 
 type GetQuestionResponseObject interface {
@@ -367,7 +366,7 @@ func (response GetWorkbooks200JSONResponse) VisitGetWorkbooksResponse(w http.Res
 }
 
 type GetWorkbookRequestObject struct {
-	WorkbookId openapi_types.UUID `json:"workbookId"`
+	WorkbookId int64 `json:"workbookId"`
 }
 
 type GetWorkbookResponseObject interface {
@@ -498,7 +497,7 @@ func (sh *strictHandler) GetQuestions(ctx echo.Context, params GetQuestionsParam
 }
 
 // GetQuestion operation middleware
-func (sh *strictHandler) GetQuestion(ctx echo.Context, questionId openapi_types.UUID) error {
+func (sh *strictHandler) GetQuestion(ctx echo.Context, questionId int64) error {
 	var request GetQuestionRequestObject
 
 	request.QuestionId = questionId
@@ -548,7 +547,7 @@ func (sh *strictHandler) GetWorkbooks(ctx echo.Context, params GetWorkbooksParam
 }
 
 // GetWorkbook operation middleware
-func (sh *strictHandler) GetWorkbook(ctx echo.Context, workbookId openapi_types.UUID) error {
+func (sh *strictHandler) GetWorkbook(ctx echo.Context, workbookId int64) error {
 	var request GetWorkbookRequestObject
 
 	request.WorkbookId = workbookId
