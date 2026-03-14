@@ -100,6 +100,20 @@ cd app && go run ./cmd/server
 cd app && go build -o bin/server ./cmd/server
 ```
 
+### Terraform操作
+```bash
+# SSO ログイン（dev環境）
+aws sso login --profile rikako-development-sso
+
+# SSO ログイン（shared環境）
+aws sso login --profile rikako-shared-sso
+
+# Plan/Apply（dev環境）
+cd terraform/environments/dev
+AWS_PROFILE=rikako-development-sso terraform plan
+AWS_PROFILE=rikako-development-sso terraform apply
+```
+
 ### ドキュメント生成
 ```bash
 # スキーマドキュメント
