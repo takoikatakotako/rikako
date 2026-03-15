@@ -9,6 +9,7 @@ on:
     branches: [ main ]
     paths:
       - 'ios/**'
+    types: [ opened, synchronize, reopened, labeled ]
 
 permissions:
   contents: write
@@ -42,7 +43,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   screenshots:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'screenshots')
     runs-on: macos-26
     needs: build
 
