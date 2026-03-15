@@ -10,6 +10,10 @@ on:
     paths:
       - 'ios/**'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: macos-26
@@ -36,3 +40,148 @@ jobs:
             -skip-testing:RikakoUITests/ScreenshotTests \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
+
+  screenshots:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run screenshot tests
+        working-directory: ./ios
+        run: |
+          xcodebuild test \
+            -scheme Rikako \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -only-testing:RikakoUITests/ScreenshotTests \
+            -resultBundlePath build/screenshots.xcresult \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Extract screenshots
+        working-directory: ./ios
+        run: |
+          mkdir -p screenshots
+          python3 - build/screenshots.xcresult screenshots <<'PYTHON'
+          import json, subprocess, sys, os
+
+          xcresult = sys.argv[1]
+          output_dir = sys.argv[2]
+
+          def xcresult_get(ref_id=None):
+              cmd = ["xcrun", "xcresulttool", "get", "--path", xcresult, "--format", "json", "--legacy"]
+              if ref_id:
+                  cmd += ["--id", ref_id]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              return json.loads(result.stdout)
+
+          def find_by_type(obj, type_name, results=None):
+              if results is None:
+                  results = []
+              if isinstance(obj, dict):
+                  if obj.get("_type", {}).get("_name") == type_name:
+                      results.append(obj)
+                  for v in obj.values():
+                      find_by_type(v, type_name, results)
+              elif isinstance(obj, list):
+                  for item in obj:
+                      find_by_type(item, type_name, results)
+              return results
+
+          top = xcresult_get()
+          actions = top.get("actions", {}).get("_values", [])
+          tests_ref = None
+          for action in actions:
+              ref = action.get("actionResult", {}).get("testsRef", {}).get("id", {}).get("_value")
+              if ref:
+                  tests_ref = ref
+                  break
+
+          tests_data = xcresult_get(tests_ref)
+          test_metadatas = find_by_type(tests_data, "ActionTestMetadata")
+
+          for meta in test_metadatas:
+              summary_ref = meta.get("summaryRef", {}).get("id", {}).get("_value")
+              if not summary_ref:
+                  continue
+              summary = xcresult_get(summary_ref)
+              attachments = find_by_type(summary, "ActionTestAttachment")
+              for att in attachments:
+                  name = att.get("name", {}).get("_value", "")
+                  payload_ref = att.get("payloadRef", {}).get("id", {}).get("_value", "")
+                  if not name or not payload_ref:
+                      continue
+                  output_path = os.path.join(output_dir, f"{name}.png")
+                  subprocess.run([
+                      "xcrun", "xcresulttool", "export",
+                      "--type", "file", "--path", xcresult,
+                      "--id", payload_ref, "--output-path", output_path, "--legacy"
+                  ], check=True)
+                  print(f"Extracted: {name}.png")
+          PYTHON
+
+      - name: Push screenshots to branch
+        run: |
+          BRANCH="screenshots/${{ github.event.pull_request.number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan "$BRANCH"
+          git rm -rf .
+          cp ios/screenshots/0*.png .
+          git add *.png
+          git commit -m "Screenshots for PR #${{ github.event.pull_request.number }}"
+          git push origin "$BRANCH" --force
+
+      - name: Comment on PR with screenshots
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = `screenshots/${context.issue.number}`;
+            const repo = context.repo;
+            const baseUrl = `https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/${branch}`;
+
+            const screens = [
+              { file: '01_workbook_list', label: '問題集一覧' },
+              { file: '02_workbook_detail', label: '問題集詳細' },
+              { file: '03_quiz_before_answer', label: 'クイズ(解答前)' },
+              { file: '04_quiz_after_answer', label: 'クイズ(解答後)' },
+              { file: '05_result', label: '結果' },
+            ];
+
+            let body = '## 📱 iOS Screenshots\n\n';
+            body += screens.map(s => `### ${s.label}\n<img src="${baseUrl}/${s.file}.png" width="300">\n`).join('\n');
+            body += '\n---\n*Auto-generated by CI*';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.body && c.body.includes('## 📱 iOS Screenshots')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: repo.owner,
+                repo: repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Clean up screenshots branch
+        if: github.event.pull_request.merged == true || github.event.action == 'closed'
+        run: |
+          git push origin --delete "screenshots/${{ github.event.pull_request.number }}" || true
