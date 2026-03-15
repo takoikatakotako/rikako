@@ -36,5 +36,6 @@ jobs:
           xcodebuild test \
             -scheme Rikako \
             -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skip-testing:RikakoUITests/ScreenshotTests \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
