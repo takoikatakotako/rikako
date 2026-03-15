@@ -2,9 +2,23 @@ import SwiftUI
 
 struct SettingsView: View {
     @Binding var isLoggedIn: Bool
+    @AppStorage("selectedCategory") private var selectedCategoryRaw = ""
+
+    private var selectedCategory: Category? {
+        Category(rawValue: selectedCategoryRaw)
+    }
 
     var body: some View {
         List {
+            Section("カテゴリ") {
+                Picker("学習カテゴリ", selection: $selectedCategoryRaw) {
+                    ForEach(Category.allCases) { category in
+                        Label(category.displayName, systemImage: category.icon)
+                            .tag(category.rawValue)
+                    }
+                }
+            }
+
             Section("アカウント") {
                 NavigationLink(destination: ProfileView()) {
                     HStack {
