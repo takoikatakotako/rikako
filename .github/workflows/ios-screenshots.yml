@@ -100,6 +100,17 @@ jobs:
         working-directory: ./ios
         run: |
           brew install imagemagick
+          FONT="/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc"
+          if [ ! -f "$FONT" ]; then
+            FONT="/System/Library/Fonts/Hiragino Sans GB.ttc"
+          fi
+          if [ ! -f "$FONT" ]; then
+            FONT=""
+          fi
+          FONT_ARGS=""
+          if [ -n "$FONT" ]; then
+            FONT_ARGS="-font $FONT"
+          fi
           montage \
             -label '問題集一覧' screenshots/01_workbook_list.png \
             -label '問題集詳細' screenshots/02_workbook_detail.png \
@@ -108,6 +119,7 @@ jobs:
             -label '結果' screenshots/05_result.png \
             -tile 5x1 -geometry 300x+20+20 \
             -background '#f5f5f5' -pointsize 18 \
+            $FONT_ARGS \
             screenshots/board.png
 
       - name: Upload screenshots artifact
