@@ -1,12 +1,39 @@
 import SwiftUI
 
 struct WorkbookListView: View {
-    let workbooks = MockData.workbooks
+    @State private var selectedCategoryRaw = ""
+
+    private var selectedCategory: Category? {
+        Category(rawValue: selectedCategoryRaw)
+    }
+
+    private var workbooks: [Workbook] {
+        if let category = selectedCategory {
+            return MockData.workbooks(for: category)
+        }
+        return MockData.workbooks
+    }
 
     var body: some View {
-        List(workbooks) { workbook in
-            NavigationLink(destination: WorkbookDetailView(workbookID: workbook.id)) {
-                WorkbookRow(workbook: workbook)
+        List {
+            if let category = selectedCategory {
+                Section {
+                    HStack {
+                        Image(systemName: category.icon)
+                            .foregroundStyle(Color.accentColor)
+                        Text(category.displayName)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
+                ForEach(workbooks) { workbook in
+                    NavigationLink(destination: WorkbookDetailView(workbookID: workbook.id)) {
+                        WorkbookRow(workbook: workbook)
+                    }
+                }
             }
         }
         .navigationTitle("問題集")
