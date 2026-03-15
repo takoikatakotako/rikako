@@ -10,6 +10,7 @@ on:
     paths:
       - 'ios/**'
     types: [ opened, synchronize, reopened, labeled ]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -43,7 +44,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   screenshots:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'screenshots')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'screenshots'))
     runs-on: macos-26
     needs: build
 
@@ -124,7 +127,31 @@ jobs:
                   print(f"Extracted: {name}.png")
           PYTHON
 
+      - name: Generate screenshot board
+        working-directory: ./ios
+        run: |
+          brew install imagemagick
+          montage \
+            -label '問題集一覧' screenshots/01_workbook_list.png \
+            -label '問題集詳細' screenshots/02_workbook_detail.png \
+            -label 'クイズ(解答前)' screenshots/03_quiz_before_answer.png \
+            -label 'クイズ(解答後)' screenshots/04_quiz_after_answer.png \
+            -label '結果' screenshots/05_result.png \
+            -tile 5x1 -geometry 300x+20+20 \
+            -background '#f5f5f5' -pointsize 18 \
+            screenshots/board.png
+
+      - name: Upload screenshots artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-screenshots
+          path: |
+            ios/screenshots/board.png
+            ios/screenshots/0*.png
+          retention-days: 10
+
       - name: Push screenshots to branch
+        if: github.event_name == 'pull_request'
         run: |
           BRANCH="screenshots/${{ github.event.pull_request.number }}"
           git config user.name "github-actions[bot]"
@@ -137,6 +164,7 @@ jobs:
           git push origin "$BRANCH" --force
 
       - name: Comment on PR with screenshots
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -183,6 +211,6 @@ jobs:
             }
 
       - name: Clean up screenshots branch
-        if: github.event.pull_request.merged == true || github.event.action == 'closed'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.merged == true || github.event.action == 'closed')
         run: |
           git push origin --delete "screenshots/${{ github.event.pull_request.number }}" || true
