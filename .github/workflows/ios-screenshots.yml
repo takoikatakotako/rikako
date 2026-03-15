@@ -101,10 +101,7 @@ jobs:
         run: |
           brew install imagemagick
           ls screenshots/
-          montage -label '' screenshots/0*.png \
-            -tile x2 -geometry 300x+16+16 \
-            -background '#f5f5f5' \
-            screenshots/board.png
+          convert screenshots/0*.png -resize 300x +append screenshots/board.png
 
       - name: Upload screenshots artifact
         uses: actions/upload-artifact@v4
