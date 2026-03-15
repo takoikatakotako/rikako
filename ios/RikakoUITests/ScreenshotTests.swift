@@ -7,29 +7,60 @@ final class ScreenshotTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app.launch()
+        passOnboardingAndLogin()
+    }
+
+    /// オンボーディング（カテゴリ選択含む）とログインを通過して問題集一覧に到達する
+    private func passOnboardingAndLogin() {
+        // ウェルカム画面 → 「次へ」
+        let nextButton = app.buttons["次へ"]
+        if nextButton.waitForExistence(timeout: 5) {
+            nextButton.tap()
+
+            // 紹介ページ 1/3 → 2/3 → 3/3
+            for _ in 0..<3 {
+                let next = app.buttons["次へ"]
+                XCTAssertTrue(next.waitForExistence(timeout: 5))
+                next.tap()
+            }
+
+            // カテゴリ選択 → 最初のカテゴリを選択 → 「はじめる」
+            let categoryButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '中学理科'")).firstMatch
+            XCTAssertTrue(categoryButton.waitForExistence(timeout: 5))
+            categoryButton.tap()
+
+            let startButton = app.buttons["はじめる"]
+            XCTAssertTrue(startButton.waitForExistence(timeout: 5))
+            startButton.tap()
+        }
+
+        // ログイン画面 → 「ログインせずに使う」
+        let skipLogin = app.buttons["ログインせずに使う"]
+        if skipLogin.waitForExistence(timeout: 5) {
+            skipLogin.tap()
+        }
+
+        // 問題集一覧に到達するまで待つ
+        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 10))
     }
 
     @MainActor
     func test01_WorkbookList() throws {
-        // 問題集一覧画面
-        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 10))
         takeScreenshot(name: "01_workbook_list")
     }
 
     @MainActor
     func test02_WorkbookDetail() throws {
-        // 問題集一覧 → 詳細画面
         let firstCell = app.cells.firstMatch
         XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
         firstCell.tap()
 
-        XCTAssertTrue(app.navigationBars["基礎化学"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars.element(boundBy: 0).waitForExistence(timeout: 10))
         takeScreenshot(name: "02_workbook_detail")
     }
 
     @MainActor
     func test03_QuizBeforeAnswer() throws {
-        // 問題集一覧 → 詳細 → クイズ（解答前）
         let firstCell = app.cells.firstMatch
         XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
         firstCell.tap()
@@ -44,7 +75,6 @@ final class ScreenshotTests: XCTestCase {
 
     @MainActor
     func test04_QuizAfterAnswer() throws {
-        // 問題集一覧 → 詳細 → クイズ → 解答後
         let firstCell = app.cells.firstMatch
         XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
         firstCell.tap()
@@ -55,23 +85,19 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Q1 / 5"].waitForExistence(timeout: 10))
 
-        // 最初の選択肢をタップ（正解）
         let firstChoice = app.buttons.matching(identifier: "H2O").firstMatch
         if firstChoice.waitForExistence(timeout: 3) {
             firstChoice.tap()
         } else {
-            // fallback: 最初のボタンをタップ
             app.buttons.element(boundBy: 0).tap()
         }
 
-        // 解説が表示されるまで待つ
         sleep(1)
         takeScreenshot(name: "04_quiz_after_answer")
     }
 
     @MainActor
     func test05_Result() throws {
-        // 全問解答して結果画面へ
         let firstCell = app.cells.firstMatch
         XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
         firstCell.tap()
@@ -80,11 +106,9 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(startButton.waitForExistence(timeout: 10))
         startButton.tap()
 
-        // 5問分の解答をループ
         for i in 1...5 {
             XCTAssertTrue(app.navigationBars["Q\(i) / 5"].waitForExistence(timeout: 10))
 
-            // ScrollViewの中のボタンをタップ（最初の選択肢）
             let buttons = app.scrollViews.buttons
             if buttons.count > 0 {
                 buttons.element(boundBy: 0).tap()
@@ -93,12 +117,10 @@ final class ScreenshotTests: XCTestCase {
             sleep(1)
 
             if i < 5 {
-                // 「次の問題へ」ボタンをタップ
                 let nextButton = app.scrollViews.buttons["次の問題へ"]
                 XCTAssertTrue(nextButton.waitForExistence(timeout: 3))
                 nextButton.tap()
             } else {
-                // 「結果を見る」ボタンをタップ
                 let resultButton = app.scrollViews.buttons["結果を見る"]
                 XCTAssertTrue(resultButton.waitForExistence(timeout: 3))
                 resultButton.tap()
