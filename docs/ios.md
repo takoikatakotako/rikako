@@ -5,73 +5,73 @@
 ### オンボーディングフロー
 
 ```mermaid
-stateDiagram-v2
-    [*] --> ウェルカム: 初回起動
-    [*] --> ログイン: 2回目以降(未ログイン)
-    [*] --> 問題集一覧: 2回目以降(ログイン済み)
-
-    state オンボーディング {
-        ウェルカム --> 紹介1
-        紹介1 --> 紹介2
-        紹介2 --> 紹介3
-    }
-
-    紹介3 --> サインアップ: 新規登録
-    紹介3 --> ログイン: ログイン
-    紹介3 --> 問題集一覧: スキップ
-    サインアップ --> 問題集一覧
-    ログイン --> 問題集一覧
+flowchart LR
+    A[アプリ起動] --> B{初回起動?}
+    B -->|Yes| C[ウェルカム画面]
+    C --> D[アプリ紹介 1/3]
+    D --> E[アプリ紹介 2/3]
+    E --> F[アプリ紹介 3/3]
+    F --> G{アカウント}
+    G -->|新規登録| H[サインアップ画面]
+    G -->|ログイン| I[ログイン画面]
+    G -->|スキップ| J[問題集一覧]
+    H --> J
+    I --> J
+    B -->|No| K{ログイン済み?}
+    K -->|Yes| J
+    K -->|No| I
 ```
 
 ### メインフロー
 
 ```mermaid
-stateDiagram-v2
-    state メイン {
-        問題集一覧 --> 問題集詳細: 問題集を選択
-        問題集詳細 --> クイズ解答: この問題集を解く
-        問題集一覧 --> 設定
-
-        state クイズ {
-            クイズ解答 --> 正誤表示: 選択肢をタップ
-            正誤表示 --> クイズ解答: 次の問題へ
-            正誤表示 --> 結果: 最後の問題
-        }
-
-        結果 --> 問題集一覧: 一覧に戻る
-    }
+flowchart LR
+    A[問題集一覧] --> B[問題集詳細]
+    B --> C[クイズ解答]
+    C --> D{解答}
+    D --> E[正誤表示 + 解説]
+    E --> F{最後の問題?}
+    F -->|No| C
+    F -->|Yes| G[結果画面]
+    G --> A
 ```
 
-### 全体画面遷移
+### 全体画面一覧
 
 ```mermaid
-stateDiagram-v2
-    direction LR
+flowchart LR
+    subgraph オンボーディング
+        Welcome[ウェルカム]
+        Intro1[紹介 1/3]
+        Intro2[紹介 2/3]
+        Intro3[紹介 3/3]
+    end
 
-    state オンボーディング {
-        ウェルカム --> 紹介1 --> 紹介2 --> 紹介3
-    }
+    subgraph 認証
+        SignUp[サインアップ]
+        Login[ログイン]
+    end
 
-    state 認証 {
-        サインアップ
-        ログイン
-    }
+    subgraph メイン
+        WorkbookList[問題集一覧]
+        WorkbookDetail[問題集詳細]
+        Quiz[クイズ解答]
+        Result[結果]
+    end
 
-    state メイン {
-        問題集一覧 --> 問題集詳細
-        問題集詳細 --> クイズ解答
-        クイズ解答 --> 結果
-        結果 --> 問題集一覧
-        問題集一覧 --> 設定
-        設定 --> プロフィール
-    }
+    subgraph 設定
+        Settings[設定]
+        Profile[プロフィール]
+    end
 
-    [*] --> オンボーディング: 初回
-    [*] --> 認証: 未ログイン
-    [*] --> メイン: ログイン済み
-    オンボーディング --> 認証
-    オンボーディング --> メイン: スキップ
-    認証 --> メイン
+    Welcome --> Intro1 --> Intro2 --> Intro3
+    Intro3 --> SignUp
+    Intro3 --> Login
+    Intro3 --> WorkbookList
+    SignUp --> WorkbookList
+    Login --> WorkbookList
+    WorkbookList --> WorkbookDetail --> Quiz --> Result --> WorkbookList
+    WorkbookList --> Settings --> Profile
 ```
 
 ## 画面詳細
