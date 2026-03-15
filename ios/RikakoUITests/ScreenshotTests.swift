@@ -55,7 +55,9 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
         firstCell.tap()
 
-        XCTAssertTrue(app.navigationBars.element(boundBy: 0).waitForExistence(timeout: 10))
+        // 問題集詳細画面に遷移したことを「この問題集を解く」ボタンで確認
+        let startButton = app.buttons["この問題集を解く"]
+        XCTAssertTrue(startButton.waitForExistence(timeout: 10))
         takeScreenshot(name: "02_workbook_detail")
     }
 
