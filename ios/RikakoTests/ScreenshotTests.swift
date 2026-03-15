@@ -93,12 +93,19 @@ final class ScreenshotTests: XCTestCase {
 
     @MainActor
     private func takeScreenshot<V: View>(view: V, name: String) {
-        let renderer = ImageRenderer(content: view.frame(width: size.width, height: size.height))
-        renderer.scale = 3.0
+        let hostingController = UIHostingController(rootView: view)
+        hostingController.view.frame = CGRect(origin: .zero, size: size)
 
-        guard let image = renderer.uiImage else {
-            XCTFail("Failed to render \(name)")
-            return
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.rootViewController = hostingController
+        window.makeKeyAndVisible()
+
+        hostingController.view.setNeedsLayout()
+        hostingController.view.layoutIfNeeded()
+
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let image = renderer.image { _ in
+            hostingController.view.drawHierarchy(in: hostingController.view.bounds, afterScreenUpdates: true)
         }
 
         let attachment = XCTAttachment(image: image)
