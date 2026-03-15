@@ -102,8 +102,8 @@ jobs:
           brew install imagemagick
           ls screenshots/
           montage screenshots/0*.png \
-            -tile x1 -geometry 300x+20+20 \
-            -background '#f5f5f5' \
+            -tile x2 -geometry 300x+16+16 \
+            -background '#f5f5f5' +label \
             screenshots/board.png
 
       - name: Upload screenshots artifact
