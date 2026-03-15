@@ -13,6 +13,7 @@ nav:
   - Home: index.md
   - アーキテクチャ: architecture.md
   - 問題形式仕様書: question-types.md
+  - iOSアプリ: ios.md
   - API: api/index.html
   - DBスキーマ:
       - 概要: schema/README.md
