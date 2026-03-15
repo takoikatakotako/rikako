@@ -23,3 +23,6 @@ app/server
 **/*.xcuserstate
 **/DerivedData/
 *.xcscmblueprint
+ios/screenshots/
+ios/build/
+.DS_Store
