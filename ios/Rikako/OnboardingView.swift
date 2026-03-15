@@ -2,7 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var hasCompletedOnboarding: Bool
-    @AppStorage("selectedCategory") private var selectedCategoryRaw = ""
+    @State private var selectedCategoryRaw = ""
     @State private var currentPage = 0
 
     var body: some View {

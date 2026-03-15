@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var hasCompletedOnboarding = false
     @State private var isLoggedIn = false
 
     var body: some View {

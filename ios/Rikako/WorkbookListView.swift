@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WorkbookListView: View {
-    @AppStorage("selectedCategory") private var selectedCategoryRaw = ""
+    @State private var selectedCategoryRaw = ""
 
     private var selectedCategory: Category? {
         Category(rawValue: selectedCategoryRaw)
