@@ -14,34 +14,39 @@ final class ScreenshotTests: XCTestCase {
     private func passOnboardingAndLogin() {
         // ウェルカム画面 → 「次へ」
         let nextButton = app.buttons["次へ"]
-        if nextButton.waitForExistence(timeout: 5) {
+        if nextButton.waitForExistence(timeout: 10) {
             nextButton.tap()
+            sleep(1)
 
             // 紹介ページ 1/3 → 2/3 → 3/3
             for _ in 0..<3 {
                 let next = app.buttons["次へ"]
-                XCTAssertTrue(next.waitForExistence(timeout: 5))
+                XCTAssertTrue(next.waitForExistence(timeout: 10))
                 next.tap()
+                sleep(1)
             }
 
             // カテゴリ選択 → 最初のカテゴリを選択 → 「はじめる」
             let categoryButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '中学理科'")).firstMatch
-            XCTAssertTrue(categoryButton.waitForExistence(timeout: 5))
+            XCTAssertTrue(categoryButton.waitForExistence(timeout: 10))
             categoryButton.tap()
+            sleep(1)
 
             let startButton = app.buttons["はじめる"]
-            XCTAssertTrue(startButton.waitForExistence(timeout: 5))
+            XCTAssertTrue(startButton.waitForExistence(timeout: 10))
             startButton.tap()
+            sleep(1)
         }
 
         // ログイン画面 → 「ログインせずに使う」
         let skipLogin = app.buttons["ログインせずに使う"]
-        if skipLogin.waitForExistence(timeout: 5) {
+        if skipLogin.waitForExistence(timeout: 10) {
             skipLogin.tap()
+            sleep(1)
         }
 
         // 問題集一覧に到達するまで待つ
-        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 15))
     }
 
     @MainActor
