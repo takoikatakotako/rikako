@@ -11,15 +11,16 @@ flowchart LR
     C --> D[アプリ紹介 1/3]
     D --> E[アプリ紹介 2/3]
     E --> F[アプリ紹介 3/3]
-    F --> G{アカウント}
-    G -->|新規登録| H[サインアップ画面]
-    G -->|ログイン| I[ログイン画面]
-    G -->|スキップ| J[問題集一覧]
-    H --> J
-    I --> J
-    B -->|No| K{ログイン済み?}
-    K -->|Yes| J
-    K -->|No| I
+    F --> G[カテゴリ選択]
+    G --> H{アカウント}
+    H -->|新規登録| I[サインアップ画面]
+    H -->|ログイン| J[ログイン画面]
+    H -->|スキップ| K[問題集一覧]
+    I --> K
+    J --> K
+    B -->|No| L{ログイン済み?}
+    L -->|Yes| K
+    L -->|No| J
 ```
 
 ### メインフロー
@@ -45,6 +46,7 @@ flowchart LR
         Intro1[紹介 1/3]
         Intro2[紹介 2/3]
         Intro3[紹介 3/3]
+        CategorySelect[カテゴリ選択]
     end
 
     subgraph 認証
@@ -64,10 +66,10 @@ flowchart LR
         Profile[プロフィール]
     end
 
-    Welcome --> Intro1 --> Intro2 --> Intro3
-    Intro3 --> SignUp
-    Intro3 --> Login
-    Intro3 --> WorkbookList
+    Welcome --> Intro1 --> Intro2 --> Intro3 --> CategorySelect
+    CategorySelect --> SignUp
+    CategorySelect --> Login
+    CategorySelect --> WorkbookList
     SignUp --> WorkbookList
     Login --> WorkbookList
     WorkbookList --> WorkbookDetail --> Quiz --> Result --> WorkbookList
@@ -80,11 +82,12 @@ flowchart LR
 |------|------|------|
 | ウェルカム | 実装済み | 初回起動時のウェルカム画面 |
 | アプリ紹介 (1-3) | 実装済み | アプリの機能紹介スライド |
+| カテゴリ選択 | 実装済み | 学習カテゴリの選択（中学理科・化学基礎・化学・大学一般化学） |
 | サインアップ | 実装済み | メール+パスワード（モック） |
 | ログイン | 実装済み | メール+パスワード（モック） |
 | 問題集一覧 | 実装済み | 問題集のリスト表示（タイトル、説明、問題数） |
 | 問題集詳細 | 実装済み | 問題リスト + 「この問題集を解く」ボタン |
 | クイズ解答 | 実装済み | 問題文 + 選択肢、正誤表示 + 解説 |
 | 結果 | 実装済み | スコア、正誤一覧、一覧に戻る |
-| 設定 | 実装済み | アカウント情報、学習統計、ログアウト |
+| 設定 | 実装済み | カテゴリ変更、アカウント情報、学習統計、ログアウト |
 | プロフィール | 実装済み | ユーザー情報、学習記録 |
