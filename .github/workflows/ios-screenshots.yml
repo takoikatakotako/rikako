@@ -32,6 +32,8 @@ jobs:
             -only-testing:RikakoUITests/ScreenshotTests \
             -resultBundlePath build/screenshots.xcresult \
             -configuration Debug \
+            -retry-tests-on-failure \
+            -test-iterations 3 \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Extract screenshots
