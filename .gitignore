@@ -17,6 +17,7 @@ app/bin/
 secret.auto.tfvars
 .claude/
 app/server
+app/admin
 
 # Xcode
 **/xcuserdata/

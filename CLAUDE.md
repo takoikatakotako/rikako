@@ -33,13 +33,17 @@ Rikako - 問題集アプリ
 ```
 ├── app/
 │   ├── cmd/
-│   │   ├── server/         # APIサーバー
+│   │   ├── server/         # 公開APIサーバー
+│   │   ├── admin/          # 管理APIサーバー
 │   │   └── importer/       # データインポートツール
 │   ├── internal/
-│   │   ├── api/            # 生成されたAPIコード
-│   │   ├── handler/        # ハンドラー実装
+│   │   ├── api/            # 生成されたAPIコード（公開API）
+│   │   ├── adminapi/       # 生成されたAPIコード（管理API）
+│   │   ├── handler/        # 公開APIハンドラー実装
+│   │   ├── admin/          # 管理APIハンドラー実装
 │   │   └── importer/       # インポーター実装
-│   └── Dockerfile.lambda   # Lambda用Dockerイメージ
+│   ├── Dockerfile.lambda   # Lambda用Dockerイメージ（公開API）
+│   └── Dockerfile.admin    # Lambda用Dockerイメージ（管理API）
 ├── data/
 │   ├── questions/          # 問題データ（YAML）
 │   ├── workbooks/          # 問題集データ（YAML）
@@ -55,7 +59,8 @@ Rikako - 問題集アプリ
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）
 │       └── dev/            # Dev環境（Lambda + Neon + Image CDN）
-├── openapi.yaml            # API仕様
+├── openapi.yaml            # 公開API仕様
+├── openapi-admin.yaml      # 管理API仕様
 └── .github/workflows/      # CI設定
     ├── deploy-dev.yml      # Devデプロイワークフロー（ECRビルド&プッシュ + Lambda更新）
     ├── terraform-plan.yml  # Terraform Plan CI（PR時に差分表示）
@@ -91,7 +96,7 @@ docker run --rm -v $(pwd)/migrations:/migrations \
 cd app && go run ./cmd/importer -data ../data
 ```
 
-### APIサーバー
+### 公開APIサーバー
 ```bash
 # サーバー起動
 cd app && go run ./cmd/server
@@ -99,6 +104,23 @@ cd app && go run ./cmd/server
 # ビルド
 cd app && go build -o bin/server ./cmd/server
 ```
+
+### 管理APIサーバー
+```bash
+# サーバー起動（ポート8081）
+cd app && go run ./cmd/admin
+
+# ビルド
+cd app && go build -o bin/admin ./cmd/admin
+
+# APIコード生成
+cd app && oapi-codegen --config oapi-codegen-admin.yaml ../openapi-admin.yaml
+
+# テスト
+cd app && go test ./internal/admin/
+```
+
+環境変数: `DATABASE_URL`, `IMAGE_BASE_URL`, `IMAGE_S3_BUCKET`, `AWS_REGION`, `PORT`(デフォルト: 8081)
 
 ### Terraform操作
 ```bash

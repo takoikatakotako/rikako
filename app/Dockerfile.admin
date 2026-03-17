@@ -1,0 +1,29 @@
+# Build stage
+FROM golang:alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY app/go.mod app/go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY app/ .
+
+# Build admin binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o admin ./cmd/admin
+
+# Runtime stage
+FROM public.ecr.aws/docker/library/alpine:latest
+
+# Copy Lambda Web Adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+
+# Copy admin binary
+COPY --from=builder /app/admin /app/admin
+
+# Set environment variables
+ENV PORT=8080
+
+# Lambda Web Adapter will forward requests to this port
+CMD ["/app/admin"]
