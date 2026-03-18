@@ -9,9 +9,15 @@ graph TB
         Android[Android App]
     end
 
+    subgraph Admin
+        AdminClient[Admin Client]
+    end
+
     subgraph AWS - Dev Account
-        FURL[Lambda Function URL]
-        Lambda[Lambda + Web Adapter]
+        FURL[Lambda Function URL<br/>公開API]
+        Lambda[Lambda + Web Adapter<br/>公開API]
+        AdminFURL[Lambda Function URL<br/>管理API]
+        AdminLambda[Lambda + Web Adapter<br/>管理API]
         S3[S3 Bucket<br/>rikako-images-development]
         CF[CloudFront<br/>OAC]
         SSM[SSM Parameter Store<br/>Neon API Key]
@@ -36,11 +42,17 @@ graph TB
     Android --> CF
     FURL --> Lambda
     Lambda --> DB
+    AdminClient --> AdminFURL
+    AdminFURL --> AdminLambda
+    AdminLambda --> DB
+    AdminLambda -->|Presigned URL| S3
     CF --> S3
 
     Actions -->|OIDC| ECR
     Actions -->|OIDC| Lambda
+    Actions -->|OIDC| AdminLambda
     ECR -->|Image| Lambda
+    ECR -->|Image| AdminLambda
     Repo --> Actions
 ```
 
@@ -90,11 +102,21 @@ graph LR
 
 PRで `terraform/` 以下のファイルが変更されると、自動的に `terraform plan` が実行され、結果がPRにコメントされます。
 
+## 管理API
+
+管理APIは公開APIとは別のLambda関数として動作します。詳細は [管理API設計](admin-api.md) を参照。
+
+- **エントリーポイント**: `app/cmd/admin/main.go`
+- **OpenAPI仕様**: `openapi-admin.yaml`
+- **機能**: 問題・問題集のCRUD、画像Presigned URL発行
+- **デプロイ**: Lambda + Lambda Web Adapter（公開APIと同じパターン）
+
 ## インフラ構成
 
 | リソース | 用途 | 環境 |
 |---------|------|------|
-| Lambda + Web Adapter | API サーバー | Dev |
+| Lambda + Web Adapter | 公開APIサーバー | Dev |
+| Lambda + Web Adapter | 管理APIサーバー | Dev |
 | Lambda Function URL | HTTP エンドポイント | Dev |
 | Neon PostgreSQL | データベース | External |
 | S3 | 画像ストレージ | Dev |

@@ -12,9 +12,11 @@ theme:
 nav:
   - Home: index.md
   - アーキテクチャ: architecture.md
+  - 管理API設計: admin-api.md
   - 問題形式仕様書: question-types.md
   - iOSアプリ: ios.md
-  - API: api/index.html
+  - 公開API: api/index.html
+  - 管理API (Swagger): admin-api/index.html
   - DBスキーマ:
       - 概要: schema/README.md
       - questions: schema/public.questions.md
