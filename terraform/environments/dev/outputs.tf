@@ -1,6 +1,11 @@
 output "function_url" {
-  description = "URL of the Lambda function"
+  description = "URL of the public API Lambda function"
   value       = module.lambda.function_url
+}
+
+output "admin_function_url" {
+  description = "URL of the admin API Lambda function"
+  value       = module.lambda_admin.function_url
 }
 
 output "database_host" {

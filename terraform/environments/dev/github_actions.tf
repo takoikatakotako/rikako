@@ -65,7 +65,8 @@ data "aws_iam_policy_document" "ecr_access" {
       "ecr:CompleteLayerUpload"
     ]
     resources = [
-      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-api"
+      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-api",
+      "arn:aws:ecr:${var.region}:579039992557:repository/rikako-admin-api"
     ]
   }
 }
@@ -122,6 +123,7 @@ data "aws_iam_policy_document" "github_actions_lambda_deploy" {
     ]
     resources = [
       "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${local.project}-api-${local.environment}",
+      "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${local.project}-admin-api-${local.environment}",
     ]
   }
 }

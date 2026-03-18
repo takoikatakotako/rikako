@@ -32,6 +32,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "architectures" {
+  description = "Lambda function architectures (x86_64 or arm64)"
+  type        = list(string)
+  default     = ["x86_64"]
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
