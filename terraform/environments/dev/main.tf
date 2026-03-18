@@ -4,6 +4,7 @@ module "lambda" {
 
   function_name = "${local.project}-api-${local.environment}"
   image_uri     = "579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-api:dev"
+  architectures = ["arm64"]
   timeout       = 30
   memory_size   = 512
 
