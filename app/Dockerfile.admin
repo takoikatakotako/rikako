@@ -1,4 +1,7 @@
-# Build stage
+# Lambda Web Adapter (force amd64)
+FROM --platform=linux/amd64 public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 AS lambda-adapter
+
+# Build stage (runs natively, cross-compiles to amd64)
 FROM golang:alpine AS builder
 
 WORKDIR /app
@@ -10,14 +13,14 @@ RUN go mod download
 # Copy source code
 COPY app/ .
 
-# Build admin binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o admin ./cmd/admin
+# Build admin binary for amd64
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o admin ./cmd/admin
 
-# Runtime stage
-FROM public.ecr.aws/docker/library/alpine:latest
+# Runtime stage (must be amd64 for Lambda)
+FROM --platform=linux/amd64 public.ecr.aws/docker/library/alpine:latest
 
-# Copy Lambda Web Adapter
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+# Copy Lambda Web Adapter (amd64)
+COPY --from=lambda-adapter /lambda-adapter /opt/extensions/lambda-adapter
 
 # Copy admin binary
 COPY --from=builder /app/admin /app/admin
