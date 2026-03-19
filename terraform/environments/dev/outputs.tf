@@ -54,3 +54,8 @@ output "admin_frontend_bucket" {
   description = "S3 bucket for admin frontend"
   value       = module.admin_s3.bucket_id
 }
+
+output "dev_zone_name_servers" {
+  description = "Name servers for dev.rikako.jp (set these as NS records at parent domain)"
+  value       = aws_route53_zone.dev.name_servers
+}

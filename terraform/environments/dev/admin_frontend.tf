@@ -40,6 +40,25 @@ resource "aws_cloudfront_function" "admin_api_rewrite" {
   EOF
 }
 
+# CloudFront Function to append index.html for subdirectory requests
+resource "aws_cloudfront_function" "admin_spa_rewrite" {
+  name    = "${local.project}-admin-spa-rewrite-${local.environment}"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOF
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.includes('.')) {
+        request.uri = uri + '/index.html';
+      }
+      return request;
+    }
+  EOF
+}
+
 # CloudFront Distribution for admin (frontend + API)
 resource "aws_cloudfront_distribution" "admin" {
   # Origin 1: S3 (frontend static files)
@@ -66,6 +85,7 @@ resource "aws_cloudfront_distribution" "admin" {
   is_ipv6_enabled     = true
   comment             = "Admin (frontend + API) for ${local.project}-${local.environment}"
   default_root_object = "index.html"
+  aliases             = ["admin.dev.rikako.jp"]
 
   # Default: S3 frontend
   default_cache_behavior {
@@ -85,6 +105,11 @@ resource "aws_cloudfront_distribution" "admin" {
     min_ttl     = 0
     default_ttl = 86400
     max_ttl     = 31536000
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.admin_spa_rewrite.arn
+    }
   }
 
   # /api/* → Lambda admin API (with path rewrite)
@@ -134,7 +159,9 @@ resource "aws_cloudfront_distribution" "admin" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate_validation.wildcard.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = {

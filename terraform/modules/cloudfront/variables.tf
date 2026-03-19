@@ -31,6 +31,18 @@ variable "max_ttl" {
   default     = 31536000
 }
 
+variable "aliases" {
+  description = "CNAMEs (alternate domain names) for the distribution"
+  type        = list(string)
+  default     = []
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN for custom domain (must be in us-east-1)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
