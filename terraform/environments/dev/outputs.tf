@@ -39,3 +39,18 @@ output "cognito_client_id" {
   description = "Cognito User Pool Client ID"
   value       = module.cognito.client_id
 }
+
+output "admin_frontend_url" {
+  description = "URL of the admin frontend (CloudFront)"
+  value       = "https://${aws_cloudfront_distribution.admin.domain_name}"
+}
+
+output "admin_frontend_distribution_id" {
+  description = "CloudFront distribution ID for admin frontend"
+  value       = aws_cloudfront_distribution.admin.id
+}
+
+output "admin_frontend_bucket" {
+  description = "S3 bucket for admin frontend"
+  value       = module.admin_s3.bucket_id
+}

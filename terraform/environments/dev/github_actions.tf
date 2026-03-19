@@ -128,5 +128,38 @@ data "aws_iam_policy_document" "github_actions_lambda_deploy" {
   }
 }
 
+# Admin frontend S3 deploy + CloudFront invalidation
+resource "aws_iam_role_policy" "github_actions_admin_frontend" {
+  name   = "admin-frontend-deploy"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_admin_frontend.json
+}
+
+data "aws_iam_policy_document" "github_actions_admin_frontend" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      module.admin_s3.bucket_arn,
+      "${module.admin_s3.bucket_arn}/*",
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudfront:CreateInvalidation",
+    ]
+    resources = [
+      aws_cloudfront_distribution.admin.arn,
+    ]
+  }
+}
+
 # Data source for current AWS account ID
 data "aws_caller_identity" "current" {}

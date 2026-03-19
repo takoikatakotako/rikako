@@ -68,7 +68,6 @@ func main() {
 	e := echo.New()
 	e.Use(logging.RequestLogger(logger))
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
 
 	// カスタムエラーハンドラ
 	e.HTTPErrorHandler = newHTTPErrorHandler(logger)
