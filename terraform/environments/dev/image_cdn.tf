@@ -22,6 +22,8 @@ module "image_cloudfront" {
   origin_domain_name = module.image_s3.bucket_regional_domain_name
   origin_id          = "s3-${local.image_bucket_name}"
   comment            = "Image CDN for ${local.image_bucket_name}"
+  aliases            = ["image.dev.rikako.jp"]
+  acm_certificate_arn = aws_acm_certificate_validation.wildcard.certificate_arn
 
   tags = {
     Project     = local.project
