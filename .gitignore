@@ -15,6 +15,7 @@ app/bin/
 *.tfstate
 *.tfstate.backup
 secret.auto.tfvars
+terraform.tfvars
 .claude/
 app/server
 app/admin

@@ -1,6 +1,15 @@
+data "aws_ssm_parameter" "admin_basic_auth_user" {
+  name = "/rikako/admin-basic-auth-user"
+}
+
+data "aws_ssm_parameter" "admin_basic_auth_password" {
+  name = "/rikako/admin-basic-auth-password"
+}
+
 locals {
   admin_bucket_name       = "${local.project}-admin-${local.environment}"
   admin_api_origin_domain = trimsuffix(trimprefix(module.lambda_admin.function_url, "https://"), "/")
+  admin_basic_auth_credentials = base64encode("${data.aws_ssm_parameter.admin_basic_auth_user.value}:${data.aws_ssm_parameter.admin_basic_auth_password.value}")
 }
 
 # S3 Bucket for admin frontend
@@ -23,36 +32,56 @@ resource "aws_cloudfront_origin_access_control" "admin" {
   signing_protocol                  = "sigv4"
 }
 
-# CloudFront Function to strip /api prefix before forwarding to Lambda
-resource "aws_cloudfront_function" "admin_api_rewrite" {
-  name    = "${local.project}-admin-api-rewrite-${local.environment}"
+# CloudFront Function for Basic Auth + SPA rewrite (frontend)
+resource "aws_cloudfront_function" "admin_spa_rewrite" {
+  name    = "${local.project}-admin-spa-rewrite-${local.environment}"
   runtime = "cloudfront-js-2.0"
   publish = true
   code    = <<-EOF
+    var CREDENTIALS = '${local.admin_basic_auth_credentials}';
     function handler(event) {
       var request = event.request;
-      request.uri = request.uri.replace(/^\/api/, '');
-      if (request.uri === '') {
-        request.uri = '/';
+      var headers = request.headers;
+      var auth = headers.authorization;
+      if (!auth || auth.value !== 'Basic ' + CREDENTIALS) {
+        return {
+          statusCode: 401,
+          statusDescription: 'Unauthorized',
+          headers: { 'www-authenticate': { value: 'Basic realm="Admin"' } },
+        };
+      }
+      var uri = request.uri;
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.includes('.')) {
+        request.uri = uri + '/index.html';
       }
       return request;
     }
   EOF
 }
 
-# CloudFront Function to append index.html for subdirectory requests
-resource "aws_cloudfront_function" "admin_spa_rewrite" {
-  name    = "${local.project}-admin-spa-rewrite-${local.environment}"
+# CloudFront Function for Basic Auth + API rewrite
+resource "aws_cloudfront_function" "admin_api_auth_rewrite" {
+  name    = "${local.project}-admin-api-auth-rewrite-${local.environment}"
   runtime = "cloudfront-js-2.0"
   publish = true
   code    = <<-EOF
+    var CREDENTIALS = '${local.admin_basic_auth_credentials}';
     function handler(event) {
       var request = event.request;
-      var uri = request.uri;
-      if (uri.endsWith('/')) {
-        request.uri = uri + 'index.html';
-      } else if (!uri.includes('.')) {
-        request.uri = uri + '/index.html';
+      var headers = request.headers;
+      var auth = headers.authorization;
+      if (!auth || auth.value !== 'Basic ' + CREDENTIALS) {
+        return {
+          statusCode: 401,
+          statusDescription: 'Unauthorized',
+          headers: { 'www-authenticate': { value: 'Basic realm="Admin"' } },
+        };
+      }
+      request.uri = request.uri.replace(/^\/api/, '');
+      if (request.uri === '') {
+        request.uri = '/';
       }
       return request;
     }
@@ -135,7 +164,7 @@ resource "aws_cloudfront_distribution" "admin" {
 
     function_association {
       event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.admin_api_rewrite.arn
+      function_arn = aws_cloudfront_function.admin_api_auth_rewrite.arn
     }
   }
 
