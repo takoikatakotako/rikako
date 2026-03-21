@@ -1,0 +1,9 @@
+id: c1000033-chem-basic-0033-0000-000000000033
+type: single_choice
+text: 次のうち、吸熱反応はどれか。
+choices:
+- 燃焼
+- 光合成
+- 中和
+correct: 1
+explanation: 光合成は 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂ で、光エネルギーを吸収する吸熱反応。燃焼や中和は発熱反応で、熱を放出する。

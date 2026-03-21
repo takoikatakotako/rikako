@@ -1,0 +1,9 @@
+id: c2000024-chem-adv-0024-0000-000000000024
+type: single_choice
+text: ヨードホルム反応を示す化合物はどれか。
+choices:
+- メタノール
+- エタノール
+- ジエチルエーテル
+correct: 1
+explanation: ヨードホルム反応はCH₃CO-またはCH₃CH(OH)-の構造を持つ化合物が示す。エタノール（CH₃CH₂OH）はNaOHとI₂の作用でCHI₃（ヨードホルム、黄色沈殿）を生じる。
