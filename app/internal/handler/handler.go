@@ -246,6 +246,127 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 	return api.GetQuestion200JSONResponse(q), nil
 }
 
+func (h *Handler) GetCategories(ctx context.Context, request api.GetCategoriesRequestObject) (api.GetCategoriesResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetCategories400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	var total int
+	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM categories").Scan(&total)
+	if err != nil {
+		h.logger.Error("failed to count categories", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT c.id, c.title, c.description,
+			(SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
+		FROM categories c
+		ORDER BY c.id
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
+	if err != nil {
+		h.logger.Error("failed to query categories", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	categories := []api.Category{}
+	for rows.Next() {
+		var id int64
+		var title string
+		var description sql.NullString
+		var workbookCount int
+
+		if err := rows.Scan(&id, &title, &description, &workbookCount); err != nil {
+			h.logger.Error("failed to scan category", "error", err)
+			return nil, err
+		}
+
+		c := api.Category{
+			Id:            id,
+			Title:         title,
+			WorkbookCount: &workbookCount,
+		}
+		if description.Valid {
+			c.Description = &description.String
+		}
+		categories = append(categories, c)
+	}
+
+	return api.GetCategories200JSONResponse{
+		Categories: categories,
+		Total:      total,
+	}, nil
+}
+
+func (h *Handler) GetCategory(ctx context.Context, request api.GetCategoryRequestObject) (api.GetCategoryResponseObject, error) {
+	var id int64
+	var title string
+	var description sql.NullString
+
+	err := h.db.QueryRowContext(ctx, `
+		SELECT id, title, description FROM categories WHERE id = $1
+	`, request.CategoryId).Scan(&id, &title, &description)
+	if err == sql.ErrNoRows {
+		return api.GetCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to query category", "error", err, "category_id", request.CategoryId)
+		return nil, err
+	}
+
+	// 問題集一覧取得
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT w.id, w.title, w.description,
+			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+		FROM workbooks w
+		WHERE w.category_id = $1
+		ORDER BY w.id
+	`, id)
+	if err != nil {
+		h.logger.Error("failed to query category workbooks", "error", err, "category_id", id)
+		return nil, err
+	}
+	defer rows.Close()
+
+	workbooks := []api.Workbook{}
+	for rows.Next() {
+		var wid int64
+		var wtitle string
+		var wdesc sql.NullString
+		var questionCount int
+
+		if err := rows.Scan(&wid, &wtitle, &wdesc, &questionCount); err != nil {
+			h.logger.Error("failed to scan workbook", "error", err)
+			return nil, err
+		}
+
+		w := api.Workbook{
+			Id:            wid,
+			Title:         wtitle,
+			QuestionCount: &questionCount,
+			CategoryId:    &id,
+		}
+		if wdesc.Valid {
+			w.Description = &wdesc.String
+		}
+		workbooks = append(workbooks, w)
+	}
+
+	c := api.CategoryDetail{
+		Id:        id,
+		Title:     title,
+		Workbooks: workbooks,
+	}
+	if description.Valid {
+		c.Description = &description.String
+	}
+
+	return api.GetCategory200JSONResponse(c), nil
+}
+
 func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequestObject) (api.GetWorkbooksResponseObject, error) {
 	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
 	if err != nil {
@@ -262,7 +383,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 
 	// 問題集一覧取得
 	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description,
+		SELECT w.id, w.title, w.description, w.category_id,
 			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 		FROM workbooks w
 		ORDER BY w.id
@@ -279,9 +400,10 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		var id int64
 		var title string
 		var description sql.NullString
+		var categoryID sql.NullInt64
 		var questionCount int
 
-		if err := rows.Scan(&id, &title, &description, &questionCount); err != nil {
+		if err := rows.Scan(&id, &title, &description, &categoryID, &questionCount); err != nil {
 			h.logger.Error("failed to scan workbook", "error", err)
 			return nil, err
 		}
@@ -293,6 +415,10 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		}
 		if description.Valid {
 			w.Description = &description.String
+		}
+		if categoryID.Valid {
+			cid := categoryID.Int64
+			w.CategoryId = &cid
 		}
 
 		workbooks = append(workbooks, w)
@@ -308,10 +434,11 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 	var id int64
 	var title string
 	var description sql.NullString
+	var categoryID sql.NullInt64
 
 	err := h.db.QueryRowContext(ctx, `
-		SELECT id, title, description FROM workbooks WHERE id = $1
-	`, request.WorkbookId).Scan(&id, &title, &description)
+		SELECT id, title, description, category_id FROM workbooks WHERE id = $1
+	`, request.WorkbookId).Scan(&id, &title, &description, &categoryID)
 	if err == sql.ErrNoRows {
 		return api.GetWorkbook404JSONResponse{Code: "NOT_FOUND", Message: "workbook not found"}, nil
 	}
@@ -406,6 +533,10 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 	}
 	if description.Valid {
 		w.Description = &description.String
+	}
+	if categoryID.Valid {
+		cid := categoryID.Int64
+		w.CategoryId = &cid
 	}
 
 	return api.GetWorkbook200JSONResponse(w), nil

@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { QuestionPicker } from "./question-picker";
 import { Loader2 } from "lucide-react";
-import { useCategories } from "@/hooks/use-categories";
-import type { WorkbookDetail, Question } from "@/lib/api/types";
+import type { CategoryDetail } from "@/lib/api/types";
 
 const schema = z.object({
   title: z.string().min(1, "タイトルを入力してください"),
@@ -20,35 +18,21 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-interface WorkbookFormProps {
-  defaultValues?: WorkbookDetail;
-  defaultCategoryId?: number;
+interface CategoryFormProps {
+  defaultValues?: CategoryDetail;
   onSubmit: (data: {
     title: string;
     description?: string;
-    categoryId?: number;
-    questionIds?: number[];
   }) => Promise<void>;
   submitLabel: string;
 }
 
-export function WorkbookForm({
+export function CategoryForm({
   defaultValues,
-  defaultCategoryId,
   onSubmit,
   submitLabel,
-}: WorkbookFormProps) {
-  const [selectedIds, setSelectedIds] = useState<number[]>(
-    defaultValues?.questions.map((q) => q.id) ?? [],
-  );
-  const [selectedQuestions, setSelectedQuestions] = useState<Question[]>(
-    defaultValues?.questions ?? [],
-  );
-  const [categoryId, setCategoryId] = useState<number | undefined>(
-    defaultCategoryId,
-  );
+}: CategoryFormProps) {
   const [submitting, setSubmitting] = useState(false);
-  const { data: categoriesData } = useCategories(100, 0);
 
   const {
     register,
@@ -68,8 +52,6 @@ export function WorkbookForm({
       await onSubmit({
         title: values.title,
         description: values.description || undefined,
-        categoryId: categoryId,
-        questionIds: selectedIds.length > 0 ? selectedIds : undefined,
       });
     } finally {
       setSubmitting(false);
@@ -83,7 +65,7 @@ export function WorkbookForm({
         <Input
           id="title"
           {...register("title")}
-          placeholder="問題集タイトル"
+          placeholder="カテゴリタイトル"
         />
         {errors.title && (
           <p className="text-sm text-destructive">{errors.title.message}</p>
@@ -95,37 +77,8 @@ export function WorkbookForm({
         <Textarea
           id="description"
           {...register("description")}
-          placeholder="問題集の説明"
+          placeholder="カテゴリの説明"
           rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="categoryId">カテゴリ（任意）</Label>
-        <select
-          id="categoryId"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          value={categoryId ?? ""}
-          onChange={(e) =>
-            setCategoryId(e.target.value ? Number(e.target.value) : undefined)
-          }
-        >
-          <option value="">なし</option>
-          {categoriesData?.categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.title}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>問題</Label>
-        <QuestionPicker
-          selectedIds={selectedIds}
-          onChange={setSelectedIds}
-          selectedQuestions={selectedQuestions}
-          onSelectedQuestionsChange={setSelectedQuestions}
         />
       </div>
 

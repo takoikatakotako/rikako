@@ -1,5 +1,12 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  redirect("/questions");
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/categories");
+  }, [router]);
+  return null;
 }

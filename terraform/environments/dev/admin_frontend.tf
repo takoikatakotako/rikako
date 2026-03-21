@@ -54,7 +54,12 @@ resource "aws_cloudfront_function" "admin_spa_rewrite" {
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
       } else if (!uri.includes('.')) {
-        request.uri = uri + '/index.html';
+        var segments = uri.split('/').filter(function(s) { return s; });
+        if (segments.length > 1) {
+          request.uri = '/' + segments[0] + '/index.html';
+        } else {
+          request.uri = uri + '/index.html';
+        }
       }
       return request;
     }

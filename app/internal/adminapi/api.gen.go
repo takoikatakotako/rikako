@@ -77,10 +77,38 @@ func (e UpdateQuestionRequestType) Valid() bool {
 	}
 }
 
+// CategoriesResponse defines model for CategoriesResponse.
+type CategoriesResponse struct {
+	Categories []Category `json:"categories"`
+	Total      int        `json:"total"`
+}
+
+// Category defines model for Category.
+type Category struct {
+	Description   *string `json:"description,omitempty"`
+	Id            int64   `json:"id"`
+	Title         string  `json:"title"`
+	WorkbookCount *int    `json:"workbookCount,omitempty"`
+}
+
+// CategoryDetail defines model for CategoryDetail.
+type CategoryDetail struct {
+	Description *string    `json:"description,omitempty"`
+	Id          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Workbooks   []Workbook `json:"workbooks"`
+}
+
 // Choice defines model for Choice.
 type Choice struct {
 	IsCorrect bool   `json:"isCorrect"`
 	Text      string `json:"text"`
+}
+
+// CreateCategoryRequest defines model for CreateCategoryRequest.
+type CreateCategoryRequest struct {
+	Description *string `json:"description,omitempty"`
+	Title       string  `json:"title"`
 }
 
 // CreatePresignedUrlRequest defines model for CreatePresignedUrlRequest.
@@ -106,6 +134,7 @@ type CreateQuestionRequestType string
 
 // CreateWorkbookRequest defines model for CreateWorkbookRequest.
 type CreateWorkbookRequest struct {
+	CategoryId  *int64   `json:"categoryId,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	QuestionIds *[]int64 `json:"questionIds,omitempty"`
 	Title       string   `json:"title"`
@@ -153,6 +182,12 @@ type QuestionsResponse struct {
 	Total     int        `json:"total"`
 }
 
+// UpdateCategoryRequest defines model for UpdateCategoryRequest.
+type UpdateCategoryRequest struct {
+	Description *string `json:"description,omitempty"`
+	Title       string  `json:"title"`
+}
+
 // UpdateQuestionRequest defines model for UpdateQuestionRequest.
 type UpdateQuestionRequest struct {
 	Choices     []Choice                  `json:"choices"`
@@ -167,6 +202,7 @@ type UpdateQuestionRequestType string
 
 // UpdateWorkbookRequest defines model for UpdateWorkbookRequest.
 type UpdateWorkbookRequest struct {
+	CategoryId  *int64   `json:"categoryId,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	QuestionIds *[]int64 `json:"questionIds,omitempty"`
 	Title       string   `json:"title"`
@@ -174,6 +210,7 @@ type UpdateWorkbookRequest struct {
 
 // Workbook defines model for Workbook.
 type Workbook struct {
+	CategoryId    *int64  `json:"categoryId,omitempty"`
 	Description   *string `json:"description,omitempty"`
 	Id            int64   `json:"id"`
 	QuestionCount *int    `json:"questionCount,omitempty"`
@@ -182,6 +219,7 @@ type Workbook struct {
 
 // WorkbookDetail defines model for WorkbookDetail.
 type WorkbookDetail struct {
+	CategoryId  *int64     `json:"categoryId,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	Id          int64      `json:"id"`
 	Questions   []Question `json:"questions"`
@@ -192,6 +230,12 @@ type WorkbookDetail struct {
 type WorkbooksResponse struct {
 	Total     int        `json:"total"`
 	Workbooks []Workbook `json:"workbooks"`
+}
+
+// GetCategoriesParams defines parameters for GetCategories.
+type GetCategoriesParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // GetQuestionsParams defines parameters for GetQuestions.
@@ -205,6 +249,12 @@ type GetWorkbooksParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
+type CreateCategoryJSONRequestBody = CreateCategoryRequest
+
+// UpdateCategoryJSONRequestBody defines body for UpdateCategory for application/json ContentType.
+type UpdateCategoryJSONRequestBody = UpdateCategoryRequest
 
 // CreatePresignedUrlJSONRequestBody defines body for CreatePresignedUrl for application/json ContentType.
 type CreatePresignedUrlJSONRequestBody = CreatePresignedUrlRequest
@@ -226,6 +276,21 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// カテゴリ一覧取得
+	// (GET /categories)
+	GetCategories(ctx echo.Context, params GetCategoriesParams) error
+	// カテゴリ作成
+	// (POST /categories)
+	CreateCategory(ctx echo.Context) error
+	// カテゴリ削除
+	// (DELETE /categories/{categoryId})
+	DeleteCategory(ctx echo.Context, categoryId int64) error
+	// カテゴリ取得
+	// (GET /categories/{categoryId})
+	GetCategory(ctx echo.Context, categoryId int64) error
+	// カテゴリ更新
+	// (PUT /categories/{categoryId})
+	UpdateCategory(ctx echo.Context, categoryId int64) error
 	// ヘルスチェック
 	// (GET /health)
 	HealthCheck(ctx echo.Context) error
@@ -275,6 +340,88 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// GetCategories converts echo context to params.
+func (w *ServerInterfaceWrapper) GetCategories(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCategoriesParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetCategories(ctx, params)
+	return err
+}
+
+// CreateCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateCategory(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateCategory(ctx)
+	return err
+}
+
+// DeleteCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteCategory(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", ctx.Param("categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteCategory(ctx, categoryId)
+	return err
+}
+
+// GetCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) GetCategory(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", ctx.Param("categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetCategory(ctx, categoryId)
+	return err
+}
+
+// UpdateCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateCategory(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", ctx.Param("categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateCategory(ctx, categoryId)
 	return err
 }
 
@@ -489,6 +636,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.GET(baseURL+"/categories", wrapper.GetCategories)
+	router.POST(baseURL+"/categories", wrapper.CreateCategory)
+	router.DELETE(baseURL+"/categories/:categoryId", wrapper.DeleteCategory)
+	router.GET(baseURL+"/categories/:categoryId", wrapper.GetCategory)
+	router.PUT(baseURL+"/categories/:categoryId", wrapper.UpdateCategory)
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
 	router.POST(baseURL+"/images/presigned-url", wrapper.CreatePresignedUrl)
 	router.GET(baseURL+"/questions", wrapper.GetQuestions)
@@ -516,6 +668,145 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCategoriesRequestObject struct {
+	Params GetCategoriesParams
+}
+
+type GetCategoriesResponseObject interface {
+	VisitGetCategoriesResponse(w http.ResponseWriter) error
+}
+
+type GetCategories200JSONResponse CategoriesResponse
+
+func (response GetCategories200JSONResponse) VisitGetCategoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCategories400JSONResponse Error
+
+func (response GetCategories400JSONResponse) VisitGetCategoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategoryRequestObject struct {
+	Body *CreateCategoryJSONRequestBody
+}
+
+type CreateCategoryResponseObject interface {
+	VisitCreateCategoryResponse(w http.ResponseWriter) error
+}
+
+type CreateCategory201JSONResponse CategoryDetail
+
+func (response CreateCategory201JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategory400JSONResponse Error
+
+func (response CreateCategory400JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteCategoryRequestObject struct {
+	CategoryId int64 `json:"categoryId"`
+}
+
+type DeleteCategoryResponseObject interface {
+	VisitDeleteCategoryResponse(w http.ResponseWriter) error
+}
+
+type DeleteCategory204Response struct {
+}
+
+func (response DeleteCategory204Response) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCategory404JSONResponse Error
+
+func (response DeleteCategory404JSONResponse) VisitDeleteCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCategoryRequestObject struct {
+	CategoryId int64 `json:"categoryId"`
+}
+
+type GetCategoryResponseObject interface {
+	VisitGetCategoryResponse(w http.ResponseWriter) error
+}
+
+type GetCategory200JSONResponse CategoryDetail
+
+func (response GetCategory200JSONResponse) VisitGetCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCategory404JSONResponse Error
+
+func (response GetCategory404JSONResponse) VisitGetCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateCategoryRequestObject struct {
+	CategoryId int64 `json:"categoryId"`
+	Body       *UpdateCategoryJSONRequestBody
+}
+
+type UpdateCategoryResponseObject interface {
+	VisitUpdateCategoryResponse(w http.ResponseWriter) error
+}
+
+type UpdateCategory200JSONResponse CategoryDetail
+
+func (response UpdateCategory200JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateCategory400JSONResponse Error
+
+func (response UpdateCategory400JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateCategory404JSONResponse Error
+
+func (response UpdateCategory404JSONResponse) VisitUpdateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -845,6 +1136,21 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// カテゴリ一覧取得
+	// (GET /categories)
+	GetCategories(ctx context.Context, request GetCategoriesRequestObject) (GetCategoriesResponseObject, error)
+	// カテゴリ作成
+	// (POST /categories)
+	CreateCategory(ctx context.Context, request CreateCategoryRequestObject) (CreateCategoryResponseObject, error)
+	// カテゴリ削除
+	// (DELETE /categories/{categoryId})
+	DeleteCategory(ctx context.Context, request DeleteCategoryRequestObject) (DeleteCategoryResponseObject, error)
+	// カテゴリ取得
+	// (GET /categories/{categoryId})
+	GetCategory(ctx context.Context, request GetCategoryRequestObject) (GetCategoryResponseObject, error)
+	// カテゴリ更新
+	// (PUT /categories/{categoryId})
+	UpdateCategory(ctx context.Context, request UpdateCategoryRequestObject) (UpdateCategoryResponseObject, error)
 	// ヘルスチェック
 	// (GET /health)
 	HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error)
@@ -912,6 +1218,141 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetCategories operation middleware
+func (sh *strictHandler) GetCategories(ctx echo.Context, params GetCategoriesParams) error {
+	var request GetCategoriesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCategories(ctx.Request().Context(), request.(GetCategoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCategories")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetCategoriesResponseObject); ok {
+		return validResponse.VisitGetCategoriesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateCategory operation middleware
+func (sh *strictHandler) CreateCategory(ctx echo.Context) error {
+	var request CreateCategoryRequestObject
+
+	var body CreateCategoryJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCategory(ctx.Request().Context(), request.(CreateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateCategoryResponseObject); ok {
+		return validResponse.VisitCreateCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteCategory operation middleware
+func (sh *strictHandler) DeleteCategory(ctx echo.Context, categoryId int64) error {
+	var request DeleteCategoryRequestObject
+
+	request.CategoryId = categoryId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCategory(ctx.Request().Context(), request.(DeleteCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteCategoryResponseObject); ok {
+		return validResponse.VisitDeleteCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetCategory operation middleware
+func (sh *strictHandler) GetCategory(ctx echo.Context, categoryId int64) error {
+	var request GetCategoryRequestObject
+
+	request.CategoryId = categoryId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCategory(ctx.Request().Context(), request.(GetCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetCategoryResponseObject); ok {
+		return validResponse.VisitGetCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateCategory operation middleware
+func (sh *strictHandler) UpdateCategory(ctx echo.Context, categoryId int64) error {
+	var request UpdateCategoryRequestObject
+
+	request.CategoryId = categoryId
+
+	var body UpdateCategoryJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCategory(ctx.Request().Context(), request.(UpdateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateCategoryResponseObject); ok {
+		return validResponse.VisitUpdateCategoryResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
