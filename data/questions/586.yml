@@ -1,0 +1,12 @@
+id: 586
+type: single_choice
+text: 以下の画像の構造式(CH₃OH)を持つ化合物の名前は何であるか。
+choices:
+- エタノール
+- メタノール
+- メタン
+- メレンゲ
+correct: 1
+explanation: メタノールはCH₃OHで表される。
+images:
+- 46

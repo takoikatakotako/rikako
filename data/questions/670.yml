@@ -1,0 +1,9 @@
+id: 670
+type: single_choice
+text: 次のうち、共有結合でできている物質はどれか。
+choices:
+- 塩化ナトリウム（NaCl）
+- 水（H₂O）
+- 塩化カルシウム（CaCl₂）
+correct: 1
+explanation: 水（H₂O）は酸素原子と水素原子が電子を共有する共有結合でできている。NaClやCaCl₂は陽イオンと陰イオンの静電気的引力によるイオン結合である。

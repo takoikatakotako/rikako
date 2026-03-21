@@ -1,0 +1,9 @@
+id: 703
+type: single_choice
+text: 塩化水素（HCl）が水に溶けた水溶液を何というか。
+choices:
+- 硫酸
+- 塩酸
+- 硝酸
+correct: 1
+explanation: 塩化水素（HCl）の水溶液を塩酸という。強酸であり、水中で完全に電離する：HCl → H⁺ + Cl⁻。

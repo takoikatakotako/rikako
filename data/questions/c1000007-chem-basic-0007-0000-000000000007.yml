@@ -1,9 +1,0 @@
-id: c1000007-chem-basic-0007-0000-000000000007
-type: single_choice
-text: pH 7 の水溶液の性質として正しいものはどれか。
-choices:
-- 酸性
-- 中性
-- 塩基性
-correct: 1
-explanation: pH 7 は中性を示す。pH < 7 は酸性、pH > 7 は塩基性（アルカリ性）である。純水のpHは25℃で7.0である。

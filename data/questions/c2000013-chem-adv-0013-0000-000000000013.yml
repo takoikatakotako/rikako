@@ -1,9 +1,0 @@
-id: c2000013-chem-adv-0013-0000-000000000013
-type: single_choice
-text: 理想気体の状態方程式はどれか。
-choices:
-- PV = nRT
-- PV = mRT
-- P = nRT/m
-correct: 0
-explanation: PV = nRT は理想気体の状態方程式。P:圧力、V:体積、n:物質量(mol)、R:気体定数(8.314 J/(mol·K))、T:絶対温度(K)。

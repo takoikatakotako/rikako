@@ -1,0 +1,10 @@
+id: 893
+type: single_choice
+text: 双子葉類の葉脈の通り方はうちどれですか。
+choices:
+- 網状脈
+- 主根
+- 平行脈
+- 側根
+correct: 0
+explanation: 双子葉類の葉脈は網状脈です。単子葉類は平行脈です。

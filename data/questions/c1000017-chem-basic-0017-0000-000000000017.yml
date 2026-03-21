@@ -1,9 +1,0 @@
-id: c1000017-chem-basic-0017-0000-000000000017
-type: single_choice
-text: 塩酸と水酸化ナトリウム水溶液の反応で生じる塩はどれか。
-choices:
-- 塩化カルシウム
-- 塩化ナトリウム
-- 硫酸ナトリウム
-correct: 1
-explanation: HCl + NaOH → NaCl + H₂O。酸の陰イオン（Cl⁻）と塩基の陽イオン（Na⁺）が結合して塩（NaCl）が生成する中和反応である。

@@ -1,0 +1,10 @@
+id: 550
+type: single_choice
+text: 空気中に含まれる酸素は何パーセントですか。
+choices:
+- '40'
+- '0.3'
+- '60'
+- '20'
+correct: 3
+explanation: 空気中に酸素は約20パーセント含まれます。

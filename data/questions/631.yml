@@ -1,0 +1,10 @@
+id: 631
+type: single_choice
+text: C₃H₈で表される有機化合物の名前は何か。
+choices:
+- メタン
+- エタン
+- プロパン
+- ブタン
+correct: 2
+explanation: C₃H₈はプロパンである。

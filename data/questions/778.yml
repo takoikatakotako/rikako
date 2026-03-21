@@ -1,0 +1,8 @@
+id: 778
+type: single_choice
+text: 日本学生支援機構の奨学金(貸与型)のうち、第一種奨学金は利子が付かない。
+choices:
+- ◯
+- ×
+correct: 0
+explanation: 第二種奨学金の場合は利子が付く。

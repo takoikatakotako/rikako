@@ -1,0 +1,16 @@
+id: 406
+type: single_choice
+text: FTTHの説明として、適切なものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 'ア：Wi-Fi
+
+  イ：ADSL(Asymmetric Digital Subscriber Line)
+
+  ウ：FTP(File Transfer Protocol)
+
+  エ：○'

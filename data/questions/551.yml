@@ -1,0 +1,10 @@
+id: 551
+type: single_choice
+text: 元素記号「Na」の元素名は何であるか。
+choices:
+- カリウム
+- バナジウム
+- ナトリウム
+- セレン
+correct: 2
+explanation: 元素記号「Na」はナトリウムである。

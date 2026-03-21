@@ -1,9 +1,0 @@
-id: c2000020-chem-adv-0020-0000-000000000020
-type: single_choice
-text: ダニエル電池の正極の反応はどれか。
-choices:
-- Zn → Zn²⁺ + 2e⁻
-- Cu²⁺ + 2e⁻ → Cu
-- H₂ → 2H⁺ + 2e⁻
-correct: 1
-explanation: ダニエル電池は負極にZn板（酸化：Zn → Zn²⁺ + 2e⁻）、正極にCu板（還元：Cu²⁺ + 2e⁻ → Cu）を用いる。起電力は約1.1V。

@@ -1,0 +1,10 @@
+id: 413
+type: single_choice
+text: 「Genius is one percent inspiration, 99 percent perspiration.」と言った人は誰であるか。
+choices:
+- エジソン
+- ニュートン
+- アインシュタイン
+- オイラー
+correct: 0
+explanation: エジソンの台詞、「Genius is one percent inspiration, 99 percent perspiration.」の意味は1%のひらめきがなければ99%の努力は無駄であるということ

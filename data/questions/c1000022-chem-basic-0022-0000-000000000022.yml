@@ -1,9 +1,0 @@
-id: c1000022-chem-basic-0022-0000-000000000022
-type: single_choice
-text: 化学式 CaCO₃ で表される物質はどれか。
-choices:
-- 炭酸カルシウム
-- 炭酸ナトリウム
-- 硫酸カルシウム
-correct: 0
-explanation: CaCO₃は炭酸カルシウムで、大理石や石灰石、貝殻の主成分。塩酸を加えるとCO₂が発生する：CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂。

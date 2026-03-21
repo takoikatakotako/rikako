@@ -1,0 +1,9 @@
+id: 669
+type: single_choice
+text: 水溶液中で電離して水素イオン（H⁺）を生じる物質を何というか。
+choices:
+- 塩基
+- 酸
+- 塩
+correct: 1
+explanation: 酸とは水溶液中で電離してH⁺を生じる物質である（アレニウスの定義）。例えばHCl → H⁺ + Cl⁻。塩基はOH⁻を生じる物質。

@@ -1,0 +1,9 @@
+id: 698
+type: single_choice
+text: 次のうち、単体はどれか。
+choices:
+- 水（H₂O）
+- 酸素（O₂）
+- 二酸化炭素（CO₂）
+correct: 1
+explanation: 単体は1種類の元素のみからなる純物質。O₂は酸素原子のみからなる単体。H₂OやCO₂は2種類以上の元素からなる化合物。

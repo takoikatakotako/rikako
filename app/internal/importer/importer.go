@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -37,32 +38,37 @@ func (i *Importer) Run() error {
 	}
 
 	// 画像をインポート
-	imageIDMap, err := i.importImages(tx)
+	imageCount, err := i.importImages(tx)
 	if err != nil {
 		return fmt.Errorf("failed to import images: %w", err)
 	}
-	fmt.Printf("Imported %d images\n", len(imageIDMap))
+	fmt.Printf("Imported %d images\n", imageCount)
 
 	// 問題をインポート
-	questionIDMap, err := i.importQuestions(tx, imageIDMap)
+	questionCount, err := i.importQuestions(tx)
 	if err != nil {
 		return fmt.Errorf("failed to import questions: %w", err)
 	}
-	fmt.Printf("Imported %d questions\n", len(questionIDMap))
+	fmt.Printf("Imported %d questions\n", questionCount)
 
 	// 問題集をインポート
-	workbookIDMap, err := i.importWorkbooks(tx, questionIDMap)
+	workbookCount, err := i.importWorkbooks(tx)
 	if err != nil {
 		return fmt.Errorf("failed to import workbooks: %w", err)
 	}
-	fmt.Printf("Imported %d workbooks\n", len(workbookIDMap))
+	fmt.Printf("Imported %d workbooks\n", workbookCount)
 
 	// カテゴリをインポート
-	categoryCount, err := i.importCategories(tx, workbookIDMap)
+	categoryCount, err := i.importCategories(tx)
 	if err != nil {
 		return fmt.Errorf("failed to import categories: %w", err)
 	}
 	fmt.Printf("Imported %d categories\n", categoryCount)
+
+	// シーケンスをリセット
+	if err := i.resetSequences(tx); err != nil {
+		return fmt.Errorf("failed to reset sequences: %w", err)
+	}
 
 	// コミット
 	if err := tx.Commit(); err != nil {
@@ -91,73 +97,72 @@ func (i *Importer) clearData(tx *sql.Tx) error {
 	return nil
 }
 
-func (i *Importer) importImages(tx *sql.Tx) (map[string]int64, error) {
-	imageIDMap := make(map[string]int64) // UUID -> DB ID
-
+func (i *Importer) importImages(tx *sql.Tx) (int, error) {
 	files, err := filepath.Glob(filepath.Join(i.imageDir, "*.png"))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
+	count := 0
 	for _, file := range files {
 		filename := filepath.Base(file)
-		uuid := filename[:len(filename)-4] // .png を除去
+		name := filename[:len(filename)-4] // .png を除去
 
-		var id int64
-		err := tx.QueryRow(
-			"INSERT INTO images (path) VALUES ($1) RETURNING id",
-			filename,
-		).Scan(&id)
+		id, err := strconv.ParseInt(name, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert image %s: %w", filename, err)
+			return 0, fmt.Errorf("invalid image filename %s: %w", filename, err)
 		}
 
-		imageIDMap[uuid] = id
+		_, err = tx.Exec(
+			"INSERT INTO images (id, path) VALUES ($1, $2)",
+			id, filename,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("failed to insert image %s: %w", filename, err)
+		}
+
+		count++
 	}
 
-	return imageIDMap, nil
+	return count, nil
 }
 
-func (i *Importer) importQuestions(tx *sql.Tx, imageIDMap map[string]int64) (map[string]int64, error) {
-	questionIDMap := make(map[string]int64) // UUID -> DB ID
-
+func (i *Importer) importQuestions(tx *sql.Tx) (int, error) {
 	questionsDir := filepath.Join(i.dataDir, "questions")
 	files, err := filepath.Glob(filepath.Join(questionsDir, "*.yml"))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
+	count := 0
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", file, err)
+			return 0, fmt.Errorf("failed to read %s: %w", file, err)
 		}
 
 		var q QuestionYAML
 		if err := yaml.Unmarshal(data, &q); err != nil {
-			return nil, fmt.Errorf("failed to parse %s: %w", file, err)
+			return 0, fmt.Errorf("failed to parse %s: %w", file, err)
 		}
 
 		// questions テーブルに挿入
-		var questionID int64
-		err = tx.QueryRow(
-			"INSERT INTO questions (type) VALUES ($1) RETURNING id",
-			q.Type,
-		).Scan(&questionID)
+		_, err = tx.Exec(
+			"INSERT INTO questions (id, type) VALUES ($1, $2)",
+			q.ID, q.Type,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert question %s: %w", q.ID, err)
+			return 0, fmt.Errorf("failed to insert question %d: %w", q.ID, err)
 		}
-
-		questionIDMap[q.ID] = questionID
 
 		// questions_single_choice テーブルに挿入
 		var singleChoiceID int64
 		err = tx.QueryRow(
 			"INSERT INTO questions_single_choice (question_id, text, explanation) VALUES ($1, $2, $3) RETURNING id",
-			questionID, q.Text, q.Explanation,
+			q.ID, q.Text, q.Explanation,
 		).Scan(&singleChoiceID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert single_choice %s: %w", q.ID, err)
+			return 0, fmt.Errorf("failed to insert single_choice %d: %w", q.ID, err)
 		}
 
 		// 選択肢を挿入
@@ -168,83 +173,73 @@ func (i *Importer) importQuestions(tx *sql.Tx, imageIDMap map[string]int64) (map
 				singleChoiceID, idx, choice, isCorrect,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to insert choice for %s: %w", q.ID, err)
+				return 0, fmt.Errorf("failed to insert choice for %d: %w", q.ID, err)
 			}
 		}
 
 		// 画像を紐付け
-		for idx, imageUUID := range q.Images {
-			imageID, ok := imageIDMap[imageUUID]
-			if !ok {
-				fmt.Printf("Warning: image %s not found for question %s\n", imageUUID, q.ID)
-				continue
-			}
+		for idx, imageID := range q.Images {
 			_, err = tx.Exec(
 				"INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3)",
-				questionID, imageID, idx,
+				q.ID, imageID, idx,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to link image for %s: %w", q.ID, err)
+				return 0, fmt.Errorf("failed to link image for %d: %w", q.ID, err)
 			}
 		}
+
+		count++
 	}
 
-	return questionIDMap, nil
+	return count, nil
 }
 
-func (i *Importer) importWorkbooks(tx *sql.Tx, questionIDMap map[string]int64) (map[string]int64, error) {
-	workbookIDMap := make(map[string]int64) // UUID -> DB ID
-
+func (i *Importer) importWorkbooks(tx *sql.Tx) (int, error) {
 	workbooksDir := filepath.Join(i.dataDir, "workbooks")
 	files, err := filepath.Glob(filepath.Join(workbooksDir, "*.yml"))
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
+	count := 0
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", file, err)
+			return 0, fmt.Errorf("failed to read %s: %w", file, err)
 		}
 
 		var w WorkbookYAML
 		if err := yaml.Unmarshal(data, &w); err != nil {
-			return nil, fmt.Errorf("failed to parse %s: %w", file, err)
+			return 0, fmt.Errorf("failed to parse %s: %w", file, err)
 		}
 
 		// workbooks テーブルに挿入
-		var workbookID int64
-		err = tx.QueryRow(
-			"INSERT INTO workbooks (title, description) VALUES ($1, $2) RETURNING id",
-			w.Title, w.Description,
-		).Scan(&workbookID)
+		_, err = tx.Exec(
+			"INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3)",
+			w.ID, w.Title, w.Description,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert workbook %s: %w", w.ID, err)
+			return 0, fmt.Errorf("failed to insert workbook %d: %w", w.ID, err)
 		}
-
-		workbookIDMap[w.ID] = workbookID
 
 		// 問題を紐付け
-		for idx, questionUUID := range w.Questions {
-			questionID, ok := questionIDMap[questionUUID]
-			if !ok {
-				fmt.Printf("Warning: question %s not found for workbook %s\n", questionUUID, w.ID)
-				continue
-			}
+		for idx, questionID := range w.Questions {
 			_, err = tx.Exec(
 				"INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3)",
-				workbookID, questionID, idx,
+				w.ID, questionID, idx,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to link question for %s: %w", w.ID, err)
+				return 0, fmt.Errorf("failed to link question for %d: %w", w.ID, err)
 			}
 		}
+
+		count++
 	}
 
-	return workbookIDMap, nil
+	return count, nil
 }
 
-func (i *Importer) importCategories(tx *sql.Tx, workbookIDMap map[string]int64) (int, error) {
+func (i *Importer) importCategories(tx *sql.Tx) (int, error) {
 	categoriesDir := filepath.Join(i.dataDir, "categories")
 	files, err := filepath.Glob(filepath.Join(categoriesDir, "*.yml"))
 	if err != nil {
@@ -264,28 +259,22 @@ func (i *Importer) importCategories(tx *sql.Tx, workbookIDMap map[string]int64) 
 		}
 
 		// categories テーブルに挿入
-		var categoryID int64
-		err = tx.QueryRow(
-			"INSERT INTO categories (title, description) VALUES ($1, $2) RETURNING id",
-			c.Title, c.Description,
-		).Scan(&categoryID)
+		_, err = tx.Exec(
+			"INSERT INTO categories (id, title, description) VALUES ($1, $2, $3)",
+			c.ID, c.Title, c.Description,
+		)
 		if err != nil {
-			return 0, fmt.Errorf("failed to insert category %s: %w", c.ID, err)
+			return 0, fmt.Errorf("failed to insert category %d: %w", c.ID, err)
 		}
 
 		// 問題集にカテゴリIDを設定
-		for _, workbookUUID := range c.Workbooks {
-			workbookID, ok := workbookIDMap[workbookUUID]
-			if !ok {
-				fmt.Printf("Warning: workbook %s not found for category %s\n", workbookUUID, c.ID)
-				continue
-			}
+		for _, workbookID := range c.Workbooks {
 			_, err = tx.Exec(
 				"UPDATE workbooks SET category_id = $1 WHERE id = $2",
-				categoryID, workbookID,
+				c.ID, workbookID,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to set category for workbook %s: %w", workbookUUID, err)
+				return 0, fmt.Errorf("failed to set category for workbook %d: %w", workbookID, err)
 			}
 		}
 
@@ -293,4 +282,29 @@ func (i *Importer) importCategories(tx *sql.Tx, workbookIDMap map[string]int64) 
 	}
 
 	return count, nil
+}
+
+// resetSequences は明示的IDインサート後にシーケンスを最大ID+1にリセットする
+func (i *Importer) resetSequences(tx *sql.Tx) error {
+	sequences := []struct {
+		table    string
+		sequence string
+	}{
+		{"images", "images_id_seq"},
+		{"questions", "questions_id_seq"},
+		{"questions_single_choice", "questions_single_choice_id_seq"},
+		{"questions_single_choice_choices", "questions_single_choice_choices_id_seq"},
+		{"workbooks", "workbooks_id_seq"},
+		{"categories", "categories_id_seq"},
+	}
+	for _, s := range sequences {
+		_, err := tx.Exec(fmt.Sprintf(
+			"SELECT setval('%s', COALESCE((SELECT MAX(id) FROM %s), 0) + 1, false)",
+			s.sequence, s.table,
+		))
+		if err != nil {
+			return fmt.Errorf("failed to reset sequence %s: %w", s.sequence, err)
+		}
+	}
+	return nil
 }

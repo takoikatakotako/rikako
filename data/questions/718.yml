@@ -1,0 +1,9 @@
+id: 718
+type: single_choice
+text: 鉛蓄電池の負極に用いられる物質はどれか。
+choices:
+- 鉛（Pb）
+- 二酸化鉛（PbO₂）
+- 硫酸鉛（PbSO₄）
+correct: 0
+explanation: 鉛蓄電池は負極にPb、正極にPbO₂を用い、電解液に希硫酸を使用する。放電時には両極ともPbSO₄が生成する。充電可能な二次電池であり、自動車のバッテリーに広く使われている。

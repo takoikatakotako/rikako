@@ -1,9 +1,0 @@
-id: c1000038-chem-basic-0038-0000-000000000038
-type: single_choice
-text: 1Lの水に1molの塩化ナトリウムを溶かした水溶液のモル濃度はいくらか。
-choices:
-- 0.5 mol/L
-- 1 mol/L
-- 2 mol/L
-correct: 1
-explanation: モル濃度(mol/L) = 溶質のmol数 / 溶液の体積(L)。1mol / 1L = 1 mol/L。

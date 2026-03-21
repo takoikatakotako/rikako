@@ -1,0 +1,9 @@
+id: 99
+type: single_choice
+text: 派遣先の行為に関する記述1〜dのうち、適切なものだけを全て挙げたものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0

@@ -1,0 +1,9 @@
+id: 728
+type: single_choice
+text: 反応速度定数kと温度の関係を表す式を何というか。
+choices:
+- ファントホッフの式
+- アレニウスの式
+- ネルンストの式
+correct: 1
+explanation: アレニウスの式 k = Ae^(-Ea/RT) は反応速度定数kと温度Tの関係を表す。Aは頻度因子、Eaは活性化エネルギー。温度が高いほどkが大きくなる。

@@ -1,0 +1,8 @@
+id: 503
+type: single_choice
+text: 国内銀行に預け入れられた外貨預金は、預金保険制度の保護の対象となる。
+choices:
+- ◯
+- ×
+correct: 1
+explanation: 外貨預金は預金保険制度の保護の対象とならない。

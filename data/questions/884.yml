@@ -1,0 +1,10 @@
+id: 884
+type: single_choice
+text: C₅H₁₂で表される有機化合物の名前は何か。
+choices:
+- ペンタン
+- ヘキサン
+- プロパン
+- エタン
+correct: 0
+explanation: C₅H₁₂はペンタンである。
