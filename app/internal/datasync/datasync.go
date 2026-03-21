@@ -359,45 +359,50 @@ func (s *Syncer) loadQuestionsDB() (map[int64]*QuestionDB, error) {
 		return nil, err
 	}
 
-	// Load choices
-	for id, q := range questions {
-		choiceRows, err := s.db.Query(`
-			SELECT choice_index, text, is_correct
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, id)
-		if err != nil {
+	// Load all choices in one query
+	choiceRows, err := s.db.Query(`
+		SELECT qsc.question_id, qscc.choice_index, qscc.text, qscc.is_correct
+		FROM questions_single_choice_choices qscc
+		JOIN questions_single_choice qsc ON qscc.single_choice_id = qsc.id
+		ORDER BY qsc.question_id, qscc.choice_index
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer choiceRows.Close()
+	for choiceRows.Next() {
+		var qID int64
+		var c ChoiceDB
+		if err := choiceRows.Scan(&qID, &c.Index, &c.Text, &c.IsCorrect); err != nil {
 			return nil, err
 		}
-		for choiceRows.Next() {
-			var c ChoiceDB
-			if err := choiceRows.Scan(&c.Index, &c.Text, &c.IsCorrect); err != nil {
-				choiceRows.Close()
-				return nil, err
-			}
+		if q, ok := questions[qID]; ok {
 			q.Choices = append(q.Choices, c)
 		}
-		choiceRows.Close()
+	}
+	if err := choiceRows.Err(); err != nil {
+		return nil, err
 	}
 
-	// Load image associations
-	for id, q := range questions {
-		imgRows, err := s.db.Query(`
-			SELECT image_id FROM question_images WHERE question_id = $1 ORDER BY order_index
-		`, id)
-		if err != nil {
+	// Load all image associations in one query
+	imgRows, err := s.db.Query(`
+		SELECT question_id, image_id FROM question_images ORDER BY question_id, order_index
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer imgRows.Close()
+	for imgRows.Next() {
+		var qID, imgID int64
+		if err := imgRows.Scan(&qID, &imgID); err != nil {
 			return nil, err
 		}
-		for imgRows.Next() {
-			var imgID int64
-			if err := imgRows.Scan(&imgID); err != nil {
-				imgRows.Close()
-				return nil, err
-			}
+		if q, ok := questions[qID]; ok {
 			q.Images = append(q.Images, imgID)
 		}
-		imgRows.Close()
+	}
+	if err := imgRows.Err(); err != nil {
+		return nil, err
 	}
 
 	return questions, nil
@@ -657,20 +662,22 @@ func (s *Syncer) loadWorkbooksDB() (map[int64]*WorkbookDB, error) {
 		return nil, err
 	}
 
-	for id, w := range workbooks {
-		qRows, err := s.db.Query("SELECT question_id FROM workbook_questions WHERE workbook_id = $1 ORDER BY order_index", id)
-		if err != nil {
+	wqRows, err := s.db.Query("SELECT workbook_id, question_id FROM workbook_questions ORDER BY workbook_id, order_index")
+	if err != nil {
+		return nil, err
+	}
+	defer wqRows.Close()
+	for wqRows.Next() {
+		var wbID, qid int64
+		if err := wqRows.Scan(&wbID, &qid); err != nil {
 			return nil, err
 		}
-		for qRows.Next() {
-			var qid int64
-			if err := qRows.Scan(&qid); err != nil {
-				qRows.Close()
-				return nil, err
-			}
+		if w, ok := workbooks[wbID]; ok {
 			w.Questions = append(w.Questions, qid)
 		}
-		qRows.Close()
+	}
+	if err := wqRows.Err(); err != nil {
+		return nil, err
 	}
 
 	return workbooks, nil
@@ -829,21 +836,23 @@ func (s *Syncer) loadCategoriesDB() (map[int64]*CategoryDB, error) {
 		return nil, err
 	}
 
-	// Load workbook associations
-	for id, c := range categories {
-		wbRows, err := s.db.Query("SELECT id FROM workbooks WHERE category_id = $1 ORDER BY id", id)
-		if err != nil {
+	// Load workbook associations in one query
+	catWbRows, err := s.db.Query("SELECT id, category_id FROM workbooks WHERE category_id IS NOT NULL ORDER BY category_id, id")
+	if err != nil {
+		return nil, err
+	}
+	defer catWbRows.Close()
+	for catWbRows.Next() {
+		var wbID, catID int64
+		if err := catWbRows.Scan(&wbID, &catID); err != nil {
 			return nil, err
 		}
-		for wbRows.Next() {
-			var wbID int64
-			if err := wbRows.Scan(&wbID); err != nil {
-				wbRows.Close()
-				return nil, err
-			}
+		if c, ok := categories[catID]; ok {
 			c.Workbooks = append(c.Workbooks, wbID)
 		}
-		wbRows.Close()
+	}
+	if err := catWbRows.Err(); err != nil {
+		return nil, err
 	}
 
 	return categories, nil
