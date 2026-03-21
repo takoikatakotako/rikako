@@ -18,3 +18,11 @@ type WorkbookYAML struct {
 	Description string   `yaml:"description"`
 	Questions   []string `yaml:"questions"`
 }
+
+// CategoryYAML はYAMLファイルのカテゴリデータ構造
+type CategoryYAML struct {
+	ID          string   `yaml:"id"`
+	Title       string   `yaml:"title"`
+	Description string   `yaml:"description"`
+	Workbooks   []string `yaml:"workbooks"`
+}

@@ -140,6 +140,201 @@ func (h *Handler) getQuestionByID(ctx context.Context, questionID int64) (*admin
 	return q, nil
 }
 
+// --- Categories CRUD ---
+
+func (h *Handler) GetCategories(ctx context.Context, request adminapi.GetCategoriesRequestObject) (adminapi.GetCategoriesResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return adminapi.GetCategories400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	var total int
+	if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM categories").Scan(&total); err != nil {
+		h.logger.Error("failed to count categories", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT c.id, c.title, c.description,
+			(SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
+		FROM categories c
+		ORDER BY c.id
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
+	if err != nil {
+		h.logger.Error("failed to query categories", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	categories := []adminapi.Category{}
+	for rows.Next() {
+		var id int64
+		var title string
+		var description sql.NullString
+		var workbookCount int
+		if err := rows.Scan(&id, &title, &description, &workbookCount); err != nil {
+			h.logger.Error("failed to scan category", "error", err)
+			return nil, err
+		}
+		c := adminapi.Category{
+			Id:            id,
+			Title:         title,
+			WorkbookCount: &workbookCount,
+		}
+		if description.Valid {
+			c.Description = &description.String
+		}
+		categories = append(categories, c)
+	}
+
+	return adminapi.GetCategories200JSONResponse{Categories: categories, Total: total}, nil
+}
+
+// getCategoryDetail fetches a category with its workbooks.
+func (h *Handler) getCategoryDetail(ctx context.Context, categoryID int64) (*adminapi.CategoryDetail, error) {
+	var id int64
+	var title string
+	var description sql.NullString
+
+	err := h.db.QueryRowContext(ctx, `SELECT id, title, description FROM categories WHERE id = $1`, categoryID).Scan(&id, &title, &description)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT w.id, w.title, w.description,
+			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+		FROM workbooks w
+		WHERE w.category_id = $1
+		ORDER BY w.id
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	workbooks := []adminapi.Workbook{}
+	for rows.Next() {
+		var wid int64
+		var wtitle string
+		var wdesc sql.NullString
+		var questionCount int
+		if err := rows.Scan(&wid, &wtitle, &wdesc, &questionCount); err != nil {
+			return nil, err
+		}
+		w := adminapi.Workbook{
+			Id:            wid,
+			Title:         wtitle,
+			QuestionCount: &questionCount,
+			CategoryId:    &id,
+		}
+		if wdesc.Valid {
+			w.Description = &wdesc.String
+		}
+		workbooks = append(workbooks, w)
+	}
+
+	c := &adminapi.CategoryDetail{
+		Id:        id,
+		Title:     title,
+		Workbooks: workbooks,
+	}
+	if description.Valid {
+		c.Description = &description.String
+	}
+	return c, nil
+}
+
+func (h *Handler) GetCategory(ctx context.Context, request adminapi.GetCategoryRequestObject) (adminapi.GetCategoryResponseObject, error) {
+	c, err := h.getCategoryDetail(ctx, request.CategoryId)
+	if err == sql.ErrNoRows {
+		return adminapi.GetCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get category", "error", err, "category_id", request.CategoryId)
+		return nil, err
+	}
+	return adminapi.GetCategory200JSONResponse(*c), nil
+}
+
+func (h *Handler) CreateCategory(ctx context.Context, request adminapi.CreateCategoryRequestObject) (adminapi.CreateCategoryResponseObject, error) {
+	body := request.Body
+
+	var categoryID int64
+	var descArg any
+	if body.Description != nil {
+		descArg = *body.Description
+	}
+	err := h.db.QueryRowContext(ctx, `
+		INSERT INTO categories (title, description) VALUES ($1, $2) RETURNING id
+	`, body.Title, descArg).Scan(&categoryID)
+	if err != nil {
+		h.logger.Error("failed to insert category", "error", err)
+		return nil, err
+	}
+
+	c, err := h.getCategoryDetail(ctx, categoryID)
+	if err != nil {
+		h.logger.Error("failed to get created category", "error", err)
+		return nil, err
+	}
+
+	return adminapi.CreateCategory201JSONResponse(*c), nil
+}
+
+func (h *Handler) UpdateCategory(ctx context.Context, request adminapi.UpdateCategoryRequestObject) (adminapi.UpdateCategoryResponseObject, error) {
+	body := request.Body
+
+	var exists bool
+	err := h.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM categories WHERE id = $1)`, request.CategoryId).Scan(&exists)
+	if err != nil {
+		h.logger.Error("failed to check category existence", "error", err)
+		return nil, err
+	}
+	if !exists {
+		return adminapi.UpdateCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
+	}
+
+	var descArg any
+	if body.Description != nil {
+		descArg = *body.Description
+	}
+	_, err = h.db.ExecContext(ctx, `
+		UPDATE categories SET title = $1, description = $2, updated_at = $3 WHERE id = $4
+	`, body.Title, descArg, time.Now(), request.CategoryId)
+	if err != nil {
+		h.logger.Error("failed to update category", "error", err)
+		return nil, err
+	}
+
+	c, err := h.getCategoryDetail(ctx, request.CategoryId)
+	if err != nil {
+		h.logger.Error("failed to get updated category", "error", err)
+		return nil, err
+	}
+
+	return adminapi.UpdateCategory200JSONResponse(*c), nil
+}
+
+func (h *Handler) DeleteCategory(ctx context.Context, request adminapi.DeleteCategoryRequestObject) (adminapi.DeleteCategoryResponseObject, error) {
+	result, err := h.db.ExecContext(ctx, `DELETE FROM categories WHERE id = $1`, request.CategoryId)
+	if err != nil {
+		h.logger.Error("failed to delete category", "error", err, "category_id", request.CategoryId)
+		return nil, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if rowsAffected == 0 {
+		return adminapi.DeleteCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
+	}
+
+	return adminapi.DeleteCategory204Response{}, nil
+}
+
 // --- Questions CRUD ---
 
 func (h *Handler) GetQuestions(ctx context.Context, request adminapi.GetQuestionsRequestObject) (adminapi.GetQuestionsResponseObject, error) {
@@ -472,7 +667,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbook
 	}
 
 	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description,
+		SELECT w.id, w.title, w.description, w.category_id,
 			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 		FROM workbooks w
 		ORDER BY w.id
@@ -489,8 +684,9 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbook
 		var id int64
 		var title string
 		var description sql.NullString
+		var categoryID sql.NullInt64
 		var questionCount int
-		if err := rows.Scan(&id, &title, &description, &questionCount); err != nil {
+		if err := rows.Scan(&id, &title, &description, &categoryID, &questionCount); err != nil {
 			h.logger.Error("failed to scan workbook", "error", err)
 			return nil, err
 		}
@@ -501,6 +697,10 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbook
 		}
 		if description.Valid {
 			w.Description = &description.String
+		}
+		if categoryID.Valid {
+			cid := categoryID.Int64
+			w.CategoryId = &cid
 		}
 		workbooks = append(workbooks, w)
 	}
@@ -513,8 +713,9 @@ func (h *Handler) getWorkbookDetail(ctx context.Context, workbookID int64) (*adm
 	var id int64
 	var title string
 	var description sql.NullString
+	var categoryID sql.NullInt64
 
-	err := h.db.QueryRowContext(ctx, `SELECT id, title, description FROM workbooks WHERE id = $1`, workbookID).Scan(&id, &title, &description)
+	err := h.db.QueryRowContext(ctx, `SELECT id, title, description, category_id FROM workbooks WHERE id = $1`, workbookID).Scan(&id, &title, &description, &categoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -593,6 +794,10 @@ func (h *Handler) getWorkbookDetail(ctx context.Context, workbookID int64) (*adm
 	if description.Valid {
 		w.Description = &description.String
 	}
+	if categoryID.Valid {
+		cid := categoryID.Int64
+		w.CategoryId = &cid
+	}
 	return w, nil
 }
 
@@ -623,9 +828,13 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 	if body.Description != nil {
 		descArg = *body.Description
 	}
+	var categoryArg any
+	if body.CategoryId != nil {
+		categoryArg = *body.CategoryId
+	}
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO workbooks (title, description) VALUES ($1, $2) RETURNING id
-	`, body.Title, descArg).Scan(&workbookID)
+		INSERT INTO workbooks (title, description, category_id) VALUES ($1, $2, $3) RETURNING id
+	`, body.Title, descArg, categoryArg).Scan(&workbookID)
 	if err != nil {
 		h.logger.Error("failed to insert workbook", "error", err)
 		return nil, err
@@ -682,9 +891,13 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 	if body.Description != nil {
 		descArg = *body.Description
 	}
+	var categoryArg any
+	if body.CategoryId != nil {
+		categoryArg = *body.CategoryId
+	}
 	_, err = tx.ExecContext(ctx, `
-		UPDATE workbooks SET title = $1, description = $2, updated_at = $3 WHERE id = $4
-	`, body.Title, descArg, time.Now(), request.WorkbookId)
+		UPDATE workbooks SET title = $1, description = $2, category_id = $3, updated_at = $4 WHERE id = $5
+	`, body.Title, descArg, categoryArg, time.Now(), request.WorkbookId)
 	if err != nil {
 		h.logger.Error("failed to update workbook", "error", err)
 		return nil, err

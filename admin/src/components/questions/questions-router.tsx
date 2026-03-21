@@ -1,14 +1,17 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useRouteSlug } from "@/hooks/use-route-slug";
 import { QuestionList } from "@/components/questions/question-list";
 import { QuestionDetail } from "@/components/questions/question-detail";
 import { QuestionEdit } from "@/components/questions/question-edit";
 import { QuestionNew } from "@/components/questions/question-new";
 
 export function QuestionsRouter() {
-  const params = useParams();
-  const slug = params.slug as string[] | undefined;
+  const { slug, mounted } = useRouteSlug("questions");
+
+  if (!mounted) {
+    return <p className="text-muted-foreground">読み込み中...</p>;
+  }
 
   if (!slug || slug.length === 0) {
     return <QuestionList />;

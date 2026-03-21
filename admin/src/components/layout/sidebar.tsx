@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileQuestion } from "lucide-react";
+import { BookOpen, FileQuestion, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "問題", href: "/questions", icon: FileQuestion },
+  { name: "カテゴリ", href: "/categories", icon: FolderOpen },
   { name: "問題集", href: "/workbooks", icon: BookOpen },
+  { name: "問題", href: "/questions", icon: FileQuestion },
 ];
 
 export function Sidebar() {

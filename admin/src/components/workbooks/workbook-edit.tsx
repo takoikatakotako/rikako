@@ -20,6 +20,7 @@ export function WorkbookEdit({ id }: { id: number }) {
       <h1 className="text-2xl font-bold">問題集編集</h1>
       <WorkbookForm
         defaultValues={workbook}
+        defaultCategoryId={workbook.categoryId}
         submitLabel="更新"
         onSubmit={async (data) => {
           try {

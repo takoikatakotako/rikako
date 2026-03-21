@@ -33,17 +33,48 @@ export interface UpdateQuestionRequest {
   imageIds?: number[];
 }
 
+export interface Category {
+  id: number;
+  title: string;
+  description?: string;
+  workbookCount?: number;
+}
+
+export interface CategoryDetail {
+  id: number;
+  title: string;
+  description?: string;
+  workbooks: Workbook[];
+}
+
+export interface CategoriesResponse {
+  categories: Category[];
+  total: number;
+}
+
+export interface CreateCategoryRequest {
+  title: string;
+  description?: string;
+}
+
+export interface UpdateCategoryRequest {
+  title: string;
+  description?: string;
+}
+
 export interface Workbook {
   id: number;
   title: string;
   description?: string;
   questionCount?: number;
+  categoryId?: number;
 }
 
 export interface WorkbookDetail {
   id: number;
   title: string;
   description?: string;
+  categoryId?: number;
   questions: Question[];
 }
 
@@ -55,12 +86,14 @@ export interface WorkbooksResponse {
 export interface CreateWorkbookRequest {
   title: string;
   description?: string;
+  categoryId?: number;
   questionIds?: number[];
 }
 
 export interface UpdateWorkbookRequest {
   title: string;
   description?: string;
+  categoryId?: number;
   questionIds?: number[];
 }
 

@@ -51,11 +51,18 @@ func (i *Importer) Run() error {
 	fmt.Printf("Imported %d questions\n", len(questionIDMap))
 
 	// 問題集をインポート
-	workbookCount, err := i.importWorkbooks(tx, questionIDMap)
+	workbookIDMap, err := i.importWorkbooks(tx, questionIDMap)
 	if err != nil {
 		return fmt.Errorf("failed to import workbooks: %w", err)
 	}
-	fmt.Printf("Imported %d workbooks\n", workbookCount)
+	fmt.Printf("Imported %d workbooks\n", len(workbookIDMap))
+
+	// カテゴリをインポート
+	categoryCount, err := i.importCategories(tx, workbookIDMap)
+	if err != nil {
+		return fmt.Errorf("failed to import categories: %w", err)
+	}
+	fmt.Printf("Imported %d categories\n", categoryCount)
 
 	// コミット
 	if err := tx.Commit(); err != nil {
@@ -69,6 +76,7 @@ func (i *Importer) clearData(tx *sql.Tx) error {
 	tables := []string{
 		"workbook_questions",
 		"workbooks",
+		"categories",
 		"question_images",
 		"questions_single_choice_choices",
 		"questions_single_choice",
@@ -184,23 +192,24 @@ func (i *Importer) importQuestions(tx *sql.Tx, imageIDMap map[string]int64) (map
 	return questionIDMap, nil
 }
 
-func (i *Importer) importWorkbooks(tx *sql.Tx, questionIDMap map[string]int64) (int, error) {
+func (i *Importer) importWorkbooks(tx *sql.Tx, questionIDMap map[string]int64) (map[string]int64, error) {
+	workbookIDMap := make(map[string]int64) // UUID -> DB ID
+
 	workbooksDir := filepath.Join(i.dataDir, "workbooks")
 	files, err := filepath.Glob(filepath.Join(workbooksDir, "*.yml"))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	count := 0
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			return 0, fmt.Errorf("failed to read %s: %w", file, err)
+			return nil, fmt.Errorf("failed to read %s: %w", file, err)
 		}
 
 		var w WorkbookYAML
 		if err := yaml.Unmarshal(data, &w); err != nil {
-			return 0, fmt.Errorf("failed to parse %s: %w", file, err)
+			return nil, fmt.Errorf("failed to parse %s: %w", file, err)
 		}
 
 		// workbooks テーブルに挿入
@@ -210,8 +219,10 @@ func (i *Importer) importWorkbooks(tx *sql.Tx, questionIDMap map[string]int64) (
 			w.Title, w.Description,
 		).Scan(&workbookID)
 		if err != nil {
-			return 0, fmt.Errorf("failed to insert workbook %s: %w", w.ID, err)
+			return nil, fmt.Errorf("failed to insert workbook %s: %w", w.ID, err)
 		}
+
+		workbookIDMap[w.ID] = workbookID
 
 		// 問題を紐付け
 		for idx, questionUUID := range w.Questions {
@@ -225,7 +236,56 @@ func (i *Importer) importWorkbooks(tx *sql.Tx, questionIDMap map[string]int64) (
 				workbookID, questionID, idx,
 			)
 			if err != nil {
-				return 0, fmt.Errorf("failed to link question for %s: %w", w.ID, err)
+				return nil, fmt.Errorf("failed to link question for %s: %w", w.ID, err)
+			}
+		}
+	}
+
+	return workbookIDMap, nil
+}
+
+func (i *Importer) importCategories(tx *sql.Tx, workbookIDMap map[string]int64) (int, error) {
+	categoriesDir := filepath.Join(i.dataDir, "categories")
+	files, err := filepath.Glob(filepath.Join(categoriesDir, "*.yml"))
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return 0, fmt.Errorf("failed to read %s: %w", file, err)
+		}
+
+		var c CategoryYAML
+		if err := yaml.Unmarshal(data, &c); err != nil {
+			return 0, fmt.Errorf("failed to parse %s: %w", file, err)
+		}
+
+		// categories テーブルに挿入
+		var categoryID int64
+		err = tx.QueryRow(
+			"INSERT INTO categories (title, description) VALUES ($1, $2) RETURNING id",
+			c.Title, c.Description,
+		).Scan(&categoryID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to insert category %s: %w", c.ID, err)
+		}
+
+		// 問題集にカテゴリIDを設定
+		for _, workbookUUID := range c.Workbooks {
+			workbookID, ok := workbookIDMap[workbookUUID]
+			if !ok {
+				fmt.Printf("Warning: workbook %s not found for category %s\n", workbookUUID, c.ID)
+				continue
+			}
+			_, err = tx.Exec(
+				"UPDATE workbooks SET category_id = $1 WHERE id = $2",
+				categoryID, workbookID,
+			)
+			if err != nil {
+				return 0, fmt.Errorf("failed to set category for workbook %s: %w", workbookUUID, err)
 			}
 		}
 
