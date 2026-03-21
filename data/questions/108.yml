@@ -1,0 +1,16 @@
+id: 108
+type: single_choice
+text: 通信プロトコルであるPOPの説明として、適切なものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 'ア：Telnet
+
+  イ：FTP
+
+  ウ：SMTP
+
+  エ：○'

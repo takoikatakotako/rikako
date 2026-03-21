@@ -1,0 +1,10 @@
+id: 25
+type: single_choice
+text: 構成する粒子が規則正しく並んでいる固体の事を何と言うか。
+choices:
+- 水晶
+- 結晶
+- 綺晶
+- 光晶
+correct: 1
+explanation: 構成する粒子が規則正しく並んでいる固体は結晶と呼ばれる。

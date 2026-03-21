@@ -1,0 +1,9 @@
+id: 696
+type: single_choice
+text: 硫酸の化学式はどれか。
+choices:
+- HCl
+- H₂SO₄
+- HNO₃
+correct: 1
+explanation: H₂SO₄は硫酸で、強酸の代表。2価の酸であり、水溶液中でH₂SO₄ → 2H⁺ + SO₄²⁻ と電離する。HClは塩酸、HNO₃は硝酸。

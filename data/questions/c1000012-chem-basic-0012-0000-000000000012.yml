@@ -1,9 +1,0 @@
-id: c1000012-chem-basic-0012-0000-000000000012
-type: single_choice
-text: 次のうち、電解質はどれか。
-choices:
-- 砂糖（スクロース）
-- 塩化ナトリウム
-- エタノール
-correct: 1
-explanation: 電解質とは水に溶けてイオンに電離する物質。NaClは水中でNa⁺とCl⁻に電離する。砂糖やエタノールは非電解質。

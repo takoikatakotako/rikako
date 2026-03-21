@@ -1,0 +1,12 @@
+id: 34
+type: single_choice
+text: 以下の画像の構造式(CH₃CH₂CH₃)を持つ有機化合物の名前は何であるか。
+choices:
+- プロパン
+- メタノール
+- エチレン
+- アルケン
+correct: 0
+explanation: プロパンはCH₃CH₂CH₃で表される。
+images:
+- 104

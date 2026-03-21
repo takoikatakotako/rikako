@@ -1,0 +1,10 @@
+id: 581
+type: single_choice
+text: 固体が融解する時の温度を何と言うか
+choices:
+- 融点
+- 凝固点
+- 沸点
+- 昇華点
+correct: 0
+explanation: 固体が融解する時の温度を融点という。氷の融点は0℃である。

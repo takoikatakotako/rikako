@@ -1,9 +1,0 @@
-id: c1000010-chem-basic-0010-0000-000000000010
-type: single_choice
-text: 炭酸水素ナトリウム（NaHCO₃）を加熱すると発生する気体はどれか。
-choices:
-- 酸素
-- 二酸化炭素
-- 水素
-correct: 1
-explanation: 炭酸水素ナトリウムを加熱すると、2NaHCO₃ → Na₂CO₃ + H₂O + CO₂ の反応が起こり、二酸化炭素と水が発生する。この反応はベーキングパウダーの膨張原理でもある。

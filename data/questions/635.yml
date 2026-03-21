@@ -1,0 +1,7 @@
+id: 635
+type: single_choice
+text: 公社債投資信託は、投資対象に株式をいっさい組み入れることができない。
+choices:
+- ◯
+- ×
+correct: 0

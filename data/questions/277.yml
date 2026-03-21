@@ -1,0 +1,12 @@
+id: 277
+type: single_choice
+text: 以下の画像の構造式(CH₃CH₂OH)を持つアルコールの名前は何であるか。
+choices:
+- メタノール
+- プロパノール
+- エタノール
+- ブタノール
+correct: 2
+explanation: エタノールはCH₃CH₂OHで表される。
+images:
+- 26

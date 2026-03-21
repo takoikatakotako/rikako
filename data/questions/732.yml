@@ -1,0 +1,9 @@
+id: 732
+type: single_choice
+text: 水酸化ナトリウム水溶液に二酸化炭素を通じると生成する物質はどれか。
+choices:
+- 炭酸ナトリウム
+- 炭酸カルシウム
+- 水酸化カルシウム
+correct: 0
+explanation: 2NaOH + CO₂ → Na₂CO₃ + H₂O。過剰のCO₂を通じるとNa₂CO₃ + CO₂ + H₂O → 2NaHCO₃となり炭酸水素ナトリウムが生成。

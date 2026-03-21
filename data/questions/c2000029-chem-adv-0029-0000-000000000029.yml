@@ -1,9 +1,0 @@
-id: c2000029-chem-adv-0029-0000-000000000029
-type: single_choice
-text: 電離平衡において、弱酸の電離度が小さいほど、その酸のpKaはどうなるか。
-choices:
-- 小さくなる
-- 大きくなる
-- 変化しない
-correct: 1
-explanation: pKa = -log Ka。電離度が小さい（弱い酸）ほどKa（酸解離定数）が小さくなり、pKaは大きくなる。pKaが大きいほど弱い酸であることを意味する。

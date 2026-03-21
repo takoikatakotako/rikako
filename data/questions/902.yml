@@ -1,0 +1,7 @@
+id: 902
+type: single_choice
+text: ファイナンシャル・プランナーは、職業倫理上、顧客情報に関する守秘義務を厳守しなければならない。
+choices:
+- ◯
+- ×
+correct: 0

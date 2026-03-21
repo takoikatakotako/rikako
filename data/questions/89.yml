@@ -1,0 +1,10 @@
+id: 89
+type: single_choice
+text: ネットワーク構成のうち、WANに該当するものはどれか。
+choices:
+- ''
+- ''
+- ''
+- ''
+correct: 0
+explanation: 通信事業者の通信回線を使用して、本社と他県の支社を結ぶネットワークは、WANに該当する。
