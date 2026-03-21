@@ -19,6 +19,7 @@ terraform.tfvars
 .claude/
 app/server
 app/admin
+app/datasync
 
 # Xcode
 **/xcuserdata/

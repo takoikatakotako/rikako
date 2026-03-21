@@ -4,5 +4,5 @@ text: 所得税法における居住者(非永住者を除く)は、原則とし
 choices:
 - ◯
 - ×
-correct: 2
+correct: 1
 explanation: 所得税法では表のように居住者や非居住者で分類される。

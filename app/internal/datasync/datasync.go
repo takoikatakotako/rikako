@@ -175,17 +175,22 @@ func (s *Syncer) Apply() (*PlanResult, error) {
 	}
 	defer tx.Rollback()
 
+	// 適用順序: FK制約を考慮
+	// 1. images (他テーブルから参照される)
+	// 2. questions (workbook_questionsから参照される)
+	// 3. categories (workbooks.category_idから参照される)
+	// 4. workbooks (categoriesとquestionsに依存)
 	if err := s.applyImages(tx, plan.Images); err != nil {
 		return nil, fmt.Errorf("images: %w", err)
 	}
 	if err := s.applyQuestions(tx, plan.Questions); err != nil {
 		return nil, fmt.Errorf("questions: %w", err)
 	}
-	if err := s.applyWorkbooks(tx, plan.Workbooks); err != nil {
-		return nil, fmt.Errorf("workbooks: %w", err)
-	}
 	if err := s.applyCategories(tx, plan.Categories); err != nil {
 		return nil, fmt.Errorf("categories: %w", err)
+	}
+	if err := s.applyWorkbooks(tx, plan.Workbooks); err != nil {
+		return nil, fmt.Errorf("workbooks: %w", err)
 	}
 
 	if err := s.resetSequences(tx); err != nil {
@@ -454,7 +459,10 @@ func diffQuestion(yq *QuestionYAML, dq *QuestionDB) []string {
 				details = append(details, fmt.Sprintf("choice[%d]: changed", i))
 			}
 		}
-		// Compare correct answer
+	}
+
+	// Compare correct answer (only when both have choices)
+	if len(yq.Choices) > 0 && len(dq.Choices) > 0 {
 		yamlCorrect := yq.Correct
 		dbCorrect := -1
 		for _, c := range dq.Choices {
@@ -866,7 +874,7 @@ func (s *Syncer) planCategories() ([]DiffItem, error) {
 		if yc.Description != dc.Description {
 			details = append(details, "description: changed")
 		}
-		if !int64SliceEqual(yc.Workbooks, dc.Workbooks) {
+		if !int64SetEqual(yc.Workbooks, dc.Workbooks) {
 			details = append(details, fmt.Sprintf("workbooks: %v → %v", dc.Workbooks, yc.Workbooks))
 		}
 		if len(details) > 0 {
@@ -982,6 +990,19 @@ func int64SliceEqual(a, b []int64) bool {
 		}
 	}
 	return true
+}
+
+func int64SetEqual(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sa := make([]int64, len(a))
+	copy(sa, a)
+	sb := make([]int64, len(b))
+	copy(sb, b)
+	sort.Slice(sa, func(i, j int) bool { return sa[i] < sa[j] })
+	sort.Slice(sb, func(i, j int) bool { return sb[i] < sb[j] })
+	return int64SliceEqual(sa, sb)
 }
 
 func truncate(s string, n int) string {
