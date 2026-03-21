@@ -1,0 +1,9 @@
+id: c1000034-chem-basic-0034-0000-000000000034
+type: single_choice
+text: 2molの水（H₂O）の質量は何gか。（H=1、O=16）
+choices:
+- 18g
+- 36g
+- 72g
+correct: 1
+explanation: H₂Oの分子量は1×2 + 16 = 18。2mol × 18g/mol = 36g。molと質量の関係は「質量(g) = mol × 分子量(g/mol)」で求められる。

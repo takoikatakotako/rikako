@@ -1,0 +1,9 @@
+id: c1000014-chem-basic-0014-0000-000000000014
+type: single_choice
+text: ナトリウムの炎色反応の色はどれか。
+choices:
+- 赤
+- 黄
+- 紫
+correct: 1
+explanation: ナトリウム（Na）の炎色反応は黄色である。リチウムは赤、カリウムは赤紫、銅は青緑色を示す。
