@@ -18,6 +18,7 @@ nav:
   - 公開API: api/index.html
   - 管理API (Swagger): admin-api/index.html
   - データ同期: datasync.md
+  - 運用ランブック: runbook.md
   - DBスキーマ:
       - 概要: schema/README.md
       - questions: schema/public.questions.md
