@@ -71,7 +71,7 @@ struct QuizView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         if showExplanation {
-                            if index == currentQuestion.correct {
+                            if index == currentQuestion.correctIndex {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
                             } else if index == selectedChoice {
@@ -96,14 +96,14 @@ struct QuizView: View {
     private var explanationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: selectedChoice == currentQuestion.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .foregroundStyle(selectedChoice == currentQuestion.correct ? .green : .red)
-                Text(selectedChoice == currentQuestion.correct ? "正解！" : "不正解")
+                Image(systemName: selectedChoice == currentQuestion.correctIndex ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(selectedChoice == currentQuestion.correctIndex ? .green : .red)
+                Text(selectedChoice == currentQuestion.correctIndex ? "正解！" : "不正解")
                     .fontWeight(.bold)
             }
             .font(.headline)
 
-            Text(currentQuestion.explanation)
+            Text(currentQuestion.explanation ?? "")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
@@ -136,21 +136,21 @@ struct QuizView: View {
 
     private func choiceTextColor(for index: Int) -> Color {
         if !showExplanation { return .primary }
-        if index == currentQuestion.correct { return .green }
+        if index == currentQuestion.correctIndex { return .green }
         if index == selectedChoice { return .red }
         return .secondary
     }
 
     private func choiceBackground(for index: Int) -> Color {
         if !showExplanation { return Color(.systemBackground) }
-        if index == currentQuestion.correct { return Color.green.opacity(0.1) }
-        if index == selectedChoice && index != currentQuestion.correct { return Color.red.opacity(0.1) }
+        if index == currentQuestion.correctIndex { return Color.green.opacity(0.1) }
+        if index == selectedChoice && index != currentQuestion.correctIndex { return Color.red.opacity(0.1) }
         return Color(.systemBackground)
     }
 
     private func choiceBorderColor(for index: Int) -> Color {
         if !showExplanation { return Color(.systemGray4) }
-        if index == currentQuestion.correct { return .green }
+        if index == currentQuestion.correctIndex { return .green }
         if index == selectedChoice { return .red }
         return Color(.systemGray4)
     }
