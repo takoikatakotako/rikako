@@ -20,12 +20,6 @@ struct Workbook: Identifiable, Codable {
     let description: String
     let questionCount: Int
     let categoryId: Int64
-
-    enum CodingKeys: String, CodingKey {
-        case id, title, description
-        case questionCount = "question_count"
-        case categoryId = "category_id"
-    }
 }
 
 struct WorkbookDetail: Identifiable, Codable {
@@ -34,11 +28,6 @@ struct WorkbookDetail: Identifiable, Codable {
     let description: String
     let categoryId: Int64
     let questions: [Question]
-
-    enum CodingKeys: String, CodingKey {
-        case id, title, description, questions
-        case categoryId = "category_id"
-    }
 }
 
 struct WorkbooksResponse: Codable {
