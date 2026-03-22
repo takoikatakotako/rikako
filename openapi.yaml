@@ -48,6 +48,7 @@ paths:
       operationId: getQuestions
       tags:
         - Questions
+      security: []
       parameters:
         - name: limit
           in: query
@@ -75,12 +76,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /questions/{questionId}:
     get:
@@ -88,6 +83,7 @@ paths:
       operationId: getQuestion
       tags:
         - Questions
+      security: []
       parameters:
         - name: questionId
           in: path
@@ -102,12 +98,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Question'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '404':
           description: 問題が見つからない
           content:
@@ -121,6 +111,7 @@ paths:
       operationId: getCategories
       tags:
         - Categories
+      security: []
       parameters:
         - name: limit
           in: query
@@ -148,12 +139,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /categories/{categoryId}:
     get:
@@ -161,6 +146,7 @@ paths:
       operationId: getCategory
       tags:
         - Categories
+      security: []
       parameters:
         - name: categoryId
           in: path
@@ -175,12 +161,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CategoryDetail'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '404':
           description: カテゴリが見つからない
           content:
@@ -194,6 +174,7 @@ paths:
       operationId: getWorkbooks
       tags:
         - Workbooks
+      security: []
       parameters:
         - name: limit
           in: query
@@ -221,12 +202,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /workbooks/{workbookId}:
     get:
@@ -234,6 +209,7 @@ paths:
       operationId: getWorkbook
       tags:
         - Workbooks
+      security: []
       parameters:
         - name: workbookId
           in: path
@@ -248,12 +224,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkbookDetail'
-        '401':
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '404':
           description: 問題集が見つからない
           content:

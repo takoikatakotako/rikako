@@ -1,42 +1,52 @@
 import SwiftUI
 
 struct WorkbookListView: View {
-    @State private var selectedCategoryRaw = ""
-
-    private var selectedCategory: Category? {
-        Category(rawValue: selectedCategoryRaw)
-    }
-
-    private var workbooks: [Workbook] {
-        if let category = selectedCategory {
-            return MockData.workbooks(for: category)
-        }
-        return MockData.workbooks
-    }
+    @State private var workbooks: [Workbook] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
 
     var body: some View {
-        List {
-            if let category = selectedCategory {
-                Section {
-                    HStack {
-                        Image(systemName: category.icon)
-                            .foregroundStyle(Color.accentColor)
-                        Text(category.displayName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+        Group {
+            if isLoading {
+                ProgressView("読み込み中...")
+            } else if let errorMessage {
+                ContentUnavailableView {
+                    Label("読み込みエラー", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("再読み込み") {
+                        Task { await loadWorkbooks() }
                     }
                 }
-            }
-
-            Section {
-                ForEach(workbooks) { workbook in
-                    NavigationLink(destination: WorkbookDetailView(workbookID: workbook.id)) {
-                        WorkbookRow(workbook: workbook)
+            } else if workbooks.isEmpty {
+                ContentUnavailableView("問題集がありません", systemImage: "book")
+            } else {
+                List {
+                    ForEach(workbooks) { workbook in
+                        NavigationLink(destination: WorkbookDetailView(workbookID: workbook.id)) {
+                            WorkbookRow(workbook: workbook)
+                        }
                     }
                 }
             }
         }
         .navigationTitle("問題集")
+        .task {
+            await loadWorkbooks()
+        }
+    }
+
+    private func loadWorkbooks() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            workbooks = try await APIClient.shared.fetchWorkbooks()
+            isLoading = false
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
     }
 }
 
@@ -63,3 +73,4 @@ struct WorkbookRow: View {
         WorkbookListView()
     }
 }
+

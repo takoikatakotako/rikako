@@ -9,7 +9,7 @@ struct ResultView: View {
 
     private var correctCount: Int {
         zip(questions, answers).filter { question, answer in
-            answer == question.correct
+            answer == question.correctIndex
         }.count
     }
 
@@ -62,8 +62,8 @@ struct ResultView: View {
 
             ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
                 HStack {
-                    Image(systemName: answers[index] == question.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(answers[index] == question.correct ? .green : .red)
+                    Image(systemName: answers[index] == question.correctIndex ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(answers[index] == question.correctIndex ? .green : .red)
                     Text("Q\(index + 1)")
                         .fontWeight(.bold)
                         .frame(width: 32)

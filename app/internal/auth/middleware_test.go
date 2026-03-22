@@ -82,7 +82,13 @@ func TestPublicOperationsPassWithoutToken(t *testing.T) {
 	_, _, mw, jwksServer := createMiddleware(t)
 	defer jwksServer.Close()
 
-	for _, op := range []string{"Root", "HealthCheck"} {
+	publicOps := []string{
+		"Root", "HealthCheck",
+		"GetQuestions", "GetQuestion",
+		"GetCategories", "GetCategory",
+		"GetWorkbooks", "GetWorkbook",
+	}
+	for _, op := range publicOps {
 		t.Run(op, func(t *testing.T) {
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -105,7 +111,7 @@ func TestProtectedOperationWithoutToken(t *testing.T) {
 	_, _, mw, jwksServer := createMiddleware(t)
 	defer jwksServer.Close()
 
-	protectedOps := []string{"GetQuestions", "GetQuestion", "GetWorkbooks", "GetWorkbook"}
+	protectedOps := []string{"SomeProtectedOperation"}
 	for _, op := range protectedOps {
 		t.Run(op, func(t *testing.T) {
 			e := echo.New()
@@ -140,7 +146,7 @@ func TestProtectedOperationWithInvalidToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	handler := mw(stubHandler, "GetQuestions")
+	handler := mw(stubHandler, "SomeProtectedOperation")
 	_, err := handler(ctx, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid token")
@@ -162,12 +168,12 @@ func TestProtectedOperationWithValidToken(t *testing.T) {
 	token := createTestToken(privateKey, issuer, "test-user-123")
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/questions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	handler := mw(stubHandler, "GetQuestions")
+	handler := mw(stubHandler, "SomeProtectedOperation")
 	result, err := handler(ctx, nil)
 	if err != nil {
 		t.Fatalf("expected no error with valid token, got: %v", err)
@@ -191,12 +197,12 @@ func TestProtectedOperationWithWrongIssuer(t *testing.T) {
 	token := createTestToken(privateKey, "https://wrong-issuer.example.com", "test-user-123")
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/questions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	handler := mw(stubHandler, "GetQuestions")
+	handler := mw(stubHandler, "SomeProtectedOperation")
 	_, err := handler(ctx, nil)
 	if err == nil {
 		t.Fatal("expected error for token with wrong issuer")
@@ -216,12 +222,12 @@ func TestInvalidAuthorizationHeaderFormat(t *testing.T) {
 	defer jwksServer.Close()
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/questions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
 	req.Header.Set("Authorization", "NotBearer some-token")
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	handler := mw(stubHandler, "GetQuestions")
+	handler := mw(stubHandler, "SomeProtectedOperation")
 	_, err := handler(ctx, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid auth header format")

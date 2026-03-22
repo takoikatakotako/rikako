@@ -2,7 +2,6 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var hasCompletedOnboarding: Bool
-    @State private var selectedCategoryRaw = ""
     @State private var currentPage = 0
 
     var body: some View {
@@ -26,19 +25,8 @@ struct OnboardingView: View {
             )
             .tag(2)
 
-            IntroPage(
-                title: "結果を振り返る",
-                description: "成績を確認して\n苦手な分野を克服しましょう",
-                systemImage: "chart.bar.fill",
-                currentPage: $currentPage
-            )
-            .tag(3)
-
-            CategorySelectPage(
-                selectedCategoryRaw: $selectedCategoryRaw,
-                hasCompletedOnboarding: $hasCompletedOnboarding
-            )
-            .tag(4)
+            StartPage(hasCompletedOnboarding: $hasCompletedOnboarding)
+                .tag(3)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -129,71 +117,39 @@ struct IntroPage: View {
     }
 }
 
-struct CategorySelectPage: View {
-    @Binding var selectedCategoryRaw: String
+struct StartPage: View {
     @Binding var hasCompletedOnboarding: Bool
-    @State private var selectedCategory: Category?
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
 
-            Text("どの分野を学びますか？")
-                .font(.title2)
+            Image(systemName: "chart.bar.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(Color.accentColor)
+
+            Text("結果を振り返る")
+                .font(.title)
                 .fontWeight(.bold)
 
-            Text("あとから設定で変更できます")
-                .font(.subheadline)
+            Text("成績を確認して\n苦手な分野を克服しましょう")
+                .font(.body)
                 .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
-                ForEach(Category.allCases) { category in
-                    Button {
-                        selectedCategory = category
-                    } label: {
-                        HStack {
-                            Image(systemName: category.icon)
-                                .font(.title2)
-                                .frame(width: 32)
-                            Text(category.displayName)
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Spacer()
-                            if selectedCategory == category {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                        }
-                        .padding()
-                        .background(selectedCategory == category ? Color.accentColor.opacity(0.1) : Color(.systemGray6))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedCategory == category ? Color.accentColor : Color.clear, lineWidth: 2)
-                        )
-                    }
-                    .foregroundStyle(.primary)
-                }
-            }
-            .padding(.horizontal, 32)
+                .multilineTextAlignment(.center)
 
             Spacer()
 
             Button {
-                if let category = selectedCategory {
-                    selectedCategoryRaw = category.rawValue
-                }
                 hasCompletedOnboarding = true
             } label: {
                 Text("はじめる")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(selectedCategory != nil ? Color.accentColor : Color.gray)
+                    .background(Color.accentColor)
                     .foregroundStyle(.white)
                     .cornerRadius(12)
             }
-            .disabled(selectedCategory == nil)
             .padding(.horizontal, 32)
             .padding(.bottom, 60)
         }
