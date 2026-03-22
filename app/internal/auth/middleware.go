@@ -16,8 +16,14 @@ const UserSubContextKey contextKey = "user_sub"
 
 // publicOperations are operations that do not require authentication.
 var publicOperations = map[string]bool{
-	"Root":        true,
-	"HealthCheck": true,
+	"Root":          true,
+	"HealthCheck":   true,
+	"GetQuestions":  true,
+	"GetQuestion":   true,
+	"GetCategories": true,
+	"GetCategory":   true,
+	"GetWorkbooks":  true,
+	"GetWorkbook":   true,
 }
 
 // NewAuthMiddleware creates a StrictMiddlewareFunc that validates Cognito JWT tokens.

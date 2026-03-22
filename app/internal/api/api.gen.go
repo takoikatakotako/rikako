@@ -14,10 +14,6 @@ import (
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
 )
 
-const (
-	BearerAuthScopes = "bearerAuth.Scopes"
-)
-
 // Defines values for QuestionType.
 const (
 	SingleChoice QuestionType = "single_choice"
@@ -199,8 +195,6 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetCategories(ctx echo.Context) error {
 	var err error
 
-	ctx.Set(BearerAuthScopes, []string{})
-
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetCategoriesParams
 	// ------------- Optional query parameter "limit" -------------
@@ -233,8 +227,6 @@ func (w *ServerInterfaceWrapper) GetCategory(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter categoryId: %s", err))
 	}
 
-	ctx.Set(BearerAuthScopes, []string{})
-
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetCategory(ctx, categoryId)
 	return err
@@ -252,8 +244,6 @@ func (w *ServerInterfaceWrapper) HealthCheck(ctx echo.Context) error {
 // GetQuestions converts echo context to params.
 func (w *ServerInterfaceWrapper) GetQuestions(ctx echo.Context) error {
 	var err error
-
-	ctx.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetQuestionsParams
@@ -287,8 +277,6 @@ func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter questionId: %s", err))
 	}
 
-	ctx.Set(BearerAuthScopes, []string{})
-
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetQuestion(ctx, questionId)
 	return err
@@ -297,8 +285,6 @@ func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 // GetWorkbooks converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWorkbooks(ctx echo.Context) error {
 	var err error
-
-	ctx.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetWorkbooksParams
@@ -331,8 +317,6 @@ func (w *ServerInterfaceWrapper) GetWorkbook(ctx echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workbookId: %s", err))
 	}
-
-	ctx.Set(BearerAuthScopes, []string{})
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetWorkbook(ctx, workbookId)
@@ -420,15 +404,6 @@ func (response GetCategories400JSONResponse) VisitGetCategoriesResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetCategories401JSONResponse Error
-
-func (response GetCategories401JSONResponse) VisitGetCategoriesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type GetCategoryRequestObject struct {
 	CategoryId int64 `json:"categoryId"`
 }
@@ -442,15 +417,6 @@ type GetCategory200JSONResponse CategoryDetail
 func (response GetCategory200JSONResponse) VisitGetCategoryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetCategory401JSONResponse Error
-
-func (response GetCategory401JSONResponse) VisitGetCategoryResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -506,15 +472,6 @@ func (response GetQuestions400JSONResponse) VisitGetQuestionsResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetQuestions401JSONResponse Error
-
-func (response GetQuestions401JSONResponse) VisitGetQuestionsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type GetQuestionRequestObject struct {
 	QuestionId int64 `json:"questionId"`
 }
@@ -528,15 +485,6 @@ type GetQuestion200JSONResponse Question
 func (response GetQuestion200JSONResponse) VisitGetQuestionResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetQuestion401JSONResponse Error
-
-func (response GetQuestion401JSONResponse) VisitGetQuestionResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -576,15 +524,6 @@ func (response GetWorkbooks400JSONResponse) VisitGetWorkbooksResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetWorkbooks401JSONResponse Error
-
-func (response GetWorkbooks401JSONResponse) VisitGetWorkbooksResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 type GetWorkbookRequestObject struct {
 	WorkbookId int64 `json:"workbookId"`
 }
@@ -598,15 +537,6 @@ type GetWorkbook200JSONResponse WorkbookDetail
 func (response GetWorkbook200JSONResponse) VisitGetWorkbookResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetWorkbook401JSONResponse Error
-
-func (response GetWorkbook401JSONResponse) VisitGetWorkbookResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
