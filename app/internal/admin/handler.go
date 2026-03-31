@@ -14,20 +14,22 @@ import (
 )
 
 type Handler struct {
-	db           *sql.DB
-	imageBaseURL string
-	s3Client     *s3.Client
-	s3Bucket     string
-	logger       *slog.Logger
+	db              *sql.DB
+	imageBaseURL    string
+	s3Client        *s3.Client
+	s3Bucket        string
+	contentS3Bucket string
+	logger          *slog.Logger
 }
 
-func New(db *sql.DB, imageBaseURL string, s3Client *s3.Client, s3Bucket string, logger *slog.Logger) *Handler {
+func New(db *sql.DB, imageBaseURL string, s3Client *s3.Client, s3Bucket string, contentS3Bucket string, logger *slog.Logger) *Handler {
 	return &Handler{
-		db:           db,
-		imageBaseURL: imageBaseURL,
-		s3Client:     s3Client,
-		s3Bucket:     s3Bucket,
-		logger:       logger,
+		db:              db,
+		imageBaseURL:    imageBaseURL,
+		s3Client:        s3Client,
+		s3Bucket:        s3Bucket,
+		contentS3Bucket: contentS3Bucket,
+		logger:          logger,
 	}
 }
 

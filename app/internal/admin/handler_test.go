@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 }
 
 func newTestHandler() *Handler {
-	return New(testDB, "https://example.com", nil, "", testLogger)
+	return New(testDB, "https://example.com", nil, "", "", testLogger)
 }
 
 func TestRoot(t *testing.T) {

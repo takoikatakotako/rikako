@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
@@ -163,6 +164,14 @@ type PresignedUrlResponse struct {
 	UploadUrl string `json:"uploadUrl"`
 }
 
+// PublishResponse defines model for PublishResponse.
+type PublishResponse struct {
+	CategoriesCount *int      `json:"categoriesCount,omitempty"`
+	Message         string    `json:"message"`
+	PublishedAt     time.Time `json:"publishedAt"`
+	WorkbooksCount  *int      `json:"workbooksCount,omitempty"`
+}
+
 // Question defines model for Question.
 type Question struct {
 	Choices     []Choice     `json:"choices"`
@@ -297,6 +306,9 @@ type ServerInterface interface {
 	// 画像アップロード用Presigned URL発行
 	// (POST /images/presigned-url)
 	CreatePresignedUrl(ctx echo.Context) error
+	// コンテンツをS3にJSON書き出し
+	// (POST /publish)
+	PostPublish(ctx echo.Context) error
 	// 問題一覧取得
 	// (GET /questions)
 	GetQuestions(ctx echo.Context, params GetQuestionsParams) error
@@ -440,6 +452,15 @@ func (w *ServerInterfaceWrapper) CreatePresignedUrl(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CreatePresignedUrl(ctx)
+	return err
+}
+
+// PostPublish converts echo context to params.
+func (w *ServerInterfaceWrapper) PostPublish(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostPublish(ctx)
 	return err
 }
 
@@ -643,6 +664,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.PUT(baseURL+"/categories/:categoryId", wrapper.UpdateCategory)
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
 	router.POST(baseURL+"/images/presigned-url", wrapper.CreatePresignedUrl)
+	router.POST(baseURL+"/publish", wrapper.PostPublish)
 	router.GET(baseURL+"/questions", wrapper.GetQuestions)
 	router.POST(baseURL+"/questions", wrapper.CreateQuestion)
 	router.DELETE(baseURL+"/questions/:questionId", wrapper.DeleteQuestion)
@@ -849,6 +871,31 @@ type CreatePresignedUrl400JSONResponse Error
 func (response CreatePresignedUrl400JSONResponse) VisitCreatePresignedUrlResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostPublishRequestObject struct {
+}
+
+type PostPublishResponseObject interface {
+	VisitPostPublishResponse(w http.ResponseWriter) error
+}
+
+type PostPublish200JSONResponse PublishResponse
+
+func (response PostPublish200JSONResponse) VisitPostPublishResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostPublish500JSONResponse Error
+
+func (response PostPublish500JSONResponse) VisitPostPublishResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1157,6 +1204,9 @@ type StrictServerInterface interface {
 	// 画像アップロード用Presigned URL発行
 	// (POST /images/presigned-url)
 	CreatePresignedUrl(ctx context.Context, request CreatePresignedUrlRequestObject) (CreatePresignedUrlResponseObject, error)
+	// コンテンツをS3にJSON書き出し
+	// (POST /publish)
+	PostPublish(ctx context.Context, request PostPublishRequestObject) (PostPublishResponseObject, error)
 	// 問題一覧取得
 	// (GET /questions)
 	GetQuestions(ctx context.Context, request GetQuestionsRequestObject) (GetQuestionsResponseObject, error)
@@ -1405,6 +1455,29 @@ func (sh *strictHandler) CreatePresignedUrl(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(CreatePresignedUrlResponseObject); ok {
 		return validResponse.VisitCreatePresignedUrlResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostPublish operation middleware
+func (sh *strictHandler) PostPublish(ctx echo.Context) error {
+	var request PostPublishRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostPublish(ctx.Request().Context(), request.(PostPublishRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostPublish")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostPublishResponseObject); ok {
+		return validResponse.VisitPostPublishResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

@@ -72,8 +72,11 @@ func main() {
 	// カスタムエラーハンドラ
 	e.HTTPErrorHandler = newHTTPErrorHandler(logger)
 
+	// コンテンツS3バケット
+	contentS3Bucket := os.Getenv("CONTENT_S3_BUCKET")
+
 	// ハンドラー登録（認証なし）
-	h := admin.New(db, imageBaseURL, s3Client, s3Bucket, logger)
+	h := admin.New(db, imageBaseURL, s3Client, s3Bucket, contentS3Bucket, logger)
 	strictHandler := adminapi.NewStrictHandler(h, nil)
 	adminapi.RegisterHandlers(e, strictHandler)
 

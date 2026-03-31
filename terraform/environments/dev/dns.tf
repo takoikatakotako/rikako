@@ -143,6 +143,19 @@ resource "aws_route53_record" "image" {
   }
 }
 
+# content.dev.rikako.jp → Content CDN CloudFront
+resource "aws_route53_record" "content" {
+  zone_id = aws_route53_zone.dev.zone_id
+  name    = "content.dev.rikako.jp"
+  type    = "A"
+
+  alias {
+    name                   = module.content_cloudfront.domain_name
+    zone_id                = "Z2FDTNDATAQYW2" # CloudFront global hosted zone ID
+    evaluate_target_health = false
+  }
+}
+
 # admin.dev.rikako.jp → Admin Frontend CloudFront
 resource "aws_route53_record" "admin" {
   zone_id = aws_route53_zone.dev.zone_id

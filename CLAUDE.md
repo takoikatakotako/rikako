@@ -120,7 +120,7 @@ cd app && oapi-codegen --config oapi-codegen-admin.yaml ../openapi-admin.yaml
 cd app && go test ./internal/admin/
 ```
 
-環境変数: `DATABASE_URL`, `IMAGE_BASE_URL`, `IMAGE_S3_BUCKET`, `AWS_REGION`, `PORT`(デフォルト: 8081)
+環境変数: `DATABASE_URL`, `IMAGE_BASE_URL`, `IMAGE_S3_BUCKET`, `CONTENT_S3_BUCKET`, `AWS_REGION`, `PORT`(デフォルト: 8081)
 
 ### Terraform操作
 ```bash
@@ -212,6 +212,8 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 - **Dev環境**
   - Lambda Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
   - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
+  - Content CDN: https://content.dev.rikako.jp/ （静的JSON配信）
+  - Content S3: rikako-content-development
   - Image S3: rikako-images-development
   - Neon DB: muddy-tree-64549662 (ap-southeast-1)
   - Cognito User Pool: Terraform管理（rikako-development）
@@ -238,6 +240,28 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
    - 環境選択（dev/prod）
    - 方向選択（up/down）
    - ステップ数指定
+
+## コンテンツ配信（S3 + CloudFront）
+
+iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で取得する。
+
+### 配信フロー
+1. `data/` のYAMLを編集
+2. `cd app && go run ./cmd/importer -data ../data` でDBに同期
+3. `curl -X POST https://admin.dev.rikako.jp/publish` でDB → S3にJSON書き出し
+4. CloudFrontが60秒以内に新JSONを配信
+
+### S3上のJSON構造
+```
+s3://rikako-content-development/
+  v1/
+    workbooks.json                # 問題集一覧
+    workbooks/{id}.json           # 問題集詳細（問題含む）
+    categories.json               # カテゴリ一覧
+    categories/{id}.json          # カテゴリ詳細（問題集含む）
+```
+
+JSON形式は公開API（openapi.yaml）のレスポンスと完全一致。
 
 ## 注意事項
 

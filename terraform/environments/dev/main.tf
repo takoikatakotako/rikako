@@ -45,6 +45,8 @@ module "lambda_admin" {
     ENVIRONMENT                       = local.environment
     IMAGE_BASE_URL                    = "https://${module.image_cloudfront.domain_name}"
     IMAGE_S3_BUCKET                   = local.image_bucket_name
+    CONTENT_S3_BUCKET                 = local.content_bucket_name
+    CONTENT_BASE_URL                  = "https://content.dev.rikako.jp"
     AWS_LWA_READINESS_CHECK_PROTOCOL  = "http"
     AWS_LWA_READINESS_CHECK_PORT      = "8080"
     AWS_LWA_READINESS_CHECK_PATH      = "/health"
