@@ -63,18 +63,34 @@ jobs:
           aws lambda wait function-updated \
             --function-name "$FUNCTION_NAME"
 
-      - name: Health check
+      - name: Smoke tests
         run: |
           FUNCTION_URL=$(aws lambda get-function-url-config --function-name rikako-admin-api-development --query 'FunctionUrl' --output text)
           echo "Function URL: $FUNCTION_URL"
-          echo "Running health check..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}health")
-          if [ "$STATUS" = "200" ]; then
-            echo "Health check passed (HTTP $STATUS)"
-          else
-            echo "Health check failed (HTTP $STATUS)"
+          FAILED=0
+
+          check_endpoint() {
+            local name="$1"
+            local url="$2"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ $name (HTTP $STATUS)"
+            else
+              echo "❌ $name (HTTP $STATUS)"
+              FAILED=1
+            fi
+          }
+
+          echo "Running smoke tests..."
+          check_endpoint "Admin API /health" "${FUNCTION_URL}health"
+          check_endpoint "Admin API /categories" "${FUNCTION_URL}categories"
+          check_endpoint "Admin API /workbooks" "${FUNCTION_URL}workbooks"
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::Smoke tests failed"
             exit 1
           fi
+          echo "All smoke tests passed"
 
       - name: Print summary
         run: |
