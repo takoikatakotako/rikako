@@ -108,6 +108,13 @@ export interface PresignedUrlResponse {
   cdnUrl: string;
 }
 
+export interface PublishResponse {
+  message: string;
+  publishedAt: string;
+  categoriesCount?: number;
+  workbooksCount?: number;
+}
+
 export interface ApiError {
   code: string;
   message: string;
