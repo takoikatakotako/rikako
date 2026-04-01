@@ -63,18 +63,35 @@ jobs:
           aws lambda wait function-updated \
             --function-name "$FUNCTION_NAME"
 
-      - name: Health check
+      - name: Smoke tests
         env:
           FUNCTION_URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws
+          CONTENT_URL: https://content.dev.rikako.jp
         run: |
-          echo "Running health check..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}/health")
-          if [ "$STATUS" = "200" ]; then
-            echo "Health check passed (HTTP $STATUS)"
-          else
-            echo "Health check failed (HTTP $STATUS)"
+          FAILED=0
+
+          check_endpoint() {
+            local name="$1"
+            local url="$2"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ $name (HTTP $STATUS)"
+            else
+              echo "❌ $name (HTTP $STATUS)"
+              FAILED=1
+            fi
+          }
+
+          echo "Running smoke tests..."
+          check_endpoint "Public API /health" "${FUNCTION_URL}/health"
+          check_endpoint "Content CDN workbooks.json" "${CONTENT_URL}/v1/workbooks.json"
+          check_endpoint "Content CDN categories.json" "${CONTENT_URL}/v1/categories.json"
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::Smoke tests failed"
             exit 1
           fi
+          echo "All smoke tests passed"
 
       - name: Print summary
         run: |
