@@ -466,6 +466,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /publish:
+    post:
+      summary: コンテンツをS3にJSON書き出し
+      operationId: postPublish
+      tags:
+        - Publish
+      responses:
+        '200':
+          description: 書き出し成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishResponse'
+        '500':
+          description: 書き出しエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /images/presigned-url:
     post:
       summary: 画像アップロード用Presigned URL発行
@@ -803,6 +823,22 @@ components:
           format: int64
         cdnUrl:
           type: string
+
+    PublishResponse:
+      type: object
+      required:
+        - message
+        - publishedAt
+      properties:
+        message:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        categoriesCount:
+          type: integer
+        workbooksCount:
+          type: integer
 
     Error:
       type: object

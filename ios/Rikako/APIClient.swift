@@ -8,24 +8,21 @@ final class APIClient {
     private let decoder: JSONDecoder
 
     private init() {
-        self.baseURL = URL(string: "https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws")!
+        self.baseURL = URL(string: "https://content.dev.rikako.jp/v1")!
         self.session = .shared
         self.decoder = JSONDecoder()
     }
 
     func fetchWorkbooks() async throws -> [Workbook] {
-        let url = baseURL.appendingPathComponent("workbooks")
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "limit", value: "100")]
-
-        let (data, response) = try await session.data(from: components.url!)
+        let url = baseURL.appendingPathComponent("workbooks.json")
+        let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         let result = try decoder.decode(WorkbooksResponse.self, from: data)
         return result.workbooks
     }
 
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail {
-        let url = baseURL.appendingPathComponent("workbooks/\(id)")
+        let url = baseURL.appendingPathComponent("workbooks/\(id).json")
         let (data, response) = try await session.data(from: url)
         try validateResponse(response)
         return try decoder.decode(WorkbookDetail.self, from: data)
