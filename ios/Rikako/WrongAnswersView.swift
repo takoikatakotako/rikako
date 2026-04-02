@@ -1,9 +1,7 @@
 import SwiftUI
 
-struct WorkbookDetailView: View {
-    let workbookID: Int64
-
-    @State private var workbook: WorkbookDetail?
+struct WrongAnswersView: View {
+    @State private var questions: [Question] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
 
@@ -18,25 +16,31 @@ struct WorkbookDetailView: View {
                     Text(errorMessage)
                 } actions: {
                     Button("再読み込み") {
-                        Task { await loadWorkbook() }
+                        Task { await loadWrongAnswers() }
                     }
                 }
-            } else if let workbook {
+            } else if questions.isEmpty {
+                ContentUnavailableView {
+                    Label("間違えた問題はありません", systemImage: "checkmark.circle")
+                } description: {
+                    Text("問題集を解いて、間違えた問題がここに表示されます")
+                }
+            } else {
                 List {
                     Section {
-                        Text(workbook.description)
+                        Text("\(questions.count)問の間違えた問題があります")
                             .foregroundStyle(.secondary)
                     }
 
                     Section("問題一覧") {
-                        ForEach(Array(workbook.questions.enumerated()), id: \.element.id) { index, question in
+                        ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
                             HStack {
                                 Text("Q\(index + 1)")
                                     .font(.caption)
                                     .fontWeight(.bold)
                                     .foregroundStyle(.white)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.accentColor)
+                                    .background(Color.red)
                                     .clipShape(Circle())
                                 Text(question.text)
                                     .lineLimit(2)
@@ -44,30 +48,31 @@ struct WorkbookDetailView: View {
                         }
                     }
 
-                    Section {
-                        NavigationLink(destination: QuizView(questions: workbook.questions, workbookTitle: workbook.title, workbookId: workbook.id)) {
-                            Label("この問題集を解く", systemImage: "play.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 4)
+                    if !questions.isEmpty {
+                        Section {
+                            NavigationLink(destination: QuizView(questions: questions, workbookTitle: "復習", workbookId: 0)) {
+                                Label("復習する", systemImage: "arrow.counterclockwise")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 4)
+                            }
                         }
                     }
                 }
-                .navigationTitle(workbook.title)
-            } else {
-                ContentUnavailableView("問題集が見つかりません", systemImage: "exclamationmark.triangle")
             }
         }
+        .navigationTitle("間違えた問題")
         .task {
-            await loadWorkbook()
+            await loadWrongAnswers()
         }
     }
 
-    private func loadWorkbook() async {
+    private func loadWrongAnswers() async {
         isLoading = true
         errorMessage = nil
         do {
-            workbook = try await APIClient.shared.fetchWorkbookDetail(id: workbookID)
+            let response = try await APIClient.shared.fetchWrongAnswers()
+            questions = response.questions
             isLoading = false
         } catch {
             errorMessage = error.localizedDescription
@@ -78,6 +83,6 @@ struct WorkbookDetailView: View {
 
 #Preview {
     NavigationStack {
-        WorkbookDetailView(workbookID: 1)
+        WrongAnswersView()
     }
 }

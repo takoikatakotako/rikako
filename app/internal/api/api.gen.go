@@ -29,6 +29,12 @@ func (e QuestionType) Valid() bool {
 	}
 }
 
+// AnswerItem defines model for AnswerItem.
+type AnswerItem struct {
+	QuestionId     int64 `json:"questionId"`
+	SelectedChoice int   `json:"selectedChoice"`
+}
+
 // CategoriesResponse defines model for CategoriesResponse.
 type CategoriesResponse struct {
 	Categories []Category `json:"categories"`
@@ -102,6 +108,18 @@ type QuestionsResponse struct {
 	Total int `json:"total"`
 }
 
+// SubmitAnswersRequest defines model for SubmitAnswersRequest.
+type SubmitAnswersRequest struct {
+	Answers    []AnswerItem `json:"answers"`
+	WorkbookId int64        `json:"workbookId"`
+}
+
+// SubmitAnswersResponse defines model for SubmitAnswersResponse.
+type SubmitAnswersResponse struct {
+	CorrectCount int `json:"correctCount"`
+	TotalCount   int `json:"totalCount"`
+}
+
 // Workbook defines model for Workbook.
 type Workbook struct {
 	// CategoryId カテゴリID
@@ -131,6 +149,21 @@ type WorkbooksResponse struct {
 	Workbooks []Workbook `json:"workbooks"`
 }
 
+// WrongAnswersResponse defines model for WrongAnswersResponse.
+type WrongAnswersResponse struct {
+	Questions []Question `json:"questions"`
+	Total     int        `json:"total"`
+}
+
+// DeviceID defines model for DeviceID.
+type DeviceID = string
+
+// SubmitAnswersParams defines parameters for SubmitAnswers.
+type SubmitAnswersParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // GetCategoriesParams defines parameters for GetCategories.
 type GetCategoriesParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -143,17 +176,32 @@ type GetQuestionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// GetWrongAnswersParams defines parameters for GetWrongAnswers.
+type GetWrongAnswersParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // GetWorkbooksParams defines parameters for GetWorkbooks.
 type GetWorkbooksParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// SubmitAnswersJSONRequestBody defines body for SubmitAnswers for application/json ContentType.
+type SubmitAnswersJSONRequestBody = SubmitAnswersRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// 回答送信
+	// (POST /answers)
+	SubmitAnswers(ctx echo.Context, params SubmitAnswersParams) error
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx echo.Context, params GetCategoriesParams) error
@@ -169,6 +217,9 @@ type ServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx echo.Context, questionId int64) error
+	// 間違えた問題一覧
+	// (GET /users/me/wrong-answers)
+	GetWrongAnswers(ctx echo.Context, params GetWrongAnswersParams) error
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx echo.Context, params GetWorkbooksParams) error
@@ -188,6 +239,37 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// SubmitAnswers converts echo context to params.
+func (w *ServerInterfaceWrapper) SubmitAnswers(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SubmitAnswersParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SubmitAnswers(ctx, params)
 	return err
 }
 
@@ -282,6 +364,50 @@ func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 	return err
 }
 
+// GetWrongAnswers converts echo context to params.
+func (w *ServerInterfaceWrapper) GetWrongAnswers(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWrongAnswersParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetWrongAnswers(ctx, params)
+	return err
+}
+
 // GetWorkbooks converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWorkbooks(ctx echo.Context) error {
 	var err error
@@ -352,11 +478,13 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
 	router.GET(baseURL+"/categories", wrapper.GetCategories)
 	router.GET(baseURL+"/categories/:categoryId", wrapper.GetCategory)
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
 	router.GET(baseURL+"/questions", wrapper.GetQuestions)
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
+	router.GET(baseURL+"/users/me/wrong-answers", wrapper.GetWrongAnswers)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.GET(baseURL+"/workbooks/:workbookId", wrapper.GetWorkbook)
 
@@ -374,6 +502,33 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SubmitAnswersRequestObject struct {
+	Params SubmitAnswersParams
+	Body   *SubmitAnswersJSONRequestBody
+}
+
+type SubmitAnswersResponseObject interface {
+	VisitSubmitAnswersResponse(w http.ResponseWriter) error
+}
+
+type SubmitAnswers200JSONResponse SubmitAnswersResponse
+
+func (response SubmitAnswers200JSONResponse) VisitSubmitAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SubmitAnswers400JSONResponse Error
+
+func (response SubmitAnswers400JSONResponse) VisitSubmitAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -498,6 +653,32 @@ func (response GetQuestion404JSONResponse) VisitGetQuestionResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetWrongAnswersRequestObject struct {
+	Params GetWrongAnswersParams
+}
+
+type GetWrongAnswersResponseObject interface {
+	VisitGetWrongAnswersResponse(w http.ResponseWriter) error
+}
+
+type GetWrongAnswers200JSONResponse WrongAnswersResponse
+
+func (response GetWrongAnswers200JSONResponse) VisitGetWrongAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWrongAnswers400JSONResponse Error
+
+func (response GetWrongAnswers400JSONResponse) VisitGetWrongAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWorkbooksRequestObject struct {
 	Params GetWorkbooksParams
 }
@@ -555,6 +736,9 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// 回答送信
+	// (POST /answers)
+	SubmitAnswers(ctx context.Context, request SubmitAnswersRequestObject) (SubmitAnswersResponseObject, error)
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx context.Context, request GetCategoriesRequestObject) (GetCategoriesResponseObject, error)
@@ -570,6 +754,9 @@ type StrictServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx context.Context, request GetQuestionRequestObject) (GetQuestionResponseObject, error)
+	// 間違えた問題一覧
+	// (GET /users/me/wrong-answers)
+	GetWrongAnswers(ctx context.Context, request GetWrongAnswersRequestObject) (GetWrongAnswersResponseObject, error)
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx context.Context, request GetWorkbooksRequestObject) (GetWorkbooksResponseObject, error)
@@ -607,6 +794,37 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SubmitAnswers operation middleware
+func (sh *strictHandler) SubmitAnswers(ctx echo.Context, params SubmitAnswersParams) error {
+	var request SubmitAnswersRequestObject
+
+	request.Params = params
+
+	var body SubmitAnswersJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitAnswers(ctx.Request().Context(), request.(SubmitAnswersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitAnswers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(SubmitAnswersResponseObject); ok {
+		return validResponse.VisitSubmitAnswersResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -730,6 +948,31 @@ func (sh *strictHandler) GetQuestion(ctx echo.Context, questionId int64) error {
 		return err
 	} else if validResponse, ok := response.(GetQuestionResponseObject); ok {
 		return validResponse.VisitGetQuestionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetWrongAnswers operation middleware
+func (sh *strictHandler) GetWrongAnswers(ctx echo.Context, params GetWrongAnswersParams) error {
+	var request GetWrongAnswersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWrongAnswers(ctx.Request().Context(), request.(GetWrongAnswersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWrongAnswers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetWrongAnswersResponseObject); ok {
+		return validResponse.VisitGetWrongAnswersResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

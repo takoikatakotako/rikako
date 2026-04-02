@@ -4,8 +4,10 @@ struct ResultView: View {
     let questions: [Question]
     let answers: [Int?]
     let workbookTitle: String
+    let workbookId: Int64
 
     @Environment(\.dismiss) private var dismiss
+    @State private var didSubmit = false
 
     private var correctCount: Int {
         zip(questions, answers).filter { question, answer in
@@ -30,6 +32,11 @@ struct ResultView: View {
         .navigationTitle("結果")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .task {
+            guard !didSubmit else { return }
+            didSubmit = true
+            await submitAnswersToServer()
+        }
     }
 
     private var scoreCard: some View {
@@ -99,6 +106,21 @@ struct ResultView: View {
         if scorePercentage >= 60 { return "もう少しです！" }
         return "復習しましょう！"
     }
+
+    private func submitAnswersToServer() async {
+        let answerItems: [AnswerItem] = zip(questions, answers).compactMap { question, answer in
+            guard let selectedChoice = answer else { return nil }
+            return AnswerItem(questionId: question.id, selectedChoice: selectedChoice)
+        }
+        guard !answerItems.isEmpty else { return }
+
+        do {
+            _ = try await APIClient.shared.submitAnswers(workbookId: workbookId, answers: answerItems)
+        } catch {
+            // Fail silently — answer submission is best-effort
+            print("Failed to submit answers: \(error)")
+        }
+    }
 }
 
 #Preview {
@@ -106,7 +128,8 @@ struct ResultView: View {
         ResultView(
             questions: MockData.questions,
             answers: [0, 1, 2, 0, 2],
-            workbookTitle: "基礎化学"
+            workbookTitle: "基礎化学",
+            workbookId: 1
         )
     }
 }

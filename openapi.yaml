@@ -231,8 +231,80 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /answers:
+    post:
+      summary: 回答送信
+      operationId: submitAnswers
+      tags:
+        - Answers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAnswersRequest'
+      responses:
+        '200':
+          description: 送信成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitAnswersResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/me/wrong-answers:
+    get:
+      summary: 間違えた問題一覧
+      operationId: getWrongAnswers
+      tags:
+        - Answers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: 間違えた問題一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WrongAnswersResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
+  parameters:
+    DeviceID:
+      name: X-Device-ID
+      in: header
+      required: true
+      description: Cognito Identity ID（匿名ユーザー識別子）
+      schema:
+        type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -412,6 +484,57 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Question'
+
+    SubmitAnswersRequest:
+      type: object
+      required:
+        - workbookId
+        - answers
+      properties:
+        workbookId:
+          type: integer
+          format: int64
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerItem'
+          minItems: 1
+
+    AnswerItem:
+      type: object
+      required:
+        - questionId
+        - selectedChoice
+      properties:
+        questionId:
+          type: integer
+          format: int64
+        selectedChoice:
+          type: integer
+
+    SubmitAnswersResponse:
+      type: object
+      required:
+        - correctCount
+        - totalCount
+      properties:
+        correctCount:
+          type: integer
+        totalCount:
+          type: integer
+
+    WrongAnswersResponse:
+      type: object
+      required:
+        - questions
+        - total
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+        total:
+          type: integer
 
     Error:
       type: object
