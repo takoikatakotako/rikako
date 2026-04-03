@@ -11,10 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"github.com/takoikatakotako/rikako/internal/adminapi"
+	"github.com/takoikatakotako/rikako/internal/db"
 )
 
 type Handler struct {
-	db              *sql.DB
+	sqlDB           *sql.DB
+	queries         *db.Queries
 	imageBaseURL    string
 	s3Client        *s3.Client
 	s3Bucket        string
@@ -22,9 +24,10 @@ type Handler struct {
 	logger          *slog.Logger
 }
 
-func New(db *sql.DB, imageBaseURL string, s3Client *s3.Client, s3Bucket string, contentS3Bucket string, logger *slog.Logger) *Handler {
+func New(d *sql.DB, imageBaseURL string, s3Client *s3.Client, s3Bucket string, contentS3Bucket string, logger *slog.Logger) *Handler {
 	return &Handler{
-		db:              db,
+		sqlDB:           d,
+		queries:         db.New(d),
 		imageBaseURL:    imageBaseURL,
 		s3Client:        s3Client,
 		s3Bucket:        s3Bucket,
@@ -60,24 +63,12 @@ func (h *Handler) HealthCheck(_ context.Context, _ adminapi.HealthCheckRequestOb
 
 // getImageURLs returns image URLs for a given question ID.
 func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string, error) {
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT i.path
-		FROM images i
-		JOIN question_images qi ON i.id = qi.image_id
-		WHERE qi.question_id = $1
-		ORDER BY qi.order_index
-	`, questionID)
+	paths, err := h.queries.GetImageURLsByQuestionID(ctx, questionID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	var urls []string
-	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
-			return nil, err
-		}
+	for _, path := range paths {
 		urls = append(urls, fmt.Sprintf("%s/%s", h.imageBaseURL, path))
 	}
 	return urls, nil
@@ -85,53 +76,32 @@ func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string,
 
 // getQuestionByID fetches a full question with choices and images.
 func (h *Handler) getQuestionByID(ctx context.Context, questionID int64) (*adminapi.Question, error) {
-	var id int64
-	var text string
-	var explanation sql.NullString
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		WHERE q.id = $1
-	`, questionID).Scan(&id, &text, &explanation)
+	row, err := h.queries.GetQuestionByID(ctx, questionID)
 	if err != nil {
 		return nil, err
 	}
 
-	choiceRows, err := h.db.QueryContext(ctx, `
-		SELECT text, is_correct, choice_index
-		FROM questions_single_choice_choices
-		WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-		ORDER BY choice_index
-	`, id)
+	choiceRows, err := h.queries.GetChoicesByQuestionID(ctx, questionID)
 	if err != nil {
 		return nil, err
 	}
-	defer choiceRows.Close()
 
 	var choices []adminapi.Choice
-	for choiceRows.Next() {
-		var choiceText string
-		var isCorrect bool
-		var choiceIndex int
-		if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-			return nil, err
-		}
-		choices = append(choices, adminapi.Choice{Text: choiceText, IsCorrect: isCorrect})
+	for _, c := range choiceRows {
+		choices = append(choices, adminapi.Choice{Text: c.Text, IsCorrect: c.IsCorrect})
 	}
 
 	q := &adminapi.Question{
-		Id:      id,
+		Id:      row.ID,
 		Type:    adminapi.QuestionTypeSingleChoice,
-		Text:    text,
+		Text:    row.Text,
 		Choices: choices,
 	}
-	if explanation.Valid {
-		q.Explanation = &explanation.String
+	if row.Explanation.Valid {
+		q.Explanation = &row.Explanation.String
 	}
 
-	imageURLs, err := h.getImageURLs(ctx, id)
+	imageURLs, err := h.getImageURLs(ctx, row.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,100 +120,72 @@ func (h *Handler) GetCategories(ctx context.Context, request adminapi.GetCategor
 		return adminapi.GetCategories400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	var total int
-	if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM categories").Scan(&total); err != nil {
+	total, err := h.queries.CountCategories(ctx)
+	if err != nil {
 		h.logger.Error("failed to count categories", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT c.id, c.title, c.description,
-			(SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
-		FROM categories c
-		ORDER BY c.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	rows, err := h.queries.ListCategories(ctx, db.ListCategoriesParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query categories", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	categories := []adminapi.Category{}
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var workbookCount int
-		if err := rows.Scan(&id, &title, &description, &workbookCount); err != nil {
-			h.logger.Error("failed to scan category", "error", err)
-			return nil, err
-		}
+	for _, row := range rows {
+		wc := int(row.WorkbookCount)
 		c := adminapi.Category{
-			Id:            id,
-			Title:         title,
-			WorkbookCount: &workbookCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			WorkbookCount: &wc,
 		}
-		if description.Valid {
-			c.Description = &description.String
+		if row.Description.Valid {
+			c.Description = &row.Description.String
 		}
 		categories = append(categories, c)
 	}
 
-	return adminapi.GetCategories200JSONResponse{Categories: categories, Total: total}, nil
+	return adminapi.GetCategories200JSONResponse{Categories: categories, Total: int(total)}, nil
 }
 
 // getCategoryDetail fetches a category with its workbooks.
 func (h *Handler) getCategoryDetail(ctx context.Context, categoryID int64) (*adminapi.CategoryDetail, error) {
-	var id int64
-	var title string
-	var description sql.NullString
-
-	err := h.db.QueryRowContext(ctx, `SELECT id, title, description FROM categories WHERE id = $1`, categoryID).Scan(&id, &title, &description)
+	cat, err := h.queries.GetCategoryByID(ctx, categoryID)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		WHERE w.category_id = $1
-		ORDER BY w.id
-	`, id)
+	wbRows, err := h.queries.ListWorkbooksByCategory(ctx, sql.NullInt64{Int64: cat.ID, Valid: true})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	workbooks := []adminapi.Workbook{}
-	for rows.Next() {
-		var wid int64
-		var wtitle string
-		var wdesc sql.NullString
-		var questionCount int
-		if err := rows.Scan(&wid, &wtitle, &wdesc, &questionCount); err != nil {
-			return nil, err
-		}
+	for _, row := range wbRows {
+		qc := int(row.QuestionCount)
 		w := adminapi.Workbook{
-			Id:            wid,
-			Title:         wtitle,
-			QuestionCount: &questionCount,
-			CategoryId:    &id,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
+			CategoryId:    &cat.ID,
 		}
-		if wdesc.Valid {
-			w.Description = &wdesc.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
 		workbooks = append(workbooks, w)
 	}
 
 	c := &adminapi.CategoryDetail{
-		Id:        id,
-		Title:     title,
+		Id:        cat.ID,
+		Title:     cat.Title,
 		Workbooks: workbooks,
 	}
-	if description.Valid {
-		c.Description = &description.String
+	if cat.Description.Valid {
+		c.Description = &cat.Description.String
 	}
 	return c, nil
 }
@@ -263,14 +205,14 @@ func (h *Handler) GetCategory(ctx context.Context, request adminapi.GetCategoryR
 func (h *Handler) CreateCategory(ctx context.Context, request adminapi.CreateCategoryRequestObject) (adminapi.CreateCategoryResponseObject, error) {
 	body := request.Body
 
-	var categoryID int64
-	var descArg any
+	desc := sql.NullString{}
 	if body.Description != nil {
-		descArg = *body.Description
+		desc = sql.NullString{String: *body.Description, Valid: true}
 	}
-	err := h.db.QueryRowContext(ctx, `
-		INSERT INTO categories (title, description) VALUES ($1, $2) RETURNING id
-	`, body.Title, descArg).Scan(&categoryID)
+	categoryID, err := h.queries.CreateCategory(ctx, db.CreateCategoryParams{
+		Title:       body.Title,
+		Description: desc,
+	})
 	if err != nil {
 		h.logger.Error("failed to insert category", "error", err)
 		return nil, err
@@ -288,8 +230,7 @@ func (h *Handler) CreateCategory(ctx context.Context, request adminapi.CreateCat
 func (h *Handler) UpdateCategory(ctx context.Context, request adminapi.UpdateCategoryRequestObject) (adminapi.UpdateCategoryResponseObject, error) {
 	body := request.Body
 
-	var exists bool
-	err := h.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM categories WHERE id = $1)`, request.CategoryId).Scan(&exists)
+	exists, err := h.queries.CategoryExists(ctx, request.CategoryId)
 	if err != nil {
 		h.logger.Error("failed to check category existence", "error", err)
 		return nil, err
@@ -298,13 +239,16 @@ func (h *Handler) UpdateCategory(ctx context.Context, request adminapi.UpdateCat
 		return adminapi.UpdateCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
 	}
 
-	var descArg any
+	desc := sql.NullString{}
 	if body.Description != nil {
-		descArg = *body.Description
+		desc = sql.NullString{String: *body.Description, Valid: true}
 	}
-	_, err = h.db.ExecContext(ctx, `
-		UPDATE categories SET title = $1, description = $2, updated_at = $3 WHERE id = $4
-	`, body.Title, descArg, time.Now(), request.CategoryId)
+	err = h.queries.UpdateCategory(ctx, db.UpdateCategoryParams{
+		Title:       body.Title,
+		Description: desc,
+		UpdatedAt:   sql.NullTime{Time: time.Now(), Valid: true},
+		ID:          request.CategoryId,
+	})
 	if err != nil {
 		h.logger.Error("failed to update category", "error", err)
 		return nil, err
@@ -320,7 +264,7 @@ func (h *Handler) UpdateCategory(ctx context.Context, request adminapi.UpdateCat
 }
 
 func (h *Handler) DeleteCategory(ctx context.Context, request adminapi.DeleteCategoryRequestObject) (adminapi.DeleteCategoryResponseObject, error) {
-	result, err := h.db.ExecContext(ctx, `DELETE FROM categories WHERE id = $1`, request.CategoryId)
+	result, err := h.queries.DeleteCategory(ctx, request.CategoryId)
 	if err != nil {
 		h.logger.Error("failed to delete category", "error", err, "category_id", request.CategoryId)
 		return nil, err
@@ -345,83 +289,32 @@ func (h *Handler) GetQuestions(ctx context.Context, request adminapi.GetQuestion
 		return adminapi.GetQuestions400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	var total int
-	if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM questions").Scan(&total); err != nil {
+	total, err := h.queries.CountQuestions(ctx)
+	if err != nil {
 		h.logger.Error("failed to count questions", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		ORDER BY q.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	rows, err := h.queries.ListQuestions(ctx, db.ListQuestionsParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query questions", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	questions := []adminapi.Question{}
-	for rows.Next() {
-		var id int64
-		var text string
-		var explanation sql.NullString
-		if err := rows.Scan(&id, &text, &explanation); err != nil {
-			h.logger.Error("failed to scan question", "error", err)
-			return nil, err
-		}
-
-		choiceRows, err := h.db.QueryContext(ctx, `
-			SELECT text, is_correct, choice_index
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, id)
+	for _, row := range rows {
+		q, err := h.getQuestionByID(ctx, row.ID)
 		if err != nil {
-			h.logger.Error("failed to query choices", "error", err, "question_id", id)
+			h.logger.Error("failed to get question", "error", err, "question_id", row.ID)
 			return nil, err
 		}
-
-		var choices []adminapi.Choice
-		for choiceRows.Next() {
-			var choiceText string
-			var isCorrect bool
-			var choiceIndex int
-			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-				choiceRows.Close()
-				h.logger.Error("failed to scan choice", "error", err)
-				return nil, err
-			}
-			choices = append(choices, adminapi.Choice{Text: choiceText, IsCorrect: isCorrect})
-		}
-		choiceRows.Close()
-
-		q := adminapi.Question{
-			Id:      id,
-			Type:    adminapi.QuestionTypeSingleChoice,
-			Text:    text,
-			Choices: choices,
-		}
-		if explanation.Valid {
-			q.Explanation = &explanation.String
-		}
-
-		imageURLs, err := h.getImageURLs(ctx, id)
-		if err != nil {
-			h.logger.Error("failed to get image URLs", "error", err, "question_id", id)
-			return nil, err
-		}
-		if len(imageURLs) > 0 {
-			q.Images = &imageURLs
-		}
-
-		questions = append(questions, q)
+		questions = append(questions, *q)
 	}
 
-	return adminapi.GetQuestions200JSONResponse{Questions: questions, Total: total}, nil
+	return adminapi.GetQuestions200JSONResponse{Questions: questions, Total: int(total)}, nil
 }
 
 func (h *Handler) GetQuestion(ctx context.Context, request adminapi.GetQuestionRequestObject) (adminapi.GetQuestionResponseObject, error) {
@@ -453,39 +346,42 @@ func (h *Handler) CreateQuestion(ctx context.Context, request adminapi.CreateQue
 		return adminapi.CreateQuestion400JSONResponse{Code: "INVALID_PARAMETER", Message: "at least one choice must be correct"}, nil
 	}
 
-	tx, err := h.db.BeginTx(ctx, nil)
+	tx, err := h.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
 		h.logger.Error("failed to begin transaction", "error", err)
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	var questionID int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO questions (type) VALUES ($1) RETURNING id`, string(body.Type)).Scan(&questionID)
+	qtx := h.queries.WithTx(tx)
+
+	questionID, err := qtx.CreateQuestion(ctx, string(body.Type))
 	if err != nil {
 		h.logger.Error("failed to insert question", "error", err)
 		return nil, err
 	}
 
-	var singleChoiceID int64
-	var explanationArg any
+	explanationArg := sql.NullString{}
 	if body.Explanation != nil {
-		explanationArg = *body.Explanation
+		explanationArg = sql.NullString{String: *body.Explanation, Valid: true}
 	}
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO questions_single_choice (question_id, text, explanation)
-		VALUES ($1, $2, $3) RETURNING id
-	`, questionID, body.Text, explanationArg).Scan(&singleChoiceID)
+	singleChoiceID, err := qtx.CreateSingleChoice(ctx, db.CreateSingleChoiceParams{
+		QuestionID:  questionID,
+		Text:        body.Text,
+		Explanation: explanationArg,
+	})
 	if err != nil {
 		h.logger.Error("failed to insert single choice", "error", err)
 		return nil, err
 	}
 
 	for i, c := range body.Choices {
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO questions_single_choice_choices (single_choice_id, choice_index, text, is_correct)
-			VALUES ($1, $2, $3, $4)
-		`, singleChoiceID, i, c.Text, c.IsCorrect)
+		err = qtx.CreateChoice(ctx, db.CreateChoiceParams{
+			SingleChoiceID: singleChoiceID,
+			ChoiceIndex:    int32(i),
+			Text:           c.Text,
+			IsCorrect:      c.IsCorrect,
+		})
 		if err != nil {
 			h.logger.Error("failed to insert choice", "error", err)
 			return nil, err
@@ -494,10 +390,11 @@ func (h *Handler) CreateQuestion(ctx context.Context, request adminapi.CreateQue
 
 	if body.ImageIds != nil {
 		for i, imageID := range *body.ImageIds {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO question_images (question_id, image_id, order_index)
-				VALUES ($1, $2, $3)
-			`, questionID, imageID, i)
+			err = qtx.CreateQuestionImage(ctx, db.CreateQuestionImageParams{
+				QuestionID: questionID,
+				ImageID:    imageID,
+				OrderIndex: int32(i),
+			})
 			if err != nil {
 				h.logger.Error("failed to insert question image", "error", err, "image_id", imageID)
 				return nil, err
@@ -536,16 +433,16 @@ func (h *Handler) UpdateQuestion(ctx context.Context, request adminapi.UpdateQue
 		return adminapi.UpdateQuestion400JSONResponse{Code: "INVALID_PARAMETER", Message: "at least one choice must be correct"}, nil
 	}
 
-	tx, err := h.db.BeginTx(ctx, nil)
+	tx, err := h.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
 		h.logger.Error("failed to begin transaction", "error", err)
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	// Check existence
-	var exists bool
-	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM questions WHERE id = $1)`, request.QuestionId).Scan(&exists)
+	qtx := h.queries.WithTx(tx)
+
+	exists, err := qtx.QuestionExists(ctx, request.QuestionId)
 	if err != nil {
 		h.logger.Error("failed to check question existence", "error", err)
 		return nil, err
@@ -554,60 +451,58 @@ func (h *Handler) UpdateQuestion(ctx context.Context, request adminapi.UpdateQue
 		return adminapi.UpdateQuestion404JSONResponse{Code: "NOT_FOUND", Message: "question not found"}, nil
 	}
 
-	// Update single choice text/explanation
-	var explanationArg any
+	explanationArg := sql.NullString{}
 	if body.Explanation != nil {
-		explanationArg = *body.Explanation
+		explanationArg = sql.NullString{String: *body.Explanation, Valid: true}
 	}
-	_, err = tx.ExecContext(ctx, `
-		UPDATE questions_single_choice SET text = $1, explanation = $2, updated_at = $3
-		WHERE question_id = $4
-	`, body.Text, explanationArg, time.Now(), request.QuestionId)
+	err = qtx.UpdateSingleChoice(ctx, db.UpdateSingleChoiceParams{
+		Text:        body.Text,
+		Explanation: explanationArg,
+		UpdatedAt:   sql.NullTime{Time: time.Now(), Valid: true},
+		QuestionID:  request.QuestionId,
+	})
 	if err != nil {
 		h.logger.Error("failed to update single choice", "error", err)
 		return nil, err
 	}
 
-	// Delete old choices and re-insert
-	_, err = tx.ExecContext(ctx, `
-		DELETE FROM questions_single_choice_choices
-		WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-	`, request.QuestionId)
+	err = qtx.DeleteChoicesByQuestionID(ctx, request.QuestionId)
 	if err != nil {
 		h.logger.Error("failed to delete old choices", "error", err)
 		return nil, err
 	}
 
-	var singleChoiceID int64
-	err = tx.QueryRowContext(ctx, `SELECT id FROM questions_single_choice WHERE question_id = $1`, request.QuestionId).Scan(&singleChoiceID)
+	singleChoiceID, err := qtx.GetSingleChoiceID(ctx, request.QuestionId)
 	if err != nil {
 		h.logger.Error("failed to get single choice id", "error", err)
 		return nil, err
 	}
 
 	for i, c := range body.Choices {
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO questions_single_choice_choices (single_choice_id, choice_index, text, is_correct)
-			VALUES ($1, $2, $3, $4)
-		`, singleChoiceID, i, c.Text, c.IsCorrect)
+		err = qtx.CreateChoice(ctx, db.CreateChoiceParams{
+			SingleChoiceID: singleChoiceID,
+			ChoiceIndex:    int32(i),
+			Text:           c.Text,
+			IsCorrect:      c.IsCorrect,
+		})
 		if err != nil {
 			h.logger.Error("failed to insert choice", "error", err)
 			return nil, err
 		}
 	}
 
-	// Update image associations
-	_, err = tx.ExecContext(ctx, `DELETE FROM question_images WHERE question_id = $1`, request.QuestionId)
+	err = qtx.DeleteQuestionImages(ctx, request.QuestionId)
 	if err != nil {
 		h.logger.Error("failed to delete old question images", "error", err)
 		return nil, err
 	}
 	if body.ImageIds != nil {
 		for i, imageID := range *body.ImageIds {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO question_images (question_id, image_id, order_index)
-				VALUES ($1, $2, $3)
-			`, request.QuestionId, imageID, i)
+			err = qtx.CreateQuestionImage(ctx, db.CreateQuestionImageParams{
+				QuestionID: request.QuestionId,
+				ImageID:    imageID,
+				OrderIndex: int32(i),
+			})
 			if err != nil {
 				h.logger.Error("failed to insert question image", "error", err, "image_id", imageID)
 				return nil, err
@@ -615,8 +510,10 @@ func (h *Handler) UpdateQuestion(ctx context.Context, request adminapi.UpdateQue
 		}
 	}
 
-	// Update timestamp
-	_, err = tx.ExecContext(ctx, `UPDATE questions SET updated_at = $1 WHERE id = $2`, time.Now(), request.QuestionId)
+	err = qtx.UpdateQuestionTimestamp(ctx, db.UpdateQuestionTimestampParams{
+		UpdatedAt: sql.NullTime{Time: time.Now(), Valid: true},
+		ID:        request.QuestionId,
+	})
 	if err != nil {
 		h.logger.Error("failed to update question timestamp", "error", err)
 		return nil, err
@@ -637,7 +534,7 @@ func (h *Handler) UpdateQuestion(ctx context.Context, request adminapi.UpdateQue
 }
 
 func (h *Handler) DeleteQuestion(ctx context.Context, request adminapi.DeleteQuestionRequestObject) (adminapi.DeleteQuestionResponseObject, error) {
-	result, err := h.db.ExecContext(ctx, `DELETE FROM questions WHERE id = $1`, request.QuestionId)
+	result, err := h.queries.DeleteQuestion(ctx, request.QuestionId)
 	if err != nil {
 		h.logger.Error("failed to delete question", "error", err, "question_id", request.QuestionId)
 		return nil, err
@@ -662,142 +559,73 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbook
 		return adminapi.GetWorkbooks400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	var total int
-	if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workbooks").Scan(&total); err != nil {
+	total, err := h.queries.CountWorkbooks(ctx)
+	if err != nil {
 		h.logger.Error("failed to count workbooks", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description, w.category_id,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		ORDER BY w.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	rows, err := h.queries.ListWorkbooks(ctx, db.ListWorkbooksParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query workbooks", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	workbooks := []adminapi.Workbook{}
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var categoryID sql.NullInt64
-		var questionCount int
-		if err := rows.Scan(&id, &title, &description, &categoryID, &questionCount); err != nil {
-			h.logger.Error("failed to scan workbook", "error", err)
-			return nil, err
-		}
+	for _, row := range rows {
+		qc := int(row.QuestionCount)
 		w := adminapi.Workbook{
-			Id:            id,
-			Title:         title,
-			QuestionCount: &questionCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
 		}
-		if description.Valid {
-			w.Description = &description.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
-		if categoryID.Valid {
-			cid := categoryID.Int64
+		if row.CategoryID.Valid {
+			cid := row.CategoryID.Int64
 			w.CategoryId = &cid
 		}
 		workbooks = append(workbooks, w)
 	}
 
-	return adminapi.GetWorkbooks200JSONResponse{Workbooks: workbooks, Total: total}, nil
+	return adminapi.GetWorkbooks200JSONResponse{Workbooks: workbooks, Total: int(total)}, nil
 }
 
 // getWorkbookDetail fetches a workbook with its questions.
 func (h *Handler) getWorkbookDetail(ctx context.Context, workbookID int64) (*adminapi.WorkbookDetail, error) {
-	var id int64
-	var title string
-	var description sql.NullString
-	var categoryID sql.NullInt64
-
-	err := h.db.QueryRowContext(ctx, `SELECT id, title, description, category_id FROM workbooks WHERE id = $1`, workbookID).Scan(&id, &title, &description, &categoryID)
+	wb, err := h.queries.GetWorkbookByID(ctx, workbookID)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		JOIN workbook_questions wq ON q.id = wq.question_id
-		WHERE wq.workbook_id = $1
-		ORDER BY wq.order_index
-	`, id)
+	qRows, err := h.queries.ListQuestionsByWorkbook(ctx, wb.ID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	questions := []adminapi.Question{}
-	for rows.Next() {
-		var qid int64
-		var text string
-		var explanation sql.NullString
-		if err := rows.Scan(&qid, &text, &explanation); err != nil {
-			return nil, err
-		}
-
-		choiceRows, err := h.db.QueryContext(ctx, `
-			SELECT text, is_correct, choice_index
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, qid)
+	for _, row := range qRows {
+		q, err := h.getQuestionByID(ctx, row.ID)
 		if err != nil {
 			return nil, err
 		}
-
-		var choices []adminapi.Choice
-		for choiceRows.Next() {
-			var choiceText string
-			var isCorrect bool
-			var choiceIndex int
-			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-				choiceRows.Close()
-				return nil, err
-			}
-			choices = append(choices, adminapi.Choice{Text: choiceText, IsCorrect: isCorrect})
-		}
-		choiceRows.Close()
-
-		q := adminapi.Question{
-			Id:      qid,
-			Type:    adminapi.QuestionTypeSingleChoice,
-			Text:    text,
-			Choices: choices,
-		}
-		if explanation.Valid {
-			q.Explanation = &explanation.String
-		}
-
-		imageURLs, err := h.getImageURLs(ctx, qid)
-		if err != nil {
-			return nil, err
-		}
-		if len(imageURLs) > 0 {
-			q.Images = &imageURLs
-		}
-
-		questions = append(questions, q)
+		questions = append(questions, *q)
 	}
 
 	w := &adminapi.WorkbookDetail{
-		Id:        id,
-		Title:     title,
+		Id:        wb.ID,
+		Title:     wb.Title,
 		Questions: questions,
 	}
-	if description.Valid {
-		w.Description = &description.String
+	if wb.Description.Valid {
+		w.Description = &wb.Description.String
 	}
-	if categoryID.Valid {
-		cid := categoryID.Int64
+	if wb.CategoryID.Valid {
+		cid := wb.CategoryID.Int64
 		w.CategoryId = &cid
 	}
 	return w, nil
@@ -818,25 +646,28 @@ func (h *Handler) GetWorkbook(ctx context.Context, request adminapi.GetWorkbookR
 func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWorkbookRequestObject) (adminapi.CreateWorkbookResponseObject, error) {
 	body := request.Body
 
-	tx, err := h.db.BeginTx(ctx, nil)
+	tx, err := h.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
 		h.logger.Error("failed to begin transaction", "error", err)
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	var workbookID int64
-	var descArg any
+	qtx := h.queries.WithTx(tx)
+
+	desc := sql.NullString{}
 	if body.Description != nil {
-		descArg = *body.Description
+		desc = sql.NullString{String: *body.Description, Valid: true}
 	}
-	var categoryArg any
+	catID := sql.NullInt64{}
 	if body.CategoryId != nil {
-		categoryArg = *body.CategoryId
+		catID = sql.NullInt64{Int64: *body.CategoryId, Valid: true}
 	}
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO workbooks (title, description, category_id) VALUES ($1, $2, $3) RETURNING id
-	`, body.Title, descArg, categoryArg).Scan(&workbookID)
+	workbookID, err := qtx.CreateWorkbook(ctx, db.CreateWorkbookParams{
+		Title:       body.Title,
+		Description: desc,
+		CategoryID:  catID,
+	})
 	if err != nil {
 		h.logger.Error("failed to insert workbook", "error", err)
 		return nil, err
@@ -844,10 +675,11 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 
 	if body.QuestionIds != nil {
 		for i, qID := range *body.QuestionIds {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO workbook_questions (workbook_id, question_id, order_index)
-				VALUES ($1, $2, $3)
-			`, workbookID, qID, i)
+			err = qtx.CreateWorkbookQuestion(ctx, db.CreateWorkbookQuestionParams{
+				WorkbookID: workbookID,
+				QuestionID: qID,
+				OrderIndex: int32(i),
+			})
 			if err != nil {
 				h.logger.Error("failed to insert workbook question", "error", err, "question_id", qID)
 				return nil, err
@@ -872,15 +704,16 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWorkbookRequestObject) (adminapi.UpdateWorkbookResponseObject, error) {
 	body := request.Body
 
-	tx, err := h.db.BeginTx(ctx, nil)
+	tx, err := h.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
 		h.logger.Error("failed to begin transaction", "error", err)
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	var exists bool
-	err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workbooks WHERE id = $1)`, request.WorkbookId).Scan(&exists)
+	qtx := h.queries.WithTx(tx)
+
+	exists, err := qtx.WorkbookExists(ctx, request.WorkbookId)
 	if err != nil {
 		h.logger.Error("failed to check workbook existence", "error", err)
 		return nil, err
@@ -889,34 +722,38 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 		return adminapi.UpdateWorkbook404JSONResponse{Code: "NOT_FOUND", Message: "workbook not found"}, nil
 	}
 
-	var descArg any
+	desc := sql.NullString{}
 	if body.Description != nil {
-		descArg = *body.Description
+		desc = sql.NullString{String: *body.Description, Valid: true}
 	}
-	var categoryArg any
+	catID := sql.NullInt64{}
 	if body.CategoryId != nil {
-		categoryArg = *body.CategoryId
+		catID = sql.NullInt64{Int64: *body.CategoryId, Valid: true}
 	}
-	_, err = tx.ExecContext(ctx, `
-		UPDATE workbooks SET title = $1, description = $2, category_id = $3, updated_at = $4 WHERE id = $5
-	`, body.Title, descArg, categoryArg, time.Now(), request.WorkbookId)
+	err = qtx.UpdateWorkbook(ctx, db.UpdateWorkbookParams{
+		Title:       body.Title,
+		Description: desc,
+		CategoryID:  catID,
+		UpdatedAt:   sql.NullTime{Time: time.Now(), Valid: true},
+		ID:          request.WorkbookId,
+	})
 	if err != nil {
 		h.logger.Error("failed to update workbook", "error", err)
 		return nil, err
 	}
 
-	// Replace question associations
-	_, err = tx.ExecContext(ctx, `DELETE FROM workbook_questions WHERE workbook_id = $1`, request.WorkbookId)
+	err = qtx.DeleteWorkbookQuestions(ctx, request.WorkbookId)
 	if err != nil {
 		h.logger.Error("failed to delete old workbook questions", "error", err)
 		return nil, err
 	}
 	if body.QuestionIds != nil {
 		for i, qID := range *body.QuestionIds {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO workbook_questions (workbook_id, question_id, order_index)
-				VALUES ($1, $2, $3)
-			`, request.WorkbookId, qID, i)
+			err = qtx.CreateWorkbookQuestion(ctx, db.CreateWorkbookQuestionParams{
+				WorkbookID: request.WorkbookId,
+				QuestionID: qID,
+				OrderIndex: int32(i),
+			})
 			if err != nil {
 				h.logger.Error("failed to insert workbook question", "error", err, "question_id", qID)
 				return nil, err
@@ -939,7 +776,7 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 }
 
 func (h *Handler) DeleteWorkbook(ctx context.Context, request adminapi.DeleteWorkbookRequestObject) (adminapi.DeleteWorkbookResponseObject, error) {
-	result, err := h.db.ExecContext(ctx, `DELETE FROM workbooks WHERE id = $1`, request.WorkbookId)
+	result, err := h.queries.DeleteWorkbook(ctx, request.WorkbookId)
 	if err != nil {
 		h.logger.Error("failed to delete workbook", "error", err, "workbook_id", request.WorkbookId)
 		return nil, err
@@ -965,22 +802,18 @@ func (h *Handler) CreatePresignedUrl(ctx context.Context, request adminapi.Creat
 		return adminapi.CreatePresignedUrl400JSONResponse{Code: "NOT_CONFIGURED", Message: "S3 is not configured"}, nil
 	}
 
-	// Generate UUID-based path
 	ext := ".png"
 	if body.ContentType == adminapi.Imagejpeg {
 		ext = ".jpg"
 	}
 	objectKey := uuid.New().String() + ext
 
-	// Insert image record
-	var imageID int64
-	err := h.db.QueryRowContext(ctx, `INSERT INTO images (path) VALUES ($1) RETURNING id`, objectKey).Scan(&imageID)
+	imageID, err := h.queries.CreateImage(ctx, objectKey)
 	if err != nil {
 		h.logger.Error("failed to insert image", "error", err)
 		return nil, err
 	}
 
-	// Generate presigned URL
 	presignClient := s3.NewPresignClient(h.s3Client)
 	presignResult, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(h.s3Bucket),

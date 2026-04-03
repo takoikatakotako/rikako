@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/db"
 )
 
 func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRequestObject) (api.SubmitAnswersResponseObject, error) {
@@ -18,41 +19,28 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 	}
 
 	// Upsert user
-	var userID int64
-	err := h.db.QueryRowContext(ctx, `
-		INSERT INTO users (identity_id) VALUES ($1)
-		ON CONFLICT (identity_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-		RETURNING id
-	`, deviceID).Scan(&userID)
+	userID, err := h.queries.UpsertUser(ctx, deviceID)
 	if err != nil {
 		h.logger.Error("failed to upsert user", "error", err, "device_id", deviceID)
 		return nil, err
 	}
 
 	// Verify workbook exists
-	var workbookExists bool
-	err = h.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM workbooks WHERE id = $1)`, request.Body.WorkbookId).Scan(&workbookExists)
+	exists, err := h.queries.WorkbookExists(ctx, request.Body.WorkbookId)
 	if err != nil {
 		h.logger.Error("failed to check workbook", "error", err)
 		return nil, err
 	}
-	if !workbookExists {
+	if !exists {
 		return api.SubmitAnswers400JSONResponse{Code: "INVALID_PARAMETER", Message: "workbook not found"}, nil
 	}
 
 	correctCount := 0
 	for _, answer := range request.Body.Answers {
-		// Check if the selected choice is correct
-		var isCorrect bool
-		err := h.db.QueryRowContext(ctx, `
-			SELECT EXISTS(
-				SELECT 1 FROM questions_single_choice_choices c
-				JOIN questions_single_choice qsc ON c.single_choice_id = qsc.id
-				WHERE qsc.question_id = $1
-				  AND c.choice_index = $2
-				  AND c.is_correct = true
-			)
-		`, answer.QuestionId, answer.SelectedChoice).Scan(&isCorrect)
+		isCorrect, err := h.queries.CheckAnswerCorrect(ctx, db.CheckAnswerCorrectParams{
+			QuestionID:  answer.QuestionId,
+			ChoiceIndex: int32(answer.SelectedChoice),
+		})
 		if err != nil {
 			h.logger.Error("failed to check answer", "error", err, "question_id", answer.QuestionId)
 			return nil, err
@@ -62,11 +50,13 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 			correctCount++
 		}
 
-		// Insert answer record
-		_, err = h.db.ExecContext(ctx, `
-			INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-			VALUES ($1, $2, $3, $4, $5)
-		`, userID, answer.QuestionId, request.Body.WorkbookId, answer.SelectedChoice, isCorrect)
+		err = h.queries.CreateUserAnswer(ctx, db.CreateUserAnswerParams{
+			UserID:         userID,
+			QuestionID:     answer.QuestionId,
+			WorkbookID:     request.Body.WorkbookId,
+			SelectedChoice: int32(answer.SelectedChoice),
+			IsCorrect:      isCorrect,
+		})
 		if err != nil {
 			h.logger.Error("failed to insert answer", "error", err, "question_id", answer.QuestionId)
 			return nil, err
@@ -90,11 +80,8 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 		return api.GetWrongAnswers400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	// Get user ID
-	var userID int64
-	err = h.db.QueryRowContext(ctx, `SELECT id FROM users WHERE identity_id = $1`, deviceID).Scan(&userID)
+	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
 	if err == sql.ErrNoRows {
-		// No user found — return empty list
 		return api.GetWrongAnswers200JSONResponse{Questions: []api.Question{}, Total: 0}, nil
 	}
 	if err != nil {
@@ -102,108 +89,34 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 		return nil, err
 	}
 
-	// Get questions where the latest answer is wrong
-	// Uses DISTINCT ON to get only the most recent answer per question
-	var total int
-	err = h.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM (
-			SELECT DISTINCT ON (question_id) is_correct
-			FROM user_answers
-			WHERE user_id = $1
-			ORDER BY question_id, answered_at DESC
-		) latest WHERE NOT is_correct
-	`, userID).Scan(&total)
+	total, err := h.queries.CountWrongAnswers(ctx, userID)
 	if err != nil {
 		h.logger.Error("failed to count wrong answers", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM (
-			SELECT DISTINCT ON (question_id) question_id, is_correct
-			FROM user_answers
-			WHERE user_id = $1
-			ORDER BY question_id, answered_at DESC
-		) latest
-		JOIN questions q ON q.id = latest.question_id
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		WHERE NOT latest.is_correct
-		ORDER BY q.id
-		LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
+	rows, err := h.queries.ListWrongAnswers(ctx, db.ListWrongAnswersParams{
+		UserID: userID,
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query wrong answers", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	questions := []api.Question{}
-	for rows.Next() {
-		var qid int64
-		var text string
-		var explanation sql.NullString
-
-		if err := rows.Scan(&qid, &text, &explanation); err != nil {
-			h.logger.Error("failed to scan question", "error", err)
-			return nil, err
-		}
-
-		// Get choices
-		choiceRows, err := h.db.QueryContext(ctx, `
-			SELECT text, is_correct, choice_index
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, qid)
+	for _, row := range rows {
+		q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
 		if err != nil {
-			h.logger.Error("failed to query choices", "error", err, "question_id", qid)
+			h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
 			return nil, err
 		}
-
-		var choices []string
-		var correct int
-		for choiceRows.Next() {
-			var choiceText string
-			var isCorrect bool
-			var choiceIndex int
-			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-				choiceRows.Close()
-				return nil, err
-			}
-			choices = append(choices, choiceText)
-			if isCorrect {
-				correct = choiceIndex
-			}
-		}
-		choiceRows.Close()
-
-		q := api.Question{
-			Id:      qid,
-			Type:    api.SingleChoice,
-			Text:    text,
-			Choices: choices,
-			Correct: &correct,
-		}
-		if explanation.Valid {
-			q.Explanation = &explanation.String
-		}
-
-		imageURLs, err := h.getImageURLs(ctx, qid)
-		if err != nil {
-			h.logger.Error("failed to get image URLs", "error", err, "question_id", qid)
-			return nil, err
-		}
-		if len(imageURLs) > 0 {
-			q.Images = &imageURLs
-		}
-
 		questions = append(questions, q)
 	}
 
 	return api.GetWrongAnswers200JSONResponse{
 		Questions: questions,
-		Total:     total,
+		Total:     int(total),
 	}, nil
 }
-

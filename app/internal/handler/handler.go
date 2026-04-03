@@ -7,17 +7,18 @@ import (
 	"log/slog"
 
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/db"
 )
 
 type Handler struct {
-	db           *sql.DB
+	queries      *db.Queries
 	imageBaseURL string
 	logger       *slog.Logger
 }
 
-func New(db *sql.DB, imageBaseURL string, logger *slog.Logger) *Handler {
+func New(d *sql.DB, imageBaseURL string, logger *slog.Logger) *Handler {
 	return &Handler{
-		db:           db,
+		queries:      db.New(d),
 		imageBaseURL: imageBaseURL,
 		logger:       logger,
 	}
@@ -54,172 +55,30 @@ func (h *Handler) HealthCheck(ctx context.Context, request api.HealthCheckReques
 
 // getImageURLs returns image URLs for a given question ID
 func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string, error) {
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT i.path
-		FROM images i
-		JOIN question_images qi ON i.id = qi.image_id
-		WHERE qi.question_id = $1
-		ORDER BY qi.order_index
-	`, questionID)
+	paths, err := h.queries.GetImageURLsByQuestionID(ctx, questionID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	var urls []string
-	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
-			return nil, err
-		}
+	for _, path := range paths {
 		urls = append(urls, fmt.Sprintf("%s/%s", h.imageBaseURL, path))
 	}
 	return urls, nil
 }
 
-func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequestObject) (api.GetQuestionsResponseObject, error) {
-	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+// buildQuestion builds an api.Question from a question row and its choices
+func (h *Handler) buildQuestion(ctx context.Context, id int64, text string, explanation sql.NullString) (api.Question, error) {
+	choiceRows, err := h.queries.GetChoicesByQuestionID(ctx, id)
 	if err != nil {
-		return api.GetQuestions400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+		return api.Question{}, err
 	}
-
-	// 総件数取得
-	var total int
-	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM questions").Scan(&total)
-	if err != nil {
-		h.logger.Error("failed to count questions", "error", err)
-		return nil, err
-	}
-
-	// 問題一覧取得
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		ORDER BY q.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
-	if err != nil {
-		h.logger.Error("failed to query questions", "error", err)
-		return nil, err
-	}
-	defer rows.Close()
-
-	questions := []api.Question{}
-	for rows.Next() {
-		var id int64
-		var text string
-		var explanation sql.NullString
-
-		if err := rows.Scan(&id, &text, &explanation); err != nil {
-			h.logger.Error("failed to scan question", "error", err)
-			return nil, err
-		}
-
-		// 選択肢取得
-		choiceRows, err := h.db.QueryContext(ctx, `
-			SELECT text, is_correct, choice_index
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, id)
-		if err != nil {
-			h.logger.Error("failed to query choices", "error", err, "question_id", id)
-			return nil, err
-		}
-
-		var choices []string
-		var correct int
-		for choiceRows.Next() {
-			var choiceText string
-			var isCorrect bool
-			var choiceIndex int
-			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-				choiceRows.Close()
-				h.logger.Error("failed to scan choice", "error", err)
-				return nil, err
-			}
-			choices = append(choices, choiceText)
-			if isCorrect {
-				correct = choiceIndex
-			}
-		}
-		choiceRows.Close()
-
-		q := api.Question{
-			Id:      id,
-			Type:    api.SingleChoice,
-			Text:    text,
-			Choices: choices,
-			Correct: &correct,
-		}
-		if explanation.Valid {
-			q.Explanation = &explanation.String
-		}
-
-		imageURLs, err := h.getImageURLs(ctx, id)
-		if err != nil {
-			h.logger.Error("failed to get image URLs", "error", err, "question_id", id)
-			return nil, err
-		}
-		if len(imageURLs) > 0 {
-			q.Images = &imageURLs
-		}
-
-		questions = append(questions, q)
-	}
-
-	return api.GetQuestions200JSONResponse{
-		Questions: questions,
-		Total:     total,
-	}, nil
-}
-
-func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionRequestObject) (api.GetQuestionResponseObject, error) {
-	var id int64
-	var text string
-	var explanation sql.NullString
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		WHERE q.id = $1
-	`, request.QuestionId).Scan(&id, &text, &explanation)
-	if err == sql.ErrNoRows {
-		return api.GetQuestion404JSONResponse{Code: "NOT_FOUND", Message: "question not found"}, nil
-	}
-	if err != nil {
-		h.logger.Error("failed to query question", "error", err, "question_id", request.QuestionId)
-		return nil, err
-	}
-
-	// 選択肢取得
-	choiceRows, err := h.db.QueryContext(ctx, `
-		SELECT text, is_correct, choice_index
-		FROM questions_single_choice_choices
-		WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-		ORDER BY choice_index
-	`, id)
-	if err != nil {
-		h.logger.Error("failed to query choices", "error", err, "question_id", id)
-		return nil, err
-	}
-	defer choiceRows.Close()
 
 	var choices []string
 	var correct int
-	for choiceRows.Next() {
-		var choiceText string
-		var isCorrect bool
-		var choiceIndex int
-		if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-			h.logger.Error("failed to scan choice", "error", err)
-			return nil, err
-		}
-		choices = append(choices, choiceText)
-		if isCorrect {
-			correct = choiceIndex
+	for _, c := range choiceRows {
+		choices = append(choices, c.Text)
+		if c.IsCorrect {
+			correct = int(c.ChoiceIndex)
 		}
 	}
 
@@ -236,11 +95,66 @@ func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionReques
 
 	imageURLs, err := h.getImageURLs(ctx, id)
 	if err != nil {
-		h.logger.Error("failed to get image URLs", "error", err, "question_id", id)
-		return nil, err
+		return api.Question{}, err
 	}
 	if len(imageURLs) > 0 {
 		q.Images = &imageURLs
+	}
+
+	return q, nil
+}
+
+func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequestObject) (api.GetQuestionsResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetQuestions400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	total, err := h.queries.CountQuestions(ctx)
+	if err != nil {
+		h.logger.Error("failed to count questions", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListQuestions(ctx, db.ListQuestionsParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query questions", "error", err)
+		return nil, err
+	}
+
+	questions := []api.Question{}
+	for _, row := range rows {
+		q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
+		if err != nil {
+			h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
+			return nil, err
+		}
+		questions = append(questions, q)
+	}
+
+	return api.GetQuestions200JSONResponse{
+		Questions: questions,
+		Total:     int(total),
+	}, nil
+}
+
+func (h *Handler) GetQuestion(ctx context.Context, request api.GetQuestionRequestObject) (api.GetQuestionResponseObject, error) {
+	row, err := h.queries.GetQuestionByID(ctx, request.QuestionId)
+	if err == sql.ErrNoRows {
+		return api.GetQuestion404JSONResponse{Code: "NOT_FOUND", Message: "question not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to query question", "error", err, "question_id", request.QuestionId)
+		return nil, err
+	}
+
+	q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
+	if err != nil {
+		h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
+		return nil, err
 	}
 
 	return api.GetQuestion200JSONResponse(q), nil
@@ -252,63 +166,43 @@ func (h *Handler) GetCategories(ctx context.Context, request api.GetCategoriesRe
 		return api.GetCategories400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	var total int
-	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM categories").Scan(&total)
+	total, err := h.queries.CountCategories(ctx)
 	if err != nil {
 		h.logger.Error("failed to count categories", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT c.id, c.title, c.description,
-			(SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
-		FROM categories c
-		ORDER BY c.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	rows, err := h.queries.ListCategories(ctx, db.ListCategoriesParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query categories", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	categories := []api.Category{}
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var workbookCount int
-
-		if err := rows.Scan(&id, &title, &description, &workbookCount); err != nil {
-			h.logger.Error("failed to scan category", "error", err)
-			return nil, err
-		}
-
+	for _, row := range rows {
+		wc := int(row.WorkbookCount)
 		c := api.Category{
-			Id:            id,
-			Title:         title,
-			WorkbookCount: &workbookCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			WorkbookCount: &wc,
 		}
-		if description.Valid {
-			c.Description = &description.String
+		if row.Description.Valid {
+			c.Description = &row.Description.String
 		}
 		categories = append(categories, c)
 	}
 
 	return api.GetCategories200JSONResponse{
 		Categories: categories,
-		Total:      total,
+		Total:      int(total),
 	}, nil
 }
 
 func (h *Handler) GetCategory(ctx context.Context, request api.GetCategoryRequestObject) (api.GetCategoryResponseObject, error) {
-	var id int64
-	var title string
-	var description sql.NullString
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT id, title, description FROM categories WHERE id = $1
-	`, request.CategoryId).Scan(&id, &title, &description)
+	cat, err := h.queries.GetCategoryByID(ctx, request.CategoryId)
 	if err == sql.ErrNoRows {
 		return api.GetCategory404JSONResponse{Code: "NOT_FOUND", Message: "category not found"}, nil
 	}
@@ -317,51 +211,34 @@ func (h *Handler) GetCategory(ctx context.Context, request api.GetCategoryReques
 		return nil, err
 	}
 
-	// 問題集一覧取得
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		WHERE w.category_id = $1
-		ORDER BY w.id
-	`, id)
+	wbRows, err := h.queries.ListWorkbooksByCategory(ctx, sql.NullInt64{Int64: cat.ID, Valid: true})
 	if err != nil {
-		h.logger.Error("failed to query category workbooks", "error", err, "category_id", id)
+		h.logger.Error("failed to query category workbooks", "error", err, "category_id", cat.ID)
 		return nil, err
 	}
-	defer rows.Close()
 
 	workbooks := []api.Workbook{}
-	for rows.Next() {
-		var wid int64
-		var wtitle string
-		var wdesc sql.NullString
-		var questionCount int
-
-		if err := rows.Scan(&wid, &wtitle, &wdesc, &questionCount); err != nil {
-			h.logger.Error("failed to scan workbook", "error", err)
-			return nil, err
-		}
-
+	for _, row := range wbRows {
+		qc := int(row.QuestionCount)
 		w := api.Workbook{
-			Id:            wid,
-			Title:         wtitle,
-			QuestionCount: &questionCount,
-			CategoryId:    &id,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
+			CategoryId:    &cat.ID,
 		}
-		if wdesc.Valid {
-			w.Description = &wdesc.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
 		workbooks = append(workbooks, w)
 	}
 
 	c := api.CategoryDetail{
-		Id:        id,
-		Title:     title,
+		Id:        cat.ID,
+		Title:     cat.Title,
 		Workbooks: workbooks,
 	}
-	if description.Valid {
-		c.Description = &description.String
+	if cat.Description.Valid {
+		c.Description = &cat.Description.String
 	}
 
 	return api.GetCategory200JSONResponse(c), nil
@@ -373,72 +250,47 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		return api.GetWorkbooks400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	// 総件数取得
-	var total int
-	err = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM workbooks").Scan(&total)
+	total, err := h.queries.CountWorkbooks(ctx)
 	if err != nil {
 		h.logger.Error("failed to count workbooks", "error", err)
 		return nil, err
 	}
 
-	// 問題集一覧取得
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description, w.category_id,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		ORDER BY w.id
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+	rows, err := h.queries.ListWorkbooks(ctx, db.ListWorkbooksParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		h.logger.Error("failed to query workbooks", "error", err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	workbooks := []api.Workbook{}
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var categoryID sql.NullInt64
-		var questionCount int
-
-		if err := rows.Scan(&id, &title, &description, &categoryID, &questionCount); err != nil {
-			h.logger.Error("failed to scan workbook", "error", err)
-			return nil, err
-		}
-
+	for _, row := range rows {
+		qc := int(row.QuestionCount)
 		w := api.Workbook{
-			Id:            id,
-			Title:         title,
-			QuestionCount: &questionCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
 		}
-		if description.Valid {
-			w.Description = &description.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
-		if categoryID.Valid {
-			cid := categoryID.Int64
+		if row.CategoryID.Valid {
+			cid := row.CategoryID.Int64
 			w.CategoryId = &cid
 		}
-
 		workbooks = append(workbooks, w)
 	}
 
 	return api.GetWorkbooks200JSONResponse{
 		Workbooks: workbooks,
-		Total:     total,
+		Total:     int(total),
 	}, nil
 }
 
 func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookRequestObject) (api.GetWorkbookResponseObject, error) {
-	var id int64
-	var title string
-	var description sql.NullString
-	var categoryID sql.NullInt64
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT id, title, description, category_id FROM workbooks WHERE id = $1
-	`, request.WorkbookId).Scan(&id, &title, &description, &categoryID)
+	wb, err := h.queries.GetWorkbookByID(ctx, request.WorkbookId)
 	if err == sql.ErrNoRows {
 		return api.GetWorkbook404JSONResponse{Code: "NOT_FOUND", Message: "workbook not found"}, nil
 	}
@@ -447,95 +299,32 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		return nil, err
 	}
 
-	// 問題一覧取得
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		JOIN workbook_questions wq ON q.id = wq.question_id
-		WHERE wq.workbook_id = $1
-		ORDER BY wq.order_index
-	`, id)
+	qRows, err := h.queries.ListQuestionsByWorkbook(ctx, wb.ID)
 	if err != nil {
-		h.logger.Error("failed to query workbook questions", "error", err, "workbook_id", id)
+		h.logger.Error("failed to query workbook questions", "error", err, "workbook_id", wb.ID)
 		return nil, err
 	}
-	defer rows.Close()
 
 	questions := []api.Question{}
-	for rows.Next() {
-		var qid int64
-		var text string
-		var explanation sql.NullString
-
-		if err := rows.Scan(&qid, &text, &explanation); err != nil {
-			h.logger.Error("failed to scan question", "error", err)
-			return nil, err
-		}
-
-		// 選択肢取得
-		choiceRows, err := h.db.QueryContext(ctx, `
-			SELECT text, is_correct, choice_index
-			FROM questions_single_choice_choices
-			WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
-			ORDER BY choice_index
-		`, qid)
+	for _, row := range qRows {
+		q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
 		if err != nil {
-			h.logger.Error("failed to query choices", "error", err, "question_id", qid)
+			h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
 			return nil, err
 		}
-
-		var choices []string
-		var correct int
-		for choiceRows.Next() {
-			var choiceText string
-			var isCorrect bool
-			var choiceIndex int
-			if err := choiceRows.Scan(&choiceText, &isCorrect, &choiceIndex); err != nil {
-				choiceRows.Close()
-				h.logger.Error("failed to scan choice", "error", err)
-				return nil, err
-			}
-			choices = append(choices, choiceText)
-			if isCorrect {
-				correct = choiceIndex
-			}
-		}
-		choiceRows.Close()
-
-		q := api.Question{
-			Id:      qid,
-			Type:    api.SingleChoice,
-			Text:    text,
-			Choices: choices,
-			Correct: &correct,
-		}
-		if explanation.Valid {
-			q.Explanation = &explanation.String
-		}
-
-		imageURLs, err := h.getImageURLs(ctx, qid)
-		if err != nil {
-			h.logger.Error("failed to get image URLs", "error", err, "question_id", qid)
-			return nil, err
-		}
-		if len(imageURLs) > 0 {
-			q.Images = &imageURLs
-		}
-
 		questions = append(questions, q)
 	}
 
 	w := api.WorkbookDetail{
-		Id:        id,
-		Title:     title,
+		Id:        wb.ID,
+		Title:     wb.Title,
 		Questions: questions,
 	}
-	if description.Valid {
-		w.Description = &description.String
+	if wb.Description.Valid {
+		w.Description = &wb.Description.String
 	}
-	if categoryID.Valid {
-		cid := categoryID.Int64
+	if wb.CategoryID.Valid {
+		cid := wb.CategoryID.Int64
 		w.CategoryId = &cid
 	}
 
