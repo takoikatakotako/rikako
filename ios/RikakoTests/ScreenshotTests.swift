@@ -53,7 +53,8 @@ final class ScreenshotTests: XCTestCase {
         let view = NavigationStack {
             QuizView(
                 questions: MockData.questions,
-                workbookTitle: "物質のすがた"
+                workbookTitle: "物質のすがた",
+                workbookId: 1
             )
         }
         takeScreenshot(view: view, name: "06_quiz")
@@ -65,7 +66,8 @@ final class ScreenshotTests: XCTestCase {
             ResultView(
                 questions: MockData.questions,
                 answers: [0, 1, 2, 1, 2],
-                workbookTitle: "物質のすがた"
+                workbookTitle: "物質のすがた",
+                workbookId: 1
             )
         }
         takeScreenshot(view: view, name: "07_result")
