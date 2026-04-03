@@ -6,7 +6,7 @@ import Security
 final class DeviceIdentity {
     static let shared = DeviceIdentity()
 
-    private let identityPoolId = "ap-northeast-1:PLACEHOLDER"
+    private let identityPoolId = "ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222"
     private let region = "ap-northeast-1"
     private let keychainKey = "jp.conol.rikako.identityId"
 
