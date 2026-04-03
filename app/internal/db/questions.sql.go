@@ -199,6 +199,60 @@ func (q *Queries) ListQuestions(ctx context.Context, arg ListQuestionsParams) ([
 	return items, nil
 }
 
+const listQuestionsWithChoices = `-- name: ListQuestionsWithChoices :many
+SELECT q.id, qsc.text, qsc.explanation,
+    c.text AS choice_text, c.is_correct, c.choice_index
+FROM questions q
+JOIN questions_single_choice qsc ON q.id = qsc.question_id
+LEFT JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
+WHERE q.id IN (SELECT id FROM questions ORDER BY id LIMIT $1 OFFSET $2)
+ORDER BY q.id, c.choice_index
+`
+
+type ListQuestionsWithChoicesParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListQuestionsWithChoicesRow struct {
+	ID          int64          `json:"id"`
+	Text        string         `json:"text"`
+	Explanation sql.NullString `json:"explanation"`
+	ChoiceText  sql.NullString `json:"choice_text"`
+	IsCorrect   sql.NullBool   `json:"is_correct"`
+	ChoiceIndex sql.NullInt32  `json:"choice_index"`
+}
+
+func (q *Queries) ListQuestionsWithChoices(ctx context.Context, arg ListQuestionsWithChoicesParams) ([]ListQuestionsWithChoicesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listQuestionsWithChoices, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListQuestionsWithChoicesRow{}
+	for rows.Next() {
+		var i ListQuestionsWithChoicesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Text,
+			&i.Explanation,
+			&i.ChoiceText,
+			&i.IsCorrect,
+			&i.ChoiceIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const questionExists = `-- name: QuestionExists :one
 SELECT EXISTS(SELECT 1 FROM questions WHERE id = $1)
 `

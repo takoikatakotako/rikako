@@ -42,6 +42,7 @@ type Querier interface {
 	GetCategoryByID(ctx context.Context, id int64) (GetCategoryByIDRow, error)
 	GetCategoryTitle(ctx context.Context, id int64) (GetCategoryTitleRow, error)
 	GetChoicesByQuestionID(ctx context.Context, questionID int64) ([]GetChoicesByQuestionIDRow, error)
+	GetCorrectChoicesByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetCorrectChoicesByQuestionIDsRow, error)
 	GetImageURLsByQuestionID(ctx context.Context, questionID int64) ([]string, error)
 	GetImageURLsByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetImageURLsByQuestionIDsRow, error)
 	GetQuestionByID(ctx context.Context, id int64) (GetQuestionByIDRow, error)
@@ -62,10 +63,12 @@ type Querier interface {
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]ListCategoriesRow, error)
 	ListQuestions(ctx context.Context, arg ListQuestionsParams) ([]ListQuestionsRow, error)
 	ListQuestionsByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsByWorkbookRow, error)
+	ListQuestionsWithChoices(ctx context.Context, arg ListQuestionsWithChoicesParams) ([]ListQuestionsWithChoicesRow, error)
 	ListQuestionsWithChoicesByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsWithChoicesByWorkbookRow, error)
 	ListWorkbooks(ctx context.Context, arg ListWorkbooksParams) ([]ListWorkbooksRow, error)
 	ListWorkbooksByCategory(ctx context.Context, categoryID sql.NullInt64) ([]ListWorkbooksByCategoryRow, error)
 	ListWrongAnswers(ctx context.Context, arg ListWrongAnswersParams) ([]ListWrongAnswersRow, error)
+	ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	SetWorkbookCategory(ctx context.Context, arg SetWorkbookCategoryParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
