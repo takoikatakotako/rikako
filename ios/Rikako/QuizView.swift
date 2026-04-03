@@ -3,6 +3,7 @@ import SwiftUI
 struct QuizView: View {
     let questions: [Question]
     let workbookTitle: String
+    let workbookId: Int64
 
     @State private var currentIndex = 0
     @State private var selectedChoice: Int?
@@ -36,7 +37,7 @@ struct QuizView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(showExplanation)
         .navigationDestination(isPresented: $showResult) {
-            ResultView(questions: questions, answers: answers, workbookTitle: workbookTitle)
+            ResultView(questions: questions, answers: answers, workbookTitle: workbookTitle, workbookId: workbookId)
         }
         .onAppear {
             answers = Array(repeating: nil, count: questions.count)
@@ -158,6 +159,6 @@ struct QuizView: View {
 
 #Preview {
     NavigationStack {
-        QuizView(questions: MockData.questions, workbookTitle: "基礎化学")
+        QuizView(questions: MockData.questions, workbookTitle: "基礎化学", workbookId: 1)
     }
 }

@@ -18,6 +18,7 @@ module "lambda" {
     AWS_LWA_READINESS_CHECK_PATH      = "/health"
     COGNITO_USER_POOL_ID              = module.cognito.user_pool_id
     COGNITO_REGION                    = "ap-northeast-1"
+    COGNITO_IDENTITY_POOL_ID          = module.cognito_identity.identity_pool_id
   }
 
   log_retention_days = 7

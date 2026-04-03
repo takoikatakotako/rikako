@@ -22,6 +22,11 @@ struct MainTabView: View {
         NavigationStack {
             WorkbookListView()
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink(destination: WrongAnswersView()) {
+                            Image(systemName: "arrow.counterclockwise")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(destination: SettingsView(isLoggedIn: $isLoggedIn)) {
                             Image(systemName: "gearshape")

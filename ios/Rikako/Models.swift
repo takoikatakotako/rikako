@@ -36,3 +36,25 @@ struct WorkbooksResponse: Codable {
     let workbooks: [Workbook]
     let total: Int
 }
+
+// MARK: - Answers
+
+struct AnswerItem: Codable {
+    let questionId: Int64
+    let selectedChoice: Int
+}
+
+struct SubmitAnswersRequest: Codable {
+    let workbookId: Int64
+    let answers: [AnswerItem]
+}
+
+struct SubmitAnswersResponse: Codable {
+    let correctCount: Int
+    let totalCount: Int
+}
+
+struct WrongAnswersResponse: Codable {
+    let questions: [Question]
+    let total: Int
+}

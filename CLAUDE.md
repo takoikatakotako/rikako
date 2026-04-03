@@ -23,7 +23,7 @@ Rikako - 問題集アプリ
 - **画像配信**: S3 + CloudFront (OAC)
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
 - **シークレット管理**: AWS SSM Parameter Store (SecureString)
-- **認証（API）**: Amazon Cognito User Pool（JWT検証）
+- **認証（API）**: Amazon Cognito User Pool（JWT検証）+ Cognito Identity Pool（匿名認証）
 - **認証（CI/CD）**: GitHub Actions OIDC
 - **IaC**: Terraform (Neon Provider使用、S3ネイティブロック)
 - **CI/CD**: GitHub Actions (tfcmt連携)
@@ -165,13 +165,15 @@ cd app && oapi-codegen --config oapi-codegen.yaml ../openapi.yaml
    - 画像アップロード: `aws s3 sync data/images/ s3://rikako-images-development/`
 
 3. **Cognito認証（API）**
-   - Amazon Cognito User Poolでユーザー認証
-   - クライアント(iOS/Android)はAmplify SDKでトークン管理
+   - Amazon Cognito User Poolでユーザー認証（将来のログイン用）
+   - Amazon Cognito Identity Poolで匿名認証（デフォルト）
+   - **認証方針**: 普段は匿名認証で利用し、機種変更時にログイン（User Pool）してデータを引き継ぐ
+   - 匿名ユーザーは `X-Device-ID` ヘッダーで Identity ID を送信
+   - サーバーはIdentity IDをユーザー識別子として `users` テーブルに保存
    - サーバーはJWT検証のみ（`app/internal/auth/`パッケージ）
-   - 環境変数: `COGNITO_USER_POOL_ID`, `COGNITO_REGION`
+   - 環境変数: `COGNITO_USER_POOL_ID`, `COGNITO_REGION`, `COGNITO_IDENTITY_POOL_ID`
    - 環境変数未設定時は認証スキップ（ローカル開発・CI用）
-   - 認証不要エンドポイント: `GET /`, `GET /health`
-   - 認証必須エンドポイント: `/questions`, `/workbooks` 系
+   - 認証不要エンドポイント: `GET /`, `GET /health`, `POST /answers`, `GET /users/me/wrong-answers`
    - JWKSはkid単位でRSA公開鍵をキャッシュ（TTL 1時間）
 
 4. **OIDC認証（CI/CD）**
@@ -217,6 +219,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - Image S3: rikako-images-development
   - Neon DB: muddy-tree-64549662 (ap-southeast-1)
   - Cognito User Pool: Terraform管理（rikako-development）
+  - Cognito Identity Pool: ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222
   - Terraform State: s3://rikako-dev-terraform-state
 
 ### GitHub Actions ワークフロー

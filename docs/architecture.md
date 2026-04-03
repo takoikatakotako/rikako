@@ -102,6 +102,31 @@ graph LR
 
 PRで `terraform/` 以下のファイルが変更されると、自動的に `terraform plan` が実行され、結果がPRにコメントされます。
 
+## 認証方針
+
+普段は**匿名認証（Cognito Identity Pool）**でユーザー登録なしに利用できる。機種変更時は**ログイン（Cognito User Pool）**してデータを引き継ぐ。
+
+```mermaid
+graph LR
+    subgraph 通常利用
+        App1[iOS App] -->|GetId| CIP[Cognito Identity Pool]
+        CIP -->|Identity ID| App1
+        App1 -->|X-Device-ID ヘッダー| API[Public API]
+        API -->|保存| DB[(users / user_answers)]
+    end
+
+    subgraph 機種変更
+        App2[iOS App] -->|ログイン| CUP[Cognito User Pool]
+        CUP -->|JWT| App2
+        App2 -->|JWT| API2[Public API]
+        API2 -->|Identity ID に sub を紐づけ| DB
+    end
+```
+
+- **Identity ID**: Cognito Identity Pool から取得される匿名ユーザー識別子。Keychainに永続化
+- **回答履歴**: `POST /answers` でクイズ完了時にサーバーに送信、`user_answers` テーブルに保存
+- **間違えた問題**: `GET /users/me/wrong-answers` で最新回答が不正解の問題を取得
+
 ## 管理API
 
 管理APIは公開APIとは別のLambda関数として動作します。詳細は [管理API設計](admin-api.md) を参照。
@@ -135,5 +160,7 @@ PRで `terraform/` 以下のファイルが変更されると、自動的に `te
 | `modules/cloudfront` | CloudFront ディストリビューション + OAC |
 | `modules/lambda` | Lambda + IAM Role + CloudWatch Logs + Function URL |
 | `modules/ecr` | ECR リポジトリ + ライフサイクルポリシー |
+| `modules/cognito` | Cognito User Pool + Client |
+| `modules/cognito_identity` | Cognito Identity Pool + IAM Role (unauthenticated) |
 
 環境レベルで組み合わせて使用します（例: `dev/image_cdn.tf` で `s3` + `cloudfront` を組み合わせ）。
