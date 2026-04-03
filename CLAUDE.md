@@ -36,9 +36,13 @@ Rikako - 問題集アプリ
 │   │   ├── server/         # 公開APIサーバー
 │   │   ├── admin/          # 管理APIサーバー
 │   │   └── importer/       # データインポートツール
+│   ├── sql/
+│   │   └── queries/        # sqlcクエリ定義（.sql）
+│   ├── sqlc.yaml           # sqlc設定
 │   ├── internal/
 │   │   ├── api/            # 生成されたAPIコード（公開API）
 │   │   ├── adminapi/       # 生成されたAPIコード（管理API）
+│   │   ├── db/             # sqlc生成コード（編集禁止）
 │   │   ├── handler/        # 公開APIハンドラー実装
 │   │   ├── admin/          # 管理APIハンドラー実装
 │   │   └── importer/       # インポーター実装
@@ -94,6 +98,17 @@ docker run --rm -v $(pwd)/migrations:/migrations \
 
 # データインポート
 cd app && go run ./cmd/importer -data ../data
+```
+
+### sqlc（DBクエリ生成）
+```bash
+# コード生成
+cd app && go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
+
+# クエリ追加手順:
+# 1. app/sql/queries/*.sql にクエリを追加
+# 2. 上記コマンドで再生成
+# 3. internal/db/ の生成コードをコミット
 ```
 
 ### 公開APIサーバー
