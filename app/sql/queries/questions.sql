@@ -20,6 +20,15 @@ FROM questions_single_choice_choices
 WHERE single_choice_id = (SELECT id FROM questions_single_choice WHERE question_id = $1)
 ORDER BY choice_index;
 
+-- name: ListQuestionsWithChoices :many
+SELECT q.id, qsc.text, qsc.explanation,
+    c.text AS choice_text, c.is_correct, c.choice_index
+FROM questions q
+JOIN questions_single_choice qsc ON q.id = qsc.question_id
+LEFT JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
+WHERE q.id IN (SELECT id FROM questions ORDER BY id LIMIT $1 OFFSET $2)
+ORDER BY q.id, c.choice_index;
+
 -- name: CreateQuestion :one
 INSERT INTO questions (type) VALUES ($1) RETURNING id;
 

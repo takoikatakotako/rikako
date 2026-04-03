@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"database/sql"
+
+	"github.com/lib/pq"
 )
 
 const checkAnswerCorrect = `-- name: CheckAnswerCorrect :one
@@ -72,6 +74,42 @@ func (q *Queries) CreateUserAnswer(ctx context.Context, arg CreateUserAnswerPara
 	return err
 }
 
+const getCorrectChoicesByQuestionIDs = `-- name: GetCorrectChoicesByQuestionIDs :many
+SELECT qsc.question_id, c.choice_index
+FROM questions_single_choice qsc
+JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
+WHERE qsc.question_id = ANY($1::bigint[])
+  AND c.is_correct = true
+`
+
+type GetCorrectChoicesByQuestionIDsRow struct {
+	QuestionID  int64 `json:"question_id"`
+	ChoiceIndex int32 `json:"choice_index"`
+}
+
+func (q *Queries) GetCorrectChoicesByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetCorrectChoicesByQuestionIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getCorrectChoicesByQuestionIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetCorrectChoicesByQuestionIDsRow{}
+	for rows.Next() {
+		var i GetCorrectChoicesByQuestionIDsRow
+		if err := rows.Scan(&i.QuestionID, &i.ChoiceIndex); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByIdentityID = `-- name: GetUserByIdentityID :one
 SELECT id FROM users WHERE identity_id = $1
 `
@@ -120,6 +158,71 @@ func (q *Queries) ListWrongAnswers(ctx context.Context, arg ListWrongAnswersPara
 	for rows.Next() {
 		var i ListWrongAnswersRow
 		if err := rows.Scan(&i.ID, &i.Text, &i.Explanation); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWrongAnswersWithChoices = `-- name: ListWrongAnswersWithChoices :many
+SELECT q.id, qsc.text, qsc.explanation,
+    c.text AS choice_text, c.is_correct, c.choice_index
+FROM (
+    SELECT question_id FROM (
+        SELECT DISTINCT ON (question_id) question_id, is_correct
+        FROM user_answers
+        WHERE user_id = $1
+        ORDER BY question_id, answered_at DESC
+    ) latest
+    WHERE NOT is_correct
+    ORDER BY question_id
+    LIMIT $2 OFFSET $3
+) paged
+JOIN questions q ON q.id = paged.question_id
+JOIN questions_single_choice qsc ON q.id = qsc.question_id
+LEFT JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
+ORDER BY q.id, c.choice_index
+`
+
+type ListWrongAnswersWithChoicesParams struct {
+	UserID int64 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListWrongAnswersWithChoicesRow struct {
+	ID          int64          `json:"id"`
+	Text        string         `json:"text"`
+	Explanation sql.NullString `json:"explanation"`
+	ChoiceText  sql.NullString `json:"choice_text"`
+	IsCorrect   sql.NullBool   `json:"is_correct"`
+	ChoiceIndex sql.NullInt32  `json:"choice_index"`
+}
+
+func (q *Queries) ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWrongAnswersWithChoices, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWrongAnswersWithChoicesRow{}
+	for rows.Next() {
+		var i ListWrongAnswersWithChoicesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Text,
+			&i.Explanation,
+			&i.ChoiceText,
+			&i.IsCorrect,
+			&i.ChoiceIndex,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -53,20 +53,104 @@ func (h *Handler) HealthCheck(ctx context.Context, request api.HealthCheckReques
 	}, nil
 }
 
-// getImageURLs returns image URLs for a given question ID
-func (h *Handler) getImageURLs(ctx context.Context, questionID int64) ([]string, error) {
-	paths, err := h.queries.GetImageURLsByQuestionID(ctx, questionID)
-	if err != nil {
-		return nil, err
-	}
-	var urls []string
-	for _, path := range paths {
-		urls = append(urls, fmt.Sprintf("%s/%s", h.imageBaseURL, path))
-	}
-	return urls, nil
+// questionWithChoicesRow is a common interface for flat rows containing question + choice data.
+type questionWithChoicesRow struct {
+	ID          int64
+	Text        string
+	Explanation sql.NullString
+	ChoiceText  sql.NullString
+	IsCorrect   sql.NullBool
+	ChoiceIndex sql.NullInt32
 }
 
-// buildQuestion builds an api.Question from a question row and its choices
+// buildQuestionsFromRows groups flat question+choice rows into api.Question slices.
+// It preserves the row order for question ordering.
+func buildQuestionsFromRows(rows []questionWithChoicesRow) []api.Question {
+	type questionData struct {
+		id          int64
+		text        string
+		explanation sql.NullString
+		choices     []string
+		correct     int
+	}
+
+	var ordered []int64
+	qmap := map[int64]*questionData{}
+
+	for _, row := range rows {
+		qd, exists := qmap[row.ID]
+		if !exists {
+			qd = &questionData{
+				id:          row.ID,
+				text:        row.Text,
+				explanation: row.Explanation,
+			}
+			qmap[row.ID] = qd
+			ordered = append(ordered, row.ID)
+		}
+		if row.ChoiceText.Valid {
+			// Expand choices slice to fit choice_index
+			idx := int(row.ChoiceIndex.Int32)
+			for len(qd.choices) <= idx {
+				qd.choices = append(qd.choices, "")
+			}
+			qd.choices[idx] = row.ChoiceText.String
+			if row.IsCorrect.Valid && row.IsCorrect.Bool {
+				qd.correct = idx
+			}
+		}
+	}
+
+	questions := make([]api.Question, 0, len(ordered))
+	for _, id := range ordered {
+		qd := qmap[id]
+		q := api.Question{
+			Id:      qd.id,
+			Type:    api.SingleChoice,
+			Text:    qd.text,
+			Choices: qd.choices,
+			Correct: &qd.correct,
+		}
+		if qd.explanation.Valid {
+			q.Explanation = &qd.explanation.String
+		}
+		questions = append(questions, q)
+	}
+	return questions
+}
+
+// attachImages fetches image URLs for the given questions in a single batch query and attaches them.
+func (h *Handler) attachImages(ctx context.Context, questions []api.Question) error {
+	if len(questions) == 0 {
+		return nil
+	}
+
+	ids := make([]int64, len(questions))
+	for i, q := range questions {
+		ids[i] = q.Id
+	}
+
+	imageRows, err := h.queries.GetImageURLsByQuestionIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	// Group by question_id
+	imageMap := map[int64][]string{}
+	for _, row := range imageRows {
+		imageMap[row.QuestionID] = append(imageMap[row.QuestionID],
+			fmt.Sprintf("%s/%s", h.imageBaseURL, row.Path))
+	}
+
+	for i := range questions {
+		if urls, ok := imageMap[questions[i].Id]; ok {
+			questions[i].Images = &urls
+		}
+	}
+	return nil
+}
+
+// buildQuestion builds a single api.Question (used for single-item endpoints like GetQuestion).
 func (h *Handler) buildQuestion(ctx context.Context, id int64, text string, explanation sql.NullString) (api.Question, error) {
 	choiceRows, err := h.queries.GetChoicesByQuestionID(ctx, id)
 	if err != nil {
@@ -93,12 +177,16 @@ func (h *Handler) buildQuestion(ctx context.Context, id int64, text string, expl
 		q.Explanation = &explanation.String
 	}
 
-	imageURLs, err := h.getImageURLs(ctx, id)
+	paths, err := h.queries.GetImageURLsByQuestionID(ctx, id)
 	if err != nil {
 		return api.Question{}, err
 	}
-	if len(imageURLs) > 0 {
-		q.Images = &imageURLs
+	if len(paths) > 0 {
+		urls := make([]string, len(paths))
+		for i, p := range paths {
+			urls[i] = fmt.Sprintf("%s/%s", h.imageBaseURL, p)
+		}
+		q.Images = &urls
 	}
 
 	return q, nil
@@ -116,7 +204,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		return nil, err
 	}
 
-	rows, err := h.queries.ListQuestions(ctx, db.ListQuestionsParams{
+	rows, err := h.queries.ListQuestionsWithChoices(ctx, db.ListQuestionsWithChoicesParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
 	})
@@ -125,14 +213,17 @@ func (h *Handler) GetQuestions(ctx context.Context, request api.GetQuestionsRequ
 		return nil, err
 	}
 
-	questions := []api.Question{}
-	for _, row := range rows {
-		q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
-		if err != nil {
-			h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
-			return nil, err
+	flatRows := make([]questionWithChoicesRow, len(rows))
+	for i, r := range rows {
+		flatRows[i] = questionWithChoicesRow{
+			ID: r.ID, Text: r.Text, Explanation: r.Explanation,
+			ChoiceText: r.ChoiceText, IsCorrect: r.IsCorrect, ChoiceIndex: r.ChoiceIndex,
 		}
-		questions = append(questions, q)
+	}
+	questions := buildQuestionsFromRows(flatRows)
+	if err := h.attachImages(ctx, questions); err != nil {
+		h.logger.Error("failed to attach images", "error", err)
+		return nil, err
 	}
 
 	return api.GetQuestions200JSONResponse{
@@ -299,20 +390,23 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 		return nil, err
 	}
 
-	qRows, err := h.queries.ListQuestionsByWorkbook(ctx, wb.ID)
+	qRows, err := h.queries.ListQuestionsWithChoicesByWorkbook(ctx, wb.ID)
 	if err != nil {
 		h.logger.Error("failed to query workbook questions", "error", err, "workbook_id", wb.ID)
 		return nil, err
 	}
 
-	questions := []api.Question{}
-	for _, row := range qRows {
-		q, err := h.buildQuestion(ctx, row.ID, row.Text, row.Explanation)
-		if err != nil {
-			h.logger.Error("failed to build question", "error", err, "question_id", row.ID)
-			return nil, err
+	flatRows := make([]questionWithChoicesRow, len(qRows))
+	for i, r := range qRows {
+		flatRows[i] = questionWithChoicesRow{
+			ID: r.ID, Text: r.Text, Explanation: r.Explanation,
+			ChoiceText: r.ChoiceText, IsCorrect: r.IsCorrect, ChoiceIndex: r.ChoiceIndex,
 		}
-		questions = append(questions, q)
+	}
+	questions := buildQuestionsFromRows(flatRows)
+	if err := h.attachImages(ctx, questions); err != nil {
+		h.logger.Error("failed to attach images", "error", err)
+		return nil, err
 	}
 
 	w := api.WorkbookDetail{
