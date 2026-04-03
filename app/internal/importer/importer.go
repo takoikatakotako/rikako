@@ -1,71 +1,79 @@
 package importer
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"github.com/takoikatakotako/rikako/internal/db"
 	"gopkg.in/yaml.v3"
 )
 
 type Importer struct {
-	db       *sql.DB
+	sqlDB    *sql.DB
+	queries  *db.Queries
 	dataDir  string
 	imageDir string
 }
 
-func New(db *sql.DB, dataDir string) *Importer {
+func New(d *sql.DB, dataDir string) *Importer {
 	return &Importer{
-		db:       db,
+		sqlDB:    d,
+		queries:  db.New(d),
 		dataDir:  dataDir,
 		imageDir: filepath.Join(dataDir, "images"),
 	}
 }
 
 func (i *Importer) Run() error {
+	ctx := context.Background()
+
 	// トランザクション開始
-	tx, err := i.db.Begin()
+	tx, err := i.sqlDB.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
+	qtx := i.queries.WithTx(tx)
+
 	// 既存データを削除
-	if err := i.clearData(tx); err != nil {
+	if err := i.clearData(ctx, qtx); err != nil {
 		return fmt.Errorf("failed to clear data: %w", err)
 	}
 
 	// 画像をインポート
-	imageCount, err := i.importImages(tx)
+	imageCount, err := i.importImages(ctx, qtx)
 	if err != nil {
 		return fmt.Errorf("failed to import images: %w", err)
 	}
 	fmt.Printf("Imported %d images\n", imageCount)
 
 	// 問題をインポート
-	questionCount, err := i.importQuestions(tx)
+	questionCount, err := i.importQuestions(ctx, qtx)
 	if err != nil {
 		return fmt.Errorf("failed to import questions: %w", err)
 	}
 	fmt.Printf("Imported %d questions\n", questionCount)
 
 	// 問題集をインポート
-	workbookCount, err := i.importWorkbooks(tx)
+	workbookCount, err := i.importWorkbooks(ctx, qtx)
 	if err != nil {
 		return fmt.Errorf("failed to import workbooks: %w", err)
 	}
 	fmt.Printf("Imported %d workbooks\n", workbookCount)
 
 	// カテゴリをインポート
-	categoryCount, err := i.importCategories(tx)
+	categoryCount, err := i.importCategories(ctx, qtx)
 	if err != nil {
 		return fmt.Errorf("failed to import categories: %w", err)
 	}
 	fmt.Printf("Imported %d categories\n", categoryCount)
 
-	// シーケンスをリセット
+	// シーケンスをリセット（動的SQLのためraw SQL）
 	if err := i.resetSequences(tx); err != nil {
 		return fmt.Errorf("failed to reset sequences: %w", err)
 	}
@@ -78,26 +86,26 @@ func (i *Importer) Run() error {
 	return nil
 }
 
-func (i *Importer) clearData(tx *sql.Tx) error {
-	tables := []string{
-		"workbook_questions",
-		"workbooks",
-		"categories",
-		"question_images",
-		"questions_single_choice_choices",
-		"questions_single_choice",
-		"questions",
-		"images",
+func (i *Importer) clearData(ctx context.Context, qtx *db.Queries) error {
+	deleters := []func(context.Context) error{
+		qtx.DeleteAllWorkbookQuestions,
+		qtx.DeleteAllWorkbooks,
+		qtx.DeleteAllCategories,
+		qtx.DeleteAllQuestionImages,
+		qtx.DeleteAllChoices,
+		qtx.DeleteAllSingleChoices,
+		qtx.DeleteAllQuestions,
+		qtx.DeleteAllImages,
 	}
-	for _, table := range tables {
-		if _, err := tx.Exec(fmt.Sprintf("DELETE FROM %s", table)); err != nil {
-			return fmt.Errorf("failed to clear %s: %w", table, err)
+	for _, del := range deleters {
+		if err := del(ctx); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (i *Importer) importImages(tx *sql.Tx) (int, error) {
+func (i *Importer) importImages(ctx context.Context, qtx *db.Queries) (int, error) {
 	files, err := filepath.Glob(filepath.Join(i.imageDir, "*.png"))
 	if err != nil {
 		return 0, err
@@ -113,11 +121,10 @@ func (i *Importer) importImages(tx *sql.Tx) (int, error) {
 			return 0, fmt.Errorf("invalid image filename %s: %w", filename, err)
 		}
 
-		_, err = tx.Exec(
-			"INSERT INTO images (id, path) VALUES ($1, $2)",
-			id, filename,
-		)
-		if err != nil {
+		if err := qtx.ImportImage(ctx, db.ImportImageParams{
+			ID:   id,
+			Path: filename,
+		}); err != nil {
 			return 0, fmt.Errorf("failed to insert image %s: %w", filename, err)
 		}
 
@@ -127,7 +134,7 @@ func (i *Importer) importImages(tx *sql.Tx) (int, error) {
 	return count, nil
 }
 
-func (i *Importer) importQuestions(tx *sql.Tx) (int, error) {
+func (i *Importer) importQuestions(ctx context.Context, qtx *db.Queries) (int, error) {
 	questionsDir := filepath.Join(i.dataDir, "questions")
 	files, err := filepath.Glob(filepath.Join(questionsDir, "*.yml"))
 	if err != nil {
@@ -147,43 +154,42 @@ func (i *Importer) importQuestions(tx *sql.Tx) (int, error) {
 		}
 
 		// questions テーブルに挿入
-		_, err = tx.Exec(
-			"INSERT INTO questions (id, type) VALUES ($1, $2)",
-			q.ID, q.Type,
-		)
-		if err != nil {
+		if err := qtx.ImportQuestion(ctx, db.ImportQuestionParams{
+			ID:   q.ID,
+			Type: q.Type,
+		}); err != nil {
 			return 0, fmt.Errorf("failed to insert question %d: %w", q.ID, err)
 		}
 
 		// questions_single_choice テーブルに挿入
-		var singleChoiceID int64
-		err = tx.QueryRow(
-			"INSERT INTO questions_single_choice (question_id, text, explanation) VALUES ($1, $2, $3) RETURNING id",
-			q.ID, q.Text, q.Explanation,
-		).Scan(&singleChoiceID)
+		singleChoiceID, err := qtx.ImportSingleChoice(ctx, db.ImportSingleChoiceParams{
+			QuestionID:  q.ID,
+			Text:        q.Text,
+			Explanation: sql.NullString{String: q.Explanation, Valid: q.Explanation != ""},
+		})
 		if err != nil {
 			return 0, fmt.Errorf("failed to insert single_choice %d: %w", q.ID, err)
 		}
 
 		// 選択肢を挿入
 		for idx, choice := range q.Choices {
-			isCorrect := idx == q.Correct
-			_, err = tx.Exec(
-				"INSERT INTO questions_single_choice_choices (single_choice_id, choice_index, text, is_correct) VALUES ($1, $2, $3, $4)",
-				singleChoiceID, idx, choice, isCorrect,
-			)
-			if err != nil {
+			if err := qtx.ImportChoice(ctx, db.ImportChoiceParams{
+				SingleChoiceID: singleChoiceID,
+				ChoiceIndex:    int32(idx),
+				Text:           choice,
+				IsCorrect:      idx == q.Correct,
+			}); err != nil {
 				return 0, fmt.Errorf("failed to insert choice for %d: %w", q.ID, err)
 			}
 		}
 
 		// 画像を紐付け
 		for idx, imageID := range q.Images {
-			_, err = tx.Exec(
-				"INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3)",
-				q.ID, imageID, idx,
-			)
-			if err != nil {
+			if err := qtx.ImportQuestionImage(ctx, db.ImportQuestionImageParams{
+				QuestionID: q.ID,
+				ImageID:    imageID,
+				OrderIndex: int32(idx),
+			}); err != nil {
 				return 0, fmt.Errorf("failed to link image for %d: %w", q.ID, err)
 			}
 		}
@@ -194,7 +200,7 @@ func (i *Importer) importQuestions(tx *sql.Tx) (int, error) {
 	return count, nil
 }
 
-func (i *Importer) importWorkbooks(tx *sql.Tx) (int, error) {
+func (i *Importer) importWorkbooks(ctx context.Context, qtx *db.Queries) (int, error) {
 	workbooksDir := filepath.Join(i.dataDir, "workbooks")
 	files, err := filepath.Glob(filepath.Join(workbooksDir, "*.yml"))
 	if err != nil {
@@ -214,21 +220,21 @@ func (i *Importer) importWorkbooks(tx *sql.Tx) (int, error) {
 		}
 
 		// workbooks テーブルに挿入
-		_, err = tx.Exec(
-			"INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3)",
-			w.ID, w.Title, w.Description,
-		)
-		if err != nil {
+		if err := qtx.ImportWorkbook(ctx, db.ImportWorkbookParams{
+			ID:          w.ID,
+			Title:       w.Title,
+			Description: sql.NullString{String: w.Description, Valid: w.Description != ""},
+		}); err != nil {
 			return 0, fmt.Errorf("failed to insert workbook %d: %w", w.ID, err)
 		}
 
 		// 問題を紐付け
 		for idx, questionID := range w.Questions {
-			_, err = tx.Exec(
-				"INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3)",
-				w.ID, questionID, idx,
-			)
-			if err != nil {
+			if err := qtx.ImportWorkbookQuestion(ctx, db.ImportWorkbookQuestionParams{
+				WorkbookID: w.ID,
+				QuestionID: questionID,
+				OrderIndex: int32(idx),
+			}); err != nil {
 				return 0, fmt.Errorf("failed to link question for %d: %w", w.ID, err)
 			}
 		}
@@ -239,7 +245,7 @@ func (i *Importer) importWorkbooks(tx *sql.Tx) (int, error) {
 	return count, nil
 }
 
-func (i *Importer) importCategories(tx *sql.Tx) (int, error) {
+func (i *Importer) importCategories(ctx context.Context, qtx *db.Queries) (int, error) {
 	categoriesDir := filepath.Join(i.dataDir, "categories")
 	files, err := filepath.Glob(filepath.Join(categoriesDir, "*.yml"))
 	if err != nil {
@@ -259,21 +265,20 @@ func (i *Importer) importCategories(tx *sql.Tx) (int, error) {
 		}
 
 		// categories テーブルに挿入
-		_, err = tx.Exec(
-			"INSERT INTO categories (id, title, description) VALUES ($1, $2, $3)",
-			c.ID, c.Title, c.Description,
-		)
-		if err != nil {
+		if err := qtx.ImportCategory(ctx, db.ImportCategoryParams{
+			ID:          c.ID,
+			Title:       c.Title,
+			Description: sql.NullString{String: c.Description, Valid: c.Description != ""},
+		}); err != nil {
 			return 0, fmt.Errorf("failed to insert category %d: %w", c.ID, err)
 		}
 
 		// 問題集にカテゴリIDを設定
 		for _, workbookID := range c.Workbooks {
-			_, err = tx.Exec(
-				"UPDATE workbooks SET category_id = $1 WHERE id = $2",
-				c.ID, workbookID,
-			)
-			if err != nil {
+			if err := qtx.SetWorkbookCategory(ctx, db.SetWorkbookCategoryParams{
+				CategoryID: sql.NullInt64{Int64: c.ID, Valid: true},
+				ID:         workbookID,
+			}); err != nil {
 				return 0, fmt.Errorf("failed to set category for workbook %d: %w", workbookID, err)
 			}
 		}

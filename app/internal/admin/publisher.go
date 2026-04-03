@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/lib/pq"
+	s3sdk "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/takoikatakotako/rikako/internal/adminapi"
 	"github.com/takoikatakotako/rikako/internal/api"
 )
@@ -99,7 +98,7 @@ func (h *Handler) uploadJSON(ctx context.Context, key string, data any) error {
 		return fmt.Errorf("marshal JSON: %w", err)
 	}
 
-	_, err = h.s3Client.PutObject(ctx, &s3.PutObjectInput{
+	_, err = h.s3Client.PutObject(ctx, &s3sdk.PutObjectInput{
 		Bucket:       aws.String(h.contentS3Bucket),
 		Key:          aws.String(key),
 		Body:         bytes.NewReader(jsonBytes),
@@ -115,220 +114,130 @@ func (h *Handler) uploadJSON(ctx context.Context, key string, data any) error {
 }
 
 func (h *Handler) buildCategories(ctx context.Context) ([]api.Category, error) {
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT c.id, c.title, c.description,
-			(SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
-		FROM categories c
-		ORDER BY c.id
-	`)
+	rows, err := h.queries.ListAllCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var categories []api.Category
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var workbookCount int
-
-		if err := rows.Scan(&id, &title, &description, &workbookCount); err != nil {
-			return nil, err
-		}
-
+	categories := []api.Category{}
+	for _, row := range rows {
+		wc := int(row.WorkbookCount)
 		c := api.Category{
-			Id:            id,
-			Title:         title,
-			WorkbookCount: &workbookCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			WorkbookCount: &wc,
 		}
-		if description.Valid {
-			c.Description = &description.String
+		if row.Description.Valid {
+			c.Description = &row.Description.String
 		}
 		categories = append(categories, c)
 	}
 
-	if categories == nil {
-		categories = []api.Category{}
-	}
 	return categories, nil
 }
 
 func (h *Handler) buildCategoryDetail(ctx context.Context, categoryID int64) (api.CategoryDetail, error) {
-	var title string
-	var description sql.NullString
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT title, description FROM categories WHERE id = $1
-	`, categoryID).Scan(&title, &description)
+	cat, err := h.queries.GetCategoryTitle(ctx, categoryID)
 	if err != nil {
 		return api.CategoryDetail{}, err
 	}
 
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		WHERE w.category_id = $1
-		ORDER BY w.id
-	`, categoryID)
+	wbRows, err := h.queries.ListWorkbooksByCategory(ctx, sql.NullInt64{Int64: categoryID, Valid: true})
 	if err != nil {
 		return api.CategoryDetail{}, err
 	}
-	defer rows.Close()
 
-	var workbooks []api.Workbook
-	for rows.Next() {
-		var wid int64
-		var wtitle string
-		var wdesc sql.NullString
-		var questionCount int
-
-		if err := rows.Scan(&wid, &wtitle, &wdesc, &questionCount); err != nil {
-			return api.CategoryDetail{}, err
-		}
-
+	workbooks := []api.Workbook{}
+	for _, row := range wbRows {
+		qc := int(row.QuestionCount)
 		w := api.Workbook{
-			Id:            wid,
-			Title:         wtitle,
-			QuestionCount: &questionCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
 			CategoryId:    &categoryID,
 		}
-		if wdesc.Valid {
-			w.Description = &wdesc.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
 		workbooks = append(workbooks, w)
 	}
 
-	if workbooks == nil {
-		workbooks = []api.Workbook{}
-	}
-
 	detail := api.CategoryDetail{
 		Id:        categoryID,
-		Title:     title,
+		Title:     cat.Title,
 		Workbooks: workbooks,
 	}
-	if description.Valid {
-		detail.Description = &description.String
+	if cat.Description.Valid {
+		detail.Description = &cat.Description.String
 	}
 	return detail, nil
 }
 
 func (h *Handler) buildWorkbooks(ctx context.Context) ([]api.Workbook, error) {
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT w.id, w.title, w.description, w.category_id,
-			(SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
-		FROM workbooks w
-		ORDER BY w.id
-	`)
+	rows, err := h.queries.ListAllWorkbooks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var workbooks []api.Workbook
-	for rows.Next() {
-		var id int64
-		var title string
-		var description sql.NullString
-		var categoryID sql.NullInt64
-		var questionCount int
-
-		if err := rows.Scan(&id, &title, &description, &categoryID, &questionCount); err != nil {
-			return nil, err
-		}
-
+	workbooks := []api.Workbook{}
+	for _, row := range rows {
+		qc := int(row.QuestionCount)
 		w := api.Workbook{
-			Id:            id,
-			Title:         title,
-			QuestionCount: &questionCount,
+			Id:            row.ID,
+			Title:         row.Title,
+			QuestionCount: &qc,
 		}
-		if description.Valid {
-			w.Description = &description.String
+		if row.Description.Valid {
+			w.Description = &row.Description.String
 		}
-		if categoryID.Valid {
-			cid := categoryID.Int64
+		if row.CategoryID.Valid {
+			cid := row.CategoryID.Int64
 			w.CategoryId = &cid
 		}
 		workbooks = append(workbooks, w)
 	}
 
-	if workbooks == nil {
-		workbooks = []api.Workbook{}
-	}
 	return workbooks, nil
 }
 
 func (h *Handler) buildWorkbookDetail(ctx context.Context, workbookID int64) (api.WorkbookDetail, error) {
-	var title string
-	var description sql.NullString
-	var categoryID sql.NullInt64
-
-	err := h.db.QueryRowContext(ctx, `
-		SELECT title, description, category_id FROM workbooks WHERE id = $1
-	`, workbookID).Scan(&title, &description, &categoryID)
+	wb, err := h.queries.GetWorkbookTitle(ctx, workbookID)
 	if err != nil {
 		return api.WorkbookDetail{}, err
 	}
 
 	// 問題・選択肢・正解を1クエリで一括取得
-	rows, err := h.db.QueryContext(ctx, `
-		SELECT q.id, qsc.text, qsc.explanation,
-			c.text AS choice_text, c.is_correct, c.choice_index
-		FROM questions q
-		JOIN questions_single_choice qsc ON q.id = qsc.question_id
-		JOIN workbook_questions wq ON q.id = wq.question_id
-		LEFT JOIN questions_single_choice_choices c
-			ON c.single_choice_id = qsc.id
-		WHERE wq.workbook_id = $1
-		ORDER BY wq.order_index, c.choice_index
-	`, workbookID)
+	rows, err := h.queries.ListQuestionsWithChoicesByWorkbook(ctx, workbookID)
 	if err != nil {
 		return api.WorkbookDetail{}, err
 	}
-	defer rows.Close()
 
 	type questionData struct {
 		question api.Question
-		order    int
 	}
 	questionsMap := map[int64]*questionData{}
 	var questionOrder []int64
-	orderIdx := 0
 
-	for rows.Next() {
-		var qid int64
-		var text string
-		var explanation sql.NullString
-		var choiceText sql.NullString
-		var isCorrect sql.NullBool
-		var choiceIndex sql.NullInt64
-
-		if err := rows.Scan(&qid, &text, &explanation, &choiceText, &isCorrect, &choiceIndex); err != nil {
-			return api.WorkbookDetail{}, err
-		}
-
-		qd, exists := questionsMap[qid]
+	for _, row := range rows {
+		qd, exists := questionsMap[row.ID]
 		if !exists {
 			q := api.Question{
-				Id:   qid,
+				Id:   row.ID,
 				Type: api.SingleChoice,
-				Text: text,
+				Text: row.Text,
 			}
-			if explanation.Valid {
-				q.Explanation = &explanation.String
+			if row.Explanation.Valid {
+				q.Explanation = &row.Explanation.String
 			}
-			qd = &questionData{question: q, order: orderIdx}
-			questionsMap[qid] = qd
-			questionOrder = append(questionOrder, qid)
-			orderIdx++
+			qd = &questionData{question: q}
+			questionsMap[row.ID] = qd
+			questionOrder = append(questionOrder, row.ID)
 		}
 
-		if choiceText.Valid {
-			qd.question.Choices = append(qd.question.Choices, choiceText.String)
-			if isCorrect.Valid && isCorrect.Bool {
-				idx := int(choiceIndex.Int64)
+		if row.ChoiceText.Valid {
+			qd.question.Choices = append(qd.question.Choices, row.ChoiceText.String)
+			if row.IsCorrect.Valid && row.IsCorrect.Bool {
+				idx := int(row.ChoiceIndex.Int32)
 				qd.question.Correct = &idx
 			}
 		}
@@ -336,26 +245,14 @@ func (h *Handler) buildWorkbookDetail(ctx context.Context, workbookID int64) (ap
 
 	// 画像を一括取得
 	if len(questionOrder) > 0 {
-		imageRows, err := h.db.QueryContext(ctx, `
-			SELECT qi.question_id, i.path
-			FROM question_images qi
-			JOIN images i ON i.id = qi.image_id
-			WHERE qi.question_id = ANY($1)
-			ORDER BY qi.question_id, qi.order_index
-		`, pq.Array(questionOrder))
+		imageRows, err := h.queries.GetImageURLsByQuestionIDs(ctx, questionOrder)
 		if err != nil {
 			return api.WorkbookDetail{}, err
 		}
-		defer imageRows.Close()
 
-		for imageRows.Next() {
-			var qid int64
-			var path string
-			if err := imageRows.Scan(&qid, &path); err != nil {
-				return api.WorkbookDetail{}, err
-			}
-			if qd, ok := questionsMap[qid]; ok {
-				url := fmt.Sprintf("%s/%s", h.imageBaseURL, path)
+		for _, imgRow := range imageRows {
+			if qd, ok := questionsMap[imgRow.QuestionID]; ok {
+				url := fmt.Sprintf("%s/%s", h.imageBaseURL, imgRow.Path)
 				if qd.question.Images == nil {
 					urls := []string{url}
 					qd.question.Images = &urls
@@ -374,14 +271,14 @@ func (h *Handler) buildWorkbookDetail(ctx context.Context, workbookID int64) (ap
 
 	detail := api.WorkbookDetail{
 		Id:        workbookID,
-		Title:     title,
+		Title:     wb.Title,
 		Questions: questions,
 	}
-	if description.Valid {
-		detail.Description = &description.String
+	if wb.Description.Valid {
+		detail.Description = &wb.Description.String
 	}
-	if categoryID.Valid {
-		cid := categoryID.Int64
+	if wb.CategoryID.Valid {
+		cid := wb.CategoryID.Int64
 		detail.CategoryId = &cid
 	}
 	return detail, nil
