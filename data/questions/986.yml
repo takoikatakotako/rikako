@@ -1,0 +1,11 @@
+# 令和6年度 ITパスポート 公開問題 問6
+id: 986
+type: single_choice
+text: |
+  技術戦略の策定や技術開発の推進といった技術経営に直接の責任をもつ役職はどれか。
+choices:
+  - "CEO"
+  - "CFO"
+  - "COO"
+  - "CTO"
+correct: 3

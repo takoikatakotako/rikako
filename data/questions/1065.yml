@@ -1,0 +1,13 @@
+# 令和6年度 ITパスポート 公開問題 問85
+id: 1065
+type: single_choice
+text: |
+  関数binaryToIntegerは、1桁以上の符号なし2進数を文字列で表した値を引数binaryStrで受け取り、その値を整数に変換した結果を戻り値とする。例えば、引数として"100"を受け取ると、4を返す。プログラム中のa, bに入れる字句の適切な組合せはどれか。
+choices:
+  - "a: (2のi乗) − 1, b: integerNum × digitNum × exponent"
+  - "a: (2のi乗) − 1, b: integerNum + digitNum × exponent"
+  - "a: 2の(i − 1)乗, b: integerNum × digitNum × exponent"
+  - "a: 2の(i − 1)乗, b: integerNum + digitNum × exponent"
+correct: 3
+images:
+  - 120
