@@ -1,0 +1,11 @@
+# 令和6年度 ITパスポート 公開問題 問56
+id: 1036
+type: single_choice
+text: |
+  PCにおいて、電力供給を断つと記憶内容が失われるメモリ又は記憶媒体はどれか。
+choices:
+  - "DVD-RAM"
+  - "DRAM"
+  - "ROM"
+  - "フラッシュメモリ"
+correct: 1

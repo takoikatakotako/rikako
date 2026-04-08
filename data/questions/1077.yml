@@ -1,0 +1,13 @@
+# 令和6年度 ITパスポート 公開問題 問97
+id: 1077
+type: single_choice
+text: |
+  次のOSのうち、OSS（Open Source Software）として提供されるものだけを全て挙げたものはどれか。
+  
+  a Android  b FreeBSD  c iOS  d Linux
+choices:
+  - "a, b"
+  - "a, b, d"
+  - "b, d"
+  - "c, d"
+correct: 1

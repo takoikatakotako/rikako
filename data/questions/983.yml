@@ -1,0 +1,11 @@
+# 令和6年度 ITパスポート 公開問題 問3
+id: 983
+type: single_choice
+text: |
+  未来のある時点に目標を設定し、そこを起点に現在を振り返り、目標実現のために現在すべきことを考える方法を表す用語として、最も適切なものはどれか。
+choices:
+  - "PoC (Proof of Concept)"
+  - "PoV (Proof of Value)"
+  - "バックキャスティング"
+  - "フォアキャスティング"
+correct: 2

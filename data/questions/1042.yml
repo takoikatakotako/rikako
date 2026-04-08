@@ -1,0 +1,24 @@
+# 令和6年度 ITパスポート 公開問題 問62
+id: 1042
+type: single_choice
+text: |
+  関数convertは、整数型の配列を一定のルールで文字列に変換するプログラムである。関数convertをconvert(arrayInput)として呼び出したときの戻り値が"AABAB"になる引数arrayInputの値はどれか。ここで、arrayInputの要素数は1以上とし、配列の要素番号は1から始まる。
+  
+  〔プログラム〕
+  ○文字列型: convert(整数型の配列: arrayInput)
+    文字列型: stringOutput ← ""  // 空文字列を格納
+    整数型: i
+    for (iを1からarrayInputの要素数まで1ずつ増やす)
+      if (arrayInput[i]が1と等しい)
+        stringOutputの末尾に"A"を追加する
+      else
+        stringOutputの末尾に"B"を追加する
+      endif
+    endfor
+    return stringOutput
+choices:
+  - "{0, 0, 1, 2, 1}"
+  - "{0, 1, 2, 1, 1}"
+  - "{1, 0, 1, 2, 0}"
+  - "{1, 1, 2, 1, 0}"
+correct: 3
