@@ -10,10 +10,10 @@ output "api_id" {
 
 output "custom_domain_target" {
   description = "Regional domain name for Route53 alias"
-  value       = var.custom_domain_name != null ? aws_apigatewayv2_domain_name.this[0].domain_name_configuration[0].target_domain_name : null
+  value       = aws_apigatewayv2_domain_name.this.domain_name_configuration[0].target_domain_name
 }
 
 output "custom_domain_hosted_zone_id" {
   description = "Hosted zone ID for Route53 alias"
-  value       = var.custom_domain_name != null ? aws_apigatewayv2_domain_name.this[0].domain_name_configuration[0].hosted_zone_id : null
+  value       = aws_apigatewayv2_domain_name.this.domain_name_configuration[0].hosted_zone_id
 }

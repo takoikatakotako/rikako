@@ -14,15 +14,13 @@ variable "lambda_invoke_arn" {
 }
 
 variable "custom_domain_name" {
-  description = "Custom domain name for the API (optional)"
+  description = "Custom domain name for the API"
   type        = string
-  default     = null
 }
 
 variable "acm_certificate_arn" {
-  description = "ACM certificate ARN for custom domain (required if custom_domain_name is set)"
+  description = "ACM certificate ARN for custom domain"
   type        = string
-  default     = null
 }
 
 variable "throttle_burst_limit" {

@@ -63,11 +63,10 @@ resource "aws_lambda_permission" "apigw" {
 }
 
 # =============================================================================
-# Custom Domain (optional)
+# Custom Domain
 # =============================================================================
 
 resource "aws_apigatewayv2_domain_name" "this" {
-  count       = var.custom_domain_name != null ? 1 : 0
   domain_name = var.custom_domain_name
 
   domain_name_configuration {
@@ -80,8 +79,7 @@ resource "aws_apigatewayv2_domain_name" "this" {
 }
 
 resource "aws_apigatewayv2_api_mapping" "this" {
-  count       = var.custom_domain_name != null ? 1 : 0
   api_id      = aws_apigatewayv2_api.this.id
-  domain_name = aws_apigatewayv2_domain_name.this[0].id
+  domain_name = aws_apigatewayv2_domain_name.this.id
   stage       = aws_apigatewayv2_stage.default.id
 }
