@@ -83,6 +83,23 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 7
+        width  = 12
+        height = 6
+        properties = {
+          title  = "API Gateway (4xx / 5xx)"
+          region = var.region
+          stat   = "Sum"
+          period = 300
+          metrics = [
+            ["AWS/ApiGateway", "4xx", "ApiId", module.api_gateway.api_id],
+            ["AWS/ApiGateway", "5xx", "ApiId", module.api_gateway.api_id],
+          ]
+        }
+      },
 
       # --- Admin API ---
       {

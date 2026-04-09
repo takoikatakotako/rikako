@@ -7,8 +7,8 @@ data "aws_ssm_parameter" "admin_basic_auth_password" {
 }
 
 locals {
-  admin_bucket_name       = "${local.project}-admin-${local.environment}"
-  admin_api_origin_domain = trimsuffix(trimprefix(module.lambda_admin.function_url, "https://"), "/")
+  admin_bucket_name            = "${local.project}-admin-${local.environment}"
+  admin_api_origin_domain      = trimsuffix(trimprefix(module.lambda_admin.function_url, "https://"), "/")
   admin_basic_auth_credentials = base64encode("${data.aws_ssm_parameter.admin_basic_auth_user.value}:${data.aws_ssm_parameter.admin_basic_auth_password.value}")
 }
 
