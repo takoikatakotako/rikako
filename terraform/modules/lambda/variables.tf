@@ -38,6 +38,12 @@ variable "architectures" {
   default     = ["x86_64"]
 }
 
+variable "create_function_url" {
+  description = "Whether to create a Lambda Function URL"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

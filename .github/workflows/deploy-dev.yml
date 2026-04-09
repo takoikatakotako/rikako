@@ -65,7 +65,7 @@ jobs:
 
       - name: Smoke tests
         env:
-          FUNCTION_URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws
+          API_URL: https://api.dev.rikako.jp
           CONTENT_URL: https://content.dev.rikako.jp
         run: |
           FAILED=0
@@ -83,7 +83,7 @@ jobs:
           }
 
           echo "Running smoke tests..."
-          check_endpoint "Public API /health" "${FUNCTION_URL}/health"
+          check_endpoint "Public API /health" "${API_URL}/health"
           check_endpoint "Content CDN workbooks.json" "${CONTENT_URL}/v1/workbooks.json"
           check_endpoint "Content CDN categories.json" "${CONTENT_URL}/v1/categories.json"
 

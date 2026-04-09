@@ -18,14 +18,14 @@ module "content_s3" {
 module "content_cloudfront" {
   source = "../../modules/cloudfront"
 
-  name               = local.content_bucket_name
-  origin_domain_name = module.content_s3.bucket_regional_domain_name
-  origin_id          = "s3-${local.content_bucket_name}"
-  comment            = "Content CDN for ${local.content_bucket_name}"
-  aliases            = ["content.dev.rikako.jp"]
+  name                = local.content_bucket_name
+  origin_domain_name  = module.content_s3.bucket_regional_domain_name
+  origin_id           = "s3-${local.content_bucket_name}"
+  comment             = "Content CDN for ${local.content_bucket_name}"
+  aliases             = ["content.dev.rikako.jp"]
   acm_certificate_arn = aws_acm_certificate_validation.wildcard.certificate_arn
-  default_ttl        = 60
-  max_ttl            = 300
+  default_ttl         = 60
+  max_ttl             = 300
 
   tags = {
     Project     = local.project

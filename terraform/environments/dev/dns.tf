@@ -49,83 +49,42 @@ resource "aws_acm_certificate_validation" "wildcard" {
 }
 
 # =============================================================================
-# CloudFront Distribution for Public API (api.dev.rikako.jp)
+# ACM Wildcard Certificate (ap-northeast-1, required for API Gateway)
 # =============================================================================
 
-locals {
-  api_origin_domain = trimsuffix(trimprefix(module.lambda.function_url, "https://"), "/")
-}
-
-resource "aws_cloudfront_distribution" "api" {
-  origin {
-    domain_name = local.api_origin_domain
-    origin_id   = "lambda-api"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
-
-  enabled         = true
-  is_ipv6_enabled = true
-  comment         = "Public API for ${local.project}-${local.environment}"
-  aliases         = ["api.dev.rikako.jp"]
-
-  default_cache_behavior {
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "lambda-api"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", "Authorization"]
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.wildcard.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
+resource "aws_acm_certificate" "wildcard_regional" {
+  domain_name       = "*.dev.rikako.jp"
+  validation_method = "DNS"
 
   tags = {
     Project     = local.project
     Environment = local.environment
     ManagedBy   = "terraform"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate_validation" "wildcard_regional" {
+  certificate_arn         = aws_acm_certificate.wildcard_regional.arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
 # =============================================================================
-# Route 53 Records (A Alias → CloudFront)
+# Route 53 Records
 # =============================================================================
 
-# api.dev.rikako.jp → Public API CloudFront
+# api.dev.rikako.jp → API Gateway
 resource "aws_route53_record" "api" {
   zone_id = aws_route53_zone.dev.zone_id
   name    = "api.dev.rikako.jp"
   type    = "A"
 
   alias {
-    name                   = aws_cloudfront_distribution.api.domain_name
-    zone_id                = aws_cloudfront_distribution.api.hosted_zone_id
+    name                   = module.api_gateway.custom_domain_target
+    zone_id                = module.api_gateway.custom_domain_hosted_zone_id
     evaluate_target_health = false
   }
 }

@@ -1,6 +1,11 @@
-output "function_url" {
-  description = "URL of the public API Lambda function"
-  value       = module.lambda.function_url
+output "api_endpoint" {
+  description = "URL of the public API"
+  value       = "https://api.dev.rikako.jp"
+}
+
+output "api_gateway_id" {
+  description = "API Gateway HTTP API ID"
+  value       = module.api_gateway.api_id
 }
 
 output "admin_function_url" {

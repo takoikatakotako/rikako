@@ -10,7 +10,12 @@ output "function_arn" {
 
 output "function_url" {
   description = "URL of the Lambda function"
-  value       = aws_lambda_function_url.this.function_url
+  value       = var.create_function_url ? aws_lambda_function_url.this[0].function_url : null
+}
+
+output "invoke_arn" {
+  description = "Invoke ARN for API Gateway integration"
+  value       = aws_lambda_function.this.invoke_arn
 }
 
 output "role_arn" {
