@@ -54,11 +54,12 @@ module "api_gateway" {
 module "lambda_admin" {
   source = "../../modules/lambda"
 
-  function_name = "${local.project}-admin-api-${local.environment}"
-  image_uri     = "579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api:dev"
-  architectures = ["arm64"]
-  timeout       = 30
-  memory_size   = 512
+  function_name          = "${local.project}-admin-api-${local.environment}"
+  function_url_auth_type = "AWS_IAM"
+  image_uri              = "579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api:dev"
+  architectures          = ["arm64"]
+  timeout                = 30
+  memory_size            = 512
 
   environment_variables = {
     DATABASE_URL                     = neon_project.default.connection_uri

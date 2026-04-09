@@ -91,7 +91,7 @@ resource "aws_lambda_function" "this" {
 resource "aws_lambda_function_url" "this" {
   count              = var.create_function_url ? 1 : 0
   function_name      = aws_lambda_function.this.function_name
-  authorization_type = "NONE"
+  authorization_type = var.function_url_auth_type
 
   cors {
     allow_credentials = false

@@ -32,6 +32,14 @@ resource "aws_cloudfront_origin_access_control" "admin" {
   signing_protocol                  = "sigv4"
 }
 
+# CloudFront OAC for admin API (Lambda)
+resource "aws_cloudfront_origin_access_control" "admin_api" {
+  name                              = "${local.project}-admin-api-${local.environment}"
+  origin_access_control_origin_type = "lambda"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # CloudFront Function for Basic Auth + SPA rewrite (frontend)
 resource "aws_cloudfront_function" "admin_spa_rewrite" {
   name    = "${local.project}-admin-spa-rewrite-${local.environment}"
@@ -102,10 +110,11 @@ resource "aws_cloudfront_distribution" "admin" {
     origin_access_control_id = aws_cloudfront_origin_access_control.admin.id
   }
 
-  # Origin 2: Lambda Function URL (admin API)
+  # Origin 2: Lambda Function URL (admin API) with OAC
   origin {
-    domain_name = local.admin_api_origin_domain
-    origin_id   = "lambda-admin-api"
+    domain_name              = local.admin_api_origin_domain
+    origin_id                = "lambda-admin-api"
+    origin_access_control_id = aws_cloudfront_origin_access_control.admin_api.id
 
     custom_origin_config {
       http_port              = 80
@@ -203,6 +212,15 @@ resource "aws_cloudfront_distribution" "admin" {
     Environment = local.environment
     ManagedBy   = "terraform"
   }
+}
+
+# Lambda Permission - Allow CloudFront to invoke admin API via OAC
+resource "aws_lambda_permission" "admin_cloudfront" {
+  statement_id  = "AllowCloudFrontInvoke"
+  action        = "lambda:InvokeFunctionUrl"
+  function_name = module.lambda_admin.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.admin.arn
 }
 
 # S3 Bucket Policy - Allow CloudFront access via OAC
