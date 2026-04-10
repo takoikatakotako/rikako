@@ -69,13 +69,12 @@ jobs:
         run: |
           ADMIN_BASIC_AUTH_USER=$(aws ssm get-parameter --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
           ADMIN_BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
-          AUTH_HEADER="Authorization: Basic $(printf '%s' "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" | base64 | tr -d '\n')"
           FAILED=0
 
           check_endpoint() {
             local name="$1"
             local url="$2"
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH_HEADER" "$url")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" "$url")
             if [ "$STATUS" = "200" ]; then
               echo "✅ $name (HTTP $STATUS)"
             else
