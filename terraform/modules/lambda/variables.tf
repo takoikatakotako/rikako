@@ -44,6 +44,12 @@ variable "create_function_url" {
   default     = true
 }
 
+variable "function_url_auth_type" {
+  description = "Authorization type for Lambda Function URL (NONE or AWS_IAM)"
+  type        = string
+  default     = "NONE"
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
