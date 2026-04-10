@@ -69,7 +69,7 @@ jobs:
         run: |
           ADMIN_BASIC_AUTH_USER=$(aws ssm get-parameter --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
           ADMIN_BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
-          AUTH_HEADER="Authorization: Basic $(printf '%s' "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" | base64)"
+          AUTH_HEADER="Authorization: Basic $(printf '%s' "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" | base64 | tr -d '\n')"
           FAILED=0
 
           check_endpoint() {
