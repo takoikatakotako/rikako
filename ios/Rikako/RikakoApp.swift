@@ -13,7 +13,7 @@ struct RikakoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environment(studyStore)
                 .preferredColorScheme(.light)
         }
