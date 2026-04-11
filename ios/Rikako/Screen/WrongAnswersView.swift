@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct WrongAnswersView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
 
     var body: some View {
         Group {
-            if studyStore.wrongQuestions.isEmpty {
+            if appState.wrongQuestions.isEmpty {
                 ContentUnavailableView {
                     Label("間違えた問題はありません", systemImage: "checkmark.circle")
                 } description: {
@@ -14,12 +14,12 @@ struct WrongAnswersView: View {
             } else {
                 List {
                     Section {
-                        Text("\(studyStore.wrongQuestions.count)問の間違えた問題があります")
+                        Text("\(appState.wrongQuestions.count)問の間違えた問題があります")
                             .foregroundStyle(.secondary)
                     }
 
                     Section("問題一覧") {
-                        ForEach(Array(studyStore.wrongQuestions.enumerated()), id: \.element.id) { index, question in
+                        ForEach(Array(appState.wrongQuestions.enumerated()), id: \.element.id) { index, question in
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Q\(index + 1)")
@@ -41,7 +41,7 @@ struct WrongAnswersView: View {
                     }
 
                     Section {
-                        NavigationLink(destination: QuizView(questions: studyStore.wrongQuestions, workbookTitle: "復習", workbookId: 0)) {
+                        NavigationLink(destination: QuizView(questions: appState.wrongQuestions, workbookTitle: "復習", workbookId: 0)) {
                             Label("復習する", systemImage: "arrow.counterclockwise")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
@@ -51,7 +51,7 @@ struct WrongAnswersView: View {
 
                     Section {
                         Button(role: .destructive) {
-                            studyStore.clearWrongAnswers()
+                            appState.clearWrongAnswers()
                         } label: {
                             Label("一覧をクリア", systemImage: "trash")
                         }
@@ -66,6 +66,6 @@ struct WrongAnswersView: View {
 #Preview {
     NavigationStack {
         WrongAnswersView()
-            .environment(StudyStore.shared)
+            .environment(AppState.shared)
     }
 }

@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
+    @State private var viewModel = SettingsViewModel()
 
     var body: some View {
         List {
@@ -26,13 +27,13 @@ struct SettingsView: View {
                 HStack {
                     Label("解答した問題数", systemImage: "checkmark.circle")
                     Spacer()
-                    Text("\(studyStore.totalAnswered)問")
+                    Text(viewModel.answeredText(totalAnswered: appState.totalAnswered))
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Label("正答率", systemImage: "chart.bar")
                     Spacer()
-                    Text(studyStore.accuracyText)
+                    Text(appState.accuracyText)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -41,7 +42,7 @@ struct SettingsView: View {
                 HStack {
                     Label("バージョン", systemImage: "info.circle")
                     Spacer()
-                    Text("1.0.0")
+                    Text(viewModel.versionText)
                         .foregroundStyle(.secondary)
                 }
                 Label("使い方", systemImage: "questionmark.circle")
@@ -51,7 +52,7 @@ struct SettingsView: View {
 
             Section {
                 Button(role: .destructive) {
-                    studyStore.setLoggedIn(false)
+                    appState.setLoggedIn(false)
                 } label: {
                     Label("ログアウト", systemImage: "rectangle.portrait.and.arrow.right")
                 }
@@ -64,6 +65,6 @@ struct SettingsView: View {
 #Preview {
     NavigationStack {
         SettingsView()
-            .environment(StudyStore.shared)
+            .environment(AppState.shared)
     }
 }

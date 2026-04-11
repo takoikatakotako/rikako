@@ -1,7 +1,10 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
+    @State private var viewModel = OnboardingViewModel(
+        fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks
+    )
     @State private var currentPage = 0
 
     var body: some View {
@@ -12,14 +15,17 @@ struct OnboardingView: View {
             OnboardingWorkbookIntroPage(currentPage: $currentPage)
                 .tag(1)
 
-            OnboardingWorkbookSelectionPage(currentPage: $currentPage)
-                .tag(2)
+            OnboardingWorkbookSelectionPage(
+                currentPage: $currentPage,
+                viewModel: viewModel
+            )
+            .tag(2)
 
             OnboardingAppIntroPage(currentPage: $currentPage)
                 .tag(3)
 
             OnboardingFinishPage {
-                studyStore.completeOnboarding()
+                appState.completeOnboarding()
             }
             .tag(4)
         }
@@ -121,13 +127,9 @@ private struct OnboardingWelcomePage: View {
                 "一緒に楽しく勉強していこうね！"
             ],
             primaryButtonTitle: "次へ",
-            artwork: {
-                OnboardingCharacterArt()
-            },
+            artwork: { OnboardingCharacterArt() },
             action: {
-                withAnimation {
-                    currentPage = 1
-                }
+                withAnimation { currentPage = 1 }
             }
         )
     }
@@ -156,21 +158,16 @@ private struct OnboardingWorkbookIntroPage: View {
                 }
             },
             action: {
-                withAnimation {
-                    currentPage = 2
-                }
+                withAnimation { currentPage = 2 }
             }
         )
     }
 }
 
 private struct OnboardingWorkbookSelectionPage: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
     @Binding var currentPage: Int
-
-    @State private var recommendedWorkbook: Workbook?
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @Bindable var viewModel: OnboardingViewModel
 
     var body: some View {
         VStack(spacing: 20) {
@@ -187,11 +184,11 @@ private struct OnboardingWorkbookSelectionPage: View {
                     .padding(.horizontal, 24)
             }
 
-            if isLoading {
+            if viewModel.isLoading {
                 Spacer()
                 ProgressView("問題集を読み込み中...")
                 Spacer()
-            } else if let errorMessage {
+            } else if let errorMessage = viewModel.errorMessage {
                 Spacer()
                 ContentUnavailableView {
                     Label("読み込みエラー", systemImage: "exclamationmark.triangle")
@@ -199,44 +196,37 @@ private struct OnboardingWorkbookSelectionPage: View {
                     Text(errorMessage)
                 } actions: {
                     Button("再読み込み") {
-                        Task { await loadRecommendedWorkbook() }
+                        Task { await viewModel.loadRecommendedWorkbook() }
                     }
                 }
                 Spacer()
-            } else if let recommendedWorkbook {
+            } else if let recommendedWorkbook = viewModel.recommendedWorkbook {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("おすすめ")
                         .font(.headline)
                         .foregroundStyle(Color("main"))
 
                     Button {
-                        studyStore.selectWorkbook(recommendedWorkbook.id)
-                        withAnimation {
-                            currentPage = 3
-                        }
+                        appState.selectWorkbook(recommendedWorkbook.id)
+                        withAnimation { currentPage = 3 }
                     } label: {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(recommendedWorkbook.title)
                                 .font(.title3.bold())
-                                .foregroundStyle(.primary)
-
                             Text(recommendedWorkbook.description)
-                                .font(.body)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
-
-                            Text("\(recommendedWorkbook.questionCount)問")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
                             HStack {
+                                Text("\(recommendedWorkbook.questionCount)問")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
                                 Spacer()
-                                Text(studyStore.selectedWorkbookID == recommendedWorkbook.id ? "選択中" : "この問題集にする")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(Color("main"))
+                                Text(appState.selectedWorkbookID == recommendedWorkbook.id ? "選択中" : "この問題集にする")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(Color("main"))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color("main").opacity(0.12))
                                     .clipShape(Capsule())
                             }
                         }
@@ -261,20 +251,8 @@ private struct OnboardingWorkbookSelectionPage: View {
             }
         }
         .task {
-            guard recommendedWorkbook == nil else { return }
-            await loadRecommendedWorkbook()
+            await viewModel.loadRecommendedWorkbookIfNeeded()
         }
-    }
-
-    private func loadRecommendedWorkbook() async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            recommendedWorkbook = try await APIClient.shared.fetchWorkbooks().first
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        isLoading = false
     }
 }
 
@@ -301,9 +279,7 @@ private struct OnboardingAppIntroPage: View {
                 }
             },
             action: {
-                withAnimation {
-                    currentPage = 4
-                }
+                withAnimation { currentPage = 4 }
             }
         )
     }
@@ -315,13 +291,9 @@ private struct OnboardingFinishPage: View {
     var body: some View {
         OnboardingContainer(
             title: "それではさっそく勉強していこう！",
-            messageLines: [
-                "一緒に頑張ろうね！"
-            ],
+            messageLines: ["一緒に頑張ろうね！"],
             primaryButtonTitle: "はじめる",
-            artwork: {
-                OnboardingCharacterArt()
-            },
+            artwork: { OnboardingCharacterArt() },
             action: action
         )
     }
@@ -329,5 +301,5 @@ private struct OnboardingFinishPage: View {
 
 #Preview {
     OnboardingView()
-        .environment(StudyStore.shared)
+        .environment(AppState.shared)
 }

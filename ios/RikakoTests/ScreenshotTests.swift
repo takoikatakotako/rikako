@@ -7,8 +7,8 @@ final class ScreenshotTests: XCTestCase {
     private let size = CGSize(width: 393, height: 852) // iPhone 15 Pro
 
     @MainActor
-    private func makeStudyStore() -> StudyStore {
-        StudyStore.shared
+    private func makeAppState() -> AppState {
+        AppState.shared
     }
 
     // MARK: - オンボーディング
@@ -16,7 +16,7 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func test01_Welcome() throws {
         let view = OnboardingView()
-            .environment(makeStudyStore())
+            .environment(makeAppState())
         takeScreenshot(view: view, name: "01_welcome")
     }
 
@@ -25,7 +25,7 @@ final class ScreenshotTests: XCTestCase {
     @MainActor
     func test02_Login() throws {
         let view = LoginView()
-            .environment(makeStudyStore())
+            .environment(makeAppState())
         takeScreenshot(view: view, name: "02_login")
     }
 
@@ -77,7 +77,7 @@ final class ScreenshotTests: XCTestCase {
                 workbookId: 1
             )
         }
-        .environment(makeStudyStore())
+        .environment(makeAppState())
         takeScreenshot(view: view, name: "07_result")
     }
 
@@ -88,7 +88,7 @@ final class ScreenshotTests: XCTestCase {
         let view = NavigationStack {
             SettingsView()
         }
-        .environment(makeStudyStore())
+        .environment(makeAppState())
         takeScreenshot(view: view, name: "08_settings")
     }
 
@@ -97,7 +97,7 @@ final class ScreenshotTests: XCTestCase {
         let view = NavigationStack {
             ProfileView()
         }
-        .environment(makeStudyStore())
+        .environment(makeAppState())
         takeScreenshot(view: view, name: "09_profile")
     }
 

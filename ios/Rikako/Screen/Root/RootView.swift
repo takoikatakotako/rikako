@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct RootView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
 
     var body: some View {
-        if !studyStore.hasCompletedOnboarding {
+        if !appState.hasCompletedOnboarding {
             OnboardingView()
         } else {
             MainView()
@@ -14,5 +14,5 @@ struct RootView: View {
 
 #Preview {
     RootView()
-        .environment(StudyStore.shared)
+        .environment(AppState.shared)
 }

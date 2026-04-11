@@ -1,24 +1,24 @@
 import SwiftUI
 
 struct LegacyTopView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
     @State private var workbooks: [Workbook] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
 
     private var completionRateText: String {
         guard !workbooks.isEmpty else { return "0.0%" }
-        let rate = (Double(studyStore.completedWorkbookIDs.count) / Double(workbooks.count)) * 100
+        let rate = (Double(appState.completedWorkbookIDs.count) / Double(workbooks.count)) * 100
         return String(format: "%.1f%%", rate)
     }
 
     private var nextWorkbook: Workbook? {
-        if let selectedWorkbookID = studyStore.selectedWorkbookID,
+        if let selectedWorkbookID = appState.selectedWorkbookID,
            let selectedWorkbook = workbooks.first(where: { $0.id == selectedWorkbookID }),
-           !studyStore.completedWorkbookIDs.contains(selectedWorkbookID) {
+           !appState.completedWorkbookIDs.contains(selectedWorkbookID) {
             return selectedWorkbook
         }
-        return workbooks.first { !studyStore.completedWorkbookIDs.contains($0.id) } ?? workbooks.first
+        return workbooks.first { !appState.completedWorkbookIDs.contains($0.id) } ?? workbooks.first
     }
 
     var body: some View {
@@ -68,7 +68,7 @@ struct LegacyTopView: View {
 
                             HStack(spacing: 12) {
                                 NavigationLink(destination: WrongAnswersView()) {
-                                    actionButtonTitle("復習(\(studyStore.wrongQuestions.count))", color: Color("incorrectBlue"))
+                                    actionButtonTitle("復習(\(appState.wrongQuestions.count))", color: Color("incorrectBlue"))
                                 }
 
                                 if let nextWorkbook {
@@ -147,7 +147,7 @@ struct LegacyTopView: View {
         isLoading = true
         errorMessage = nil
         do {
-            workbooks = try await APIClient.shared.fetchWorkbooks()
+            workbooks = try await AppContainer.shared.learningUseCases.fetchWorkbooks.execute()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -157,5 +157,5 @@ struct LegacyTopView: View {
 
 #Preview {
     LegacyTopView()
-        .environment(StudyStore.shared)
+        .environment(AppState.shared)
 }

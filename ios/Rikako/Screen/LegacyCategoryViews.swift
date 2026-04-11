@@ -45,7 +45,7 @@ struct LegacyCategoryListView: View {
         isLoading = true
         errorMessage = nil
         do {
-            categories = try await APIClient.shared.fetchCategories()
+            categories = try await AppContainer.shared.learningUseCases.fetchCategories.execute()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -109,7 +109,7 @@ struct LegacyCategoryDetailView: View {
         isLoading = true
         errorMessage = nil
         do {
-            detail = try await APIClient.shared.fetchCategoryDetail(id: category.id)
+            detail = try await AppContainer.shared.learningUseCases.fetchCategoryDetail.execute(id: category.id)
         } catch {
             errorMessage = error.localizedDescription
         }

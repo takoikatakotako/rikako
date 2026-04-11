@@ -1,8 +1,11 @@
 # iOS Navigation
 
 ## 概要
+
+- 関連ドキュメント: [README.md](./README.md)
+- 関連ドキュメント: [architecture.md](./architecture.md)
 - エントリーポイントは `RootView`
-- `StudyStore` の状態に応じて `OnboardingView` または `MainView` を出し分ける
+- `AppState` の状態に応じて `OnboardingView` または `MainView` を出し分ける
 - `MainView` の直下は `NavigationStack` で、最初に `LegacyTopView` を表示する
 
 ## Root からの分岐
@@ -14,7 +17,7 @@ flowchart TD
     B -- Yes --> D[MainView]
 
     C --> G[オンボーディング完了]
-    G --> H[studyStore.completeOnboarding()]
+    G --> H[appState.completeOnboarding()]
     H --> D
 ```
 
@@ -47,3 +50,5 @@ flowchart TD
 - 現在はオンボーディング完了後、そのまま `MainView` に入る
 - `LoginView` と `SignUpView` は残っているが、Root の初期遷移では使っていない
 - 画面遷移の中心は `LegacyTopView -> WorkbookDetailView -> QuizView -> ResultView`
+- レイヤ構成やディレクトリ責務は [architecture.md](./architecture.md) を参照
+- オンボーディング仕様は [onboarding.md](./onboarding.md) を参照

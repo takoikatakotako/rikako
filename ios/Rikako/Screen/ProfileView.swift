@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
     @State private var displayName = ""
     @State private var email = "guest@example.com"
 
@@ -42,19 +42,19 @@ struct ProfileView: View {
                 HStack {
                     Label("総解答数", systemImage: "number")
                     Spacer()
-                    Text("\(studyStore.totalAnswered)")
+                    Text("\(appState.totalAnswered)")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Label("正答数", systemImage: "checkmark")
                     Spacer()
-                    Text("\(studyStore.totalCorrect)")
+                    Text("\(appState.totalCorrect)")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Label("完了した問題集", systemImage: "book.closed")
                     Spacer()
-                    Text("\(studyStore.completedWorkbookIDs.count)")
+                    Text("\(appState.completedWorkbookIDs.count)")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -65,8 +65,8 @@ struct ProfileView: View {
 }
 
 #Preview {
-    NavigationStack {
-        ProfileView()
-            .environment(StudyStore.shared)
+        NavigationStack {
+            ProfileView()
+            .environment(AppState.shared)
     }
 }

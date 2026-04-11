@@ -1,34 +1,34 @@
 import Foundation
 import Security
 
-/// Manages anonymous device identity using Cognito Identity Pool.
-/// Identity ID is persisted in Keychain to survive app reinstalls.
-final class DeviceIdentity {
-    static let shared = DeviceIdentity()
+protocol DeviceIdentityProviding {
+    func getIdentityId() async throws -> String
+}
 
+final class CognitoDeviceIdentityProvider: DeviceIdentityProviding {
     private let identityPoolId = "ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222"
     private let region = "ap-northeast-1"
-    private let keychainKey = "jp.conol.rikako.identityId"
 
+    private let session: URLSession
+    private let keychainStore: KeychainIdentityStore
     private var cachedIdentityId: String?
 
-    private init() {
-        cachedIdentityId = loadFromKeychain()
+    init(session: URLSession, keychainStore: KeychainIdentityStore) {
+        self.session = session
+        self.keychainStore = keychainStore
+        self.cachedIdentityId = keychainStore.load()
     }
 
-    /// Returns the device's Identity ID, fetching from Cognito if needed.
     func getIdentityId() async throws -> String {
-        if let cached = cachedIdentityId {
-            return cached
+        if let cachedIdentityId {
+            return cachedIdentityId
         }
 
         let identityId = try await fetchIdentityId()
-        saveToKeychain(identityId)
+        keychainStore.save(identityId)
         cachedIdentityId = identityId
         return identityId
     }
-
-    // MARK: - Cognito Identity API
 
     private func fetchIdentityId() async throws -> String {
         let endpoint = URL(string: "https://cognito-identity.\(region).amazonaws.com/")!
@@ -36,11 +36,9 @@ final class DeviceIdentity {
         request.httpMethod = "POST"
         request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
         request.setValue("AWSCognitoIdentityService.GetId", forHTTPHeaderField: "X-Amz-Target")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["IdentityPoolId": identityPoolId])
 
-        let body: [String: Any] = ["IdentityPoolId": identityPoolId]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw DeviceIdentityError.fetchFailed
@@ -53,10 +51,12 @@ final class DeviceIdentity {
 
         return identityId
     }
+}
 
-    // MARK: - Keychain
+struct KeychainIdentityStore {
+    private let keychainKey = "jp.conol.rikako.identityId"
 
-    private func loadFromKeychain() -> String? {
+    func load() -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainKey,
@@ -74,17 +74,15 @@ final class DeviceIdentity {
         return String(data: data, encoding: .utf8)
     }
 
-    private func saveToKeychain(_ value: String) {
+    func save(_ value: String) {
         let data = Data(value.utf8)
 
-        // Delete existing item
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainKey,
         ]
         SecItemDelete(deleteQuery as CFDictionary)
 
-        // Add new item
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainKey,
