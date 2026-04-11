@@ -1,25 +1,11 @@
 import SwiftUI
 
 struct WrongAnswersView: View {
-    @State private var questions: [Question] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String?
+    @Environment(StudyStore.self) private var studyStore
 
     var body: some View {
         Group {
-            if isLoading {
-                ProgressView("読み込み中...")
-            } else if let errorMessage {
-                ContentUnavailableView {
-                    Label("読み込みエラー", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(errorMessage)
-                } actions: {
-                    Button("再読み込み") {
-                        Task { await loadWrongAnswers() }
-                    }
-                }
-            } else if questions.isEmpty {
+            if studyStore.wrongQuestions.isEmpty {
                 ContentUnavailableView {
                     Label("間違えた問題はありません", systemImage: "checkmark.circle")
                 } description: {
@@ -28,61 +14,58 @@ struct WrongAnswersView: View {
             } else {
                 List {
                     Section {
-                        Text("\(questions.count)問の間違えた問題があります")
+                        Text("\(studyStore.wrongQuestions.count)問の間違えた問題があります")
                             .foregroundStyle(.secondary)
                     }
 
                     Section("問題一覧") {
-                        ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
-                            HStack {
-                                Text("Q\(index + 1)")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.white)
-                                    .frame(width: 32, height: 32)
-                                    .background(Color.red)
-                                    .clipShape(Circle())
-                                Text(question.text)
-                                    .lineLimit(2)
+                        ForEach(Array(studyStore.wrongQuestions.enumerated()), id: \.element.id) { index, question in
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Q\(index + 1)")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.white)
+                                        .frame(width: 32, height: 32)
+                                        .background(Color.red)
+                                        .clipShape(Circle())
+                                    Text(question.text)
+                                        .lineLimit(2)
+                                }
+
+                                if let images = question.images, !images.isEmpty {
+                                    QuestionImageSection(imageURLs: images)
+                                }
                             }
                         }
                     }
 
-                    if !questions.isEmpty {
-                        Section {
-                            NavigationLink(destination: QuizView(questions: questions, workbookTitle: "復習", workbookId: 0)) {
-                                Label("復習する", systemImage: "arrow.counterclockwise")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 4)
-                            }
+                    Section {
+                        NavigationLink(destination: QuizView(questions: studyStore.wrongQuestions, workbookTitle: "復習", workbookId: 0)) {
+                            Label("復習する", systemImage: "arrow.counterclockwise")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
+                        }
+                    }
+
+                    Section {
+                        Button(role: .destructive) {
+                            studyStore.clearWrongAnswers()
+                        } label: {
+                            Label("一覧をクリア", systemImage: "trash")
                         }
                     }
                 }
             }
         }
         .navigationTitle("間違えた問題")
-        .task {
-            await loadWrongAnswers()
-        }
-    }
-
-    private func loadWrongAnswers() async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            let response = try await APIClient.shared.fetchWrongAnswers()
-            questions = response.questions
-            isLoading = false
-        } catch {
-            errorMessage = error.localizedDescription
-            isLoading = false
-        }
     }
 }
 
 #Preview {
     NavigationStack {
         WrongAnswersView()
+            .environment(StudyStore.shared)
     }
 }

@@ -21,20 +21,39 @@ struct Workbook: Identifiable, Codable {
     let title: String
     let description: String
     let questionCount: Int
-    let categoryId: Int64
+    let categoryId: Int64?
 }
 
 struct WorkbookDetail: Identifiable, Codable {
     let id: Int64
     let title: String
     let description: String
-    let categoryId: Int64
+    let categoryId: Int64?
     let questions: [Question]
 }
 
 struct WorkbooksResponse: Codable {
     let workbooks: [Workbook]
     let total: Int
+}
+
+struct Category: Identifiable, Codable {
+    let id: Int64
+    let title: String
+    let description: String?
+    let workbookCount: Int?
+}
+
+struct CategoriesResponse: Codable {
+    let categories: [Category]
+    let total: Int
+}
+
+struct CategoryDetail: Identifiable, Codable {
+    let id: Int64
+    let title: String
+    let description: String?
+    let workbooks: [Workbook]
 }
 
 // MARK: - Answers

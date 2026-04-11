@@ -6,6 +6,7 @@ site/
 
 # Go build output
 app/bin/
+app/.cache/
 
 # Environment variables
 .env
@@ -26,6 +27,7 @@ app/datasync
 **/*.xcuserstate
 **/DerivedData/
 *.xcscmblueprint
+**/project.xcworkspace/xcshareddata/swiftpm/
 ios/screenshots/
 ios/build/
 .DS_Store

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @Binding var isLoggedIn: Bool
+    @Environment(StudyStore.self) private var studyStore
     @State private var email = ""
     @State private var password = ""
     @State private var showSignUp = false
@@ -32,7 +32,7 @@ struct LoginView: View {
                 .padding(.horizontal, 32)
 
                 Button {
-                    isLoggedIn = true
+                    studyStore.setLoggedIn(true)
                 } label: {
                     Text("ログイン")
                         .font(.headline)
@@ -53,7 +53,7 @@ struct LoginView: View {
                 }
 
                 Button {
-                    isLoggedIn = true
+                    studyStore.setLoggedIn(true)
                 } label: {
                     Text("ログインせずに使う")
                         .font(.subheadline)
@@ -63,12 +63,18 @@ struct LoginView: View {
                 Spacer()
             }
             .navigationDestination(isPresented: $showSignUp) {
-                SignUpView(isLoggedIn: $isLoggedIn)
+                SignUpView(
+                    isLoggedIn: Binding(
+                        get: { studyStore.isLoggedIn },
+                        set: { studyStore.setLoggedIn($0) }
+                    )
+                )
             }
         }
     }
 }
 
 #Preview {
-    LoginView(isLoggedIn: .constant(false))
+    LoginView()
+        .environment(StudyStore.shared)
 }

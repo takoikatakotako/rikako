@@ -30,16 +30,22 @@ struct WorkbookDetailView: View {
 
                     Section("問題一覧") {
                         ForEach(Array(workbook.questions.enumerated()), id: \.element.id) { index, question in
-                            HStack {
-                                Text("Q\(index + 1)")
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.white)
-                                    .frame(width: 32, height: 32)
-                                    .background(Color.accentColor)
-                                    .clipShape(Circle())
-                                Text(question.text)
-                                    .lineLimit(2)
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(alignment: .top) {
+                                    Text("Q\(index + 1)")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.white)
+                                        .frame(width: 32, height: 32)
+                                        .background(Color.accentColor)
+                                        .clipShape(Circle())
+                                    Text(question.text)
+                                        .lineLimit(2)
+                                }
+
+                                if let images = question.images, !images.isEmpty {
+                                    QuestionImageSection(imageURLs: [images[0]])
+                                }
                             }
                         }
                     }

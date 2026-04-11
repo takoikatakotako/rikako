@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Binding var isLoggedIn: Bool
+    @Environment(StudyStore.self) private var studyStore
 
     var body: some View {
         List {
@@ -26,13 +26,13 @@ struct SettingsView: View {
                 HStack {
                     Label("解答した問題数", systemImage: "checkmark.circle")
                     Spacer()
-                    Text("0問")
+                    Text("\(studyStore.totalAnswered)問")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Label("正答率", systemImage: "chart.bar")
                     Spacer()
-                    Text("--%")
+                    Text(studyStore.accuracyText)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -44,13 +44,14 @@ struct SettingsView: View {
                     Text("1.0.0")
                         .foregroundStyle(.secondary)
                 }
-                Label("利用規約", systemImage: "doc.text")
-                Label("プライバシーポリシー", systemImage: "hand.raised")
+                Label("使い方", systemImage: "questionmark.circle")
+                Label("レビューする", systemImage: "star")
+                Label("理科子さんのTwitter", systemImage: "bird")
             }
 
             Section {
                 Button(role: .destructive) {
-                    isLoggedIn = false
+                    studyStore.setLoggedIn(false)
                 } label: {
                     Label("ログアウト", systemImage: "rectangle.portrait.and.arrow.right")
                 }
@@ -62,6 +63,7 @@ struct SettingsView: View {
 
 #Preview {
     NavigationStack {
-        SettingsView(isLoggedIn: .constant(true))
+        SettingsView()
+            .environment(StudyStore.shared)
     }
 }

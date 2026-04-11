@@ -7,6 +7,7 @@ struct ResultView: View {
     let workbookId: Int64
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(StudyStore.self) private var studyStore
     @State private var didSubmit = false
 
     private var correctCount: Int {
@@ -18,6 +19,14 @@ struct ResultView: View {
     private var scorePercentage: Double {
         guard !questions.isEmpty else { return 0 }
         return Double(correctCount) / Double(questions.count) * 100
+    }
+
+    private var legacyResultImageName: String {
+        if scorePercentage == 100 { return "result-100per" }
+        if scorePercentage >= 80 { return "result-80per" }
+        if scorePercentage >= 60 { return "result-60per" }
+        if scorePercentage >= 40 { return "result-40per" }
+        return "result-20per"
     }
 
     var body: some View {
@@ -35,26 +44,40 @@ struct ResultView: View {
         .task {
             guard !didSubmit else { return }
             didSubmit = true
-            await submitAnswersToServer()
+            studyStore.recordSession(workbookId: workbookId, questions: questions, answers: answers)
         }
     }
 
     private var scoreCard: some View {
-        VStack(spacing: 12) {
-            Text(workbookTitle)
-                .font(.headline)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .bottom, spacing: 16) {
+            Image(legacyResultImageName)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 160)
 
-            Text("\(correctCount) / \(questions.count)")
-                .font(.system(size: 48, weight: .bold))
+            VStack(alignment: .trailing, spacing: 8) {
+                Text(workbookTitle)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
 
-            Text("\(Int(scorePercentage))%")
-                .font(.title2)
-                .foregroundStyle(scorePercentage >= 80 ? .green : scorePercentage >= 60 ? .orange : .red)
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text("\(Int(scorePercentage))")
+                        .font(.system(size: 42, weight: .bold))
+                        .foregroundStyle(Color("reaultColor-60per"))
+                    Text("%")
+                        .font(.title3.bold())
+                        .foregroundStyle(Color("reaultColor-60per"))
+                }
 
-            Text(resultMessage)
-                .font(.body)
-                .foregroundStyle(.secondary)
+                Text("\(correctCount)問 / \(questions.count)問")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+
+                Text(resultMessage)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
         }
         .padding(24)
         .frame(maxWidth: .infinity)
@@ -69,14 +92,21 @@ struct ResultView: View {
 
             ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
                 HStack {
-                    Image(systemName: answers[index] == question.correctIndex ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(answers[index] == question.correctIndex ? .green : .red)
+                    Image(answers[index] == question.correctIndex ? "result-correct" : "result-discorrect")
+                        .resizable()
+                        .frame(width: 28, height: 28)
+                        .opacity(0.6)
                     Text("Q\(index + 1)")
                         .fontWeight(.bold)
                         .frame(width: 32)
                     Text(question.text)
                         .lineLimit(1)
                         .foregroundStyle(.secondary)
+                    Spacer()
+                    Image("result-next")
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                        .opacity(0.4)
                 }
             }
         }
@@ -107,20 +137,6 @@ struct ResultView: View {
         return "復習しましょう！"
     }
 
-    private func submitAnswersToServer() async {
-        let answerItems: [AnswerItem] = zip(questions, answers).compactMap { question, answer in
-            guard let selectedChoice = answer else { return nil }
-            return AnswerItem(questionId: question.id, selectedChoice: selectedChoice)
-        }
-        guard !answerItems.isEmpty else { return }
-
-        do {
-            _ = try await APIClient.shared.submitAnswers(workbookId: workbookId, answers: answerItems)
-        } catch {
-            // Fail silently — answer submission is best-effort
-            print("Failed to submit answers: \(error)")
-        }
-    }
 }
 
 #Preview {
@@ -131,5 +147,6 @@ struct ResultView: View {
             workbookTitle: "基礎化学",
             workbookId: 1
         )
+        .environment(StudyStore.shared)
     }
 }

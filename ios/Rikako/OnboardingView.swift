@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    @Binding var hasCompletedOnboarding: Bool
+    @Environment(StudyStore.self) private var studyStore
     @State private var currentPage = 0
 
     var body: some View {
@@ -25,7 +25,7 @@ struct OnboardingView: View {
             )
             .tag(2)
 
-            StartPage(hasCompletedOnboarding: $hasCompletedOnboarding)
+            StartPage()
                 .tag(3)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
@@ -118,7 +118,7 @@ struct IntroPage: View {
 }
 
 struct StartPage: View {
-    @Binding var hasCompletedOnboarding: Bool
+    @Environment(StudyStore.self) private var studyStore
 
     var body: some View {
         VStack(spacing: 24) {
@@ -140,7 +140,7 @@ struct StartPage: View {
             Spacer()
 
             Button {
-                hasCompletedOnboarding = true
+                studyStore.completeOnboarding()
             } label: {
                 Text("はじめる")
                     .font(.headline)
@@ -157,5 +157,6 @@ struct StartPage: View {
 }
 
 #Preview {
-    OnboardingView(hasCompletedOnboarding: .constant(false))
+    OnboardingView()
+        .environment(StudyStore.shared)
 }

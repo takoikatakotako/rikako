@@ -1,42 +1,46 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var hasCompletedOnboarding = false
-    @State private var isLoggedIn = false
+    @Environment(StudyStore.self) private var studyStore
 
     var body: some View {
-        if !hasCompletedOnboarding {
-            OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)
-        } else if !isLoggedIn {
-            LoginView(isLoggedIn: $isLoggedIn)
+        if !studyStore.hasCompletedOnboarding {
+            OnboardingView()
+        } else if !studyStore.isLoggedIn {
+            LoginView()
         } else {
-            MainTabView(isLoggedIn: $isLoggedIn)
+            MainTabView()
         }
     }
 }
 
 struct MainTabView: View {
-    @Binding var isLoggedIn: Bool
-
     var body: some View {
-        NavigationStack {
-            WorkbookListView()
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        NavigationLink(destination: WrongAnswersView()) {
-                            Image(systemName: "arrow.counterclockwise")
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink(destination: SettingsView(isLoggedIn: $isLoggedIn)) {
-                            Image(systemName: "gearshape")
-                        }
-                    }
+        TabView {
+            LegacyTopView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Top")
                 }
+
+            LegacyCategoryListView()
+                .tabItem {
+                    Image(systemName: "square.grid.2x2.fill")
+                    Text("Category")
+                }
+
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem {
+                Image(systemName: "gearshape.fill")
+                Text("Config")
+            }
         }
     }
 }
 
 #Preview {
     ContentView()
+        .environment(StudyStore.shared)
 }

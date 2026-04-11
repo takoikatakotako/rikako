@@ -25,6 +25,22 @@ final class APIClient {
         return result.workbooks
     }
 
+    func fetchCategories(limit: Int = 50, offset: Int = 0) async throws -> [Category] {
+        var components = URLComponents(url: apiBaseURL.appendingPathComponent("categories"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        let url = components.url!
+        let result: CategoriesResponse = try await getJSON(url: url, authenticated: false)
+        return result.categories
+    }
+
+    func fetchCategoryDetail(id: Int64) async throws -> CategoryDetail {
+        let url = apiBaseURL.appendingPathComponent("categories/\(id)")
+        return try await getJSON(url: url, authenticated: false)
+    }
+
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail {
         let url = contentBaseURL.appendingPathComponent("workbooks/\(id).json")
         let (data, response) = try await session.data(from: url)

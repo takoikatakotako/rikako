@@ -50,9 +50,15 @@ struct QuizView: View {
     }
 
     private var questionSection: some View {
-        Text(currentQuestion.text)
-            .font(.title3)
-            .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(currentQuestion.text)
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            if let images = currentQuestion.images, !images.isEmpty {
+                QuestionImageSection(imageURLs: images)
+            }
+        }
     }
 
     private var choicesSection: some View {
@@ -104,9 +110,11 @@ struct QuizView: View {
             }
             .font(.headline)
 
-            Text(currentQuestion.explanation ?? "")
-                .font(.body)
-                .foregroundStyle(.secondary)
+            if let explanation = currentQuestion.explanation, !explanation.isEmpty {
+                Text(explanation)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
         .background(Color(.systemGray6))
