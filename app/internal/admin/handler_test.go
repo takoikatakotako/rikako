@@ -270,6 +270,61 @@ func TestCreateAndGetWorkbook(t *testing.T) {
 	testDB.ExecContext(ctx, `DELETE FROM workbooks WHERE id = $1`, created.Id)
 }
 
+func TestGetWorkbook_IncludesQuestionsAndChoices(t *testing.T) {
+	h := newTestHandler()
+	ctx := context.Background()
+
+	questionResp, err := h.CreateQuestion(ctx, adminapi.CreateQuestionRequestObject{
+		Body: &adminapi.CreateQuestionRequest{
+			Type: adminapi.CreateQuestionRequestTypeSingleChoice,
+			Text: "workbook question",
+			Choices: []adminapi.Choice{
+				{Text: "A", IsCorrect: false},
+				{Text: "B", IsCorrect: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating question: %v", err)
+	}
+	createdQuestion := questionResp.(adminapi.CreateQuestion201JSONResponse)
+
+	workbookResp, err := h.CreateWorkbook(ctx, adminapi.CreateWorkbookRequestObject{
+		Body: &adminapi.CreateWorkbookRequest{
+			Title:       "detail workbook",
+			QuestionIds: &[]int64{createdQuestion.Id},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating workbook: %v", err)
+	}
+	createdWorkbook := workbookResp.(adminapi.CreateWorkbook201JSONResponse)
+
+	getResp, err := h.GetWorkbook(ctx, adminapi.GetWorkbookRequestObject{WorkbookId: createdWorkbook.Id})
+	if err != nil {
+		t.Fatalf("unexpected error getting workbook: %v", err)
+	}
+	got, ok := getResp.(adminapi.GetWorkbook200JSONResponse)
+	if !ok {
+		t.Fatalf("expected GetWorkbook200JSONResponse, got %T", getResp)
+	}
+	if len(got.Questions) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(got.Questions))
+	}
+	if got.Questions[0].Text != "workbook question" {
+		t.Fatalf("expected question text to match, got %q", got.Questions[0].Text)
+	}
+	if len(got.Questions[0].Choices) != 2 {
+		t.Fatalf("expected 2 choices, got %d", len(got.Questions[0].Choices))
+	}
+	if !got.Questions[0].Choices[1].IsCorrect {
+		t.Fatal("expected second choice to be correct")
+	}
+
+	testDB.ExecContext(ctx, `DELETE FROM workbooks WHERE id = $1`, createdWorkbook.Id)
+	testDB.ExecContext(ctx, `DELETE FROM questions WHERE id = $1`, createdQuestion.Id)
+}
+
 func TestUpdateWorkbook(t *testing.T) {
 	h := newTestHandler()
 	ctx := context.Background()
