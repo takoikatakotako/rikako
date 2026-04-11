@@ -4,9 +4,9 @@
 
 `ios/Rikako` のディレクトリ構成と責務を整理するためのメモです。
 
-- 関連ドキュメント: [README.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/README.md)
-- 関連ドキュメント: [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md)
-- 関連ドキュメント: [onboarding.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/onboarding.md)
+- 関連ドキュメント: [README.md](./README.md)
+- 関連ドキュメント: [navigation.md](./navigation.md)
+- 関連ドキュメント: [onboarding.md](./onboarding.md)
 
 現在の方針は、画面から直接 API を呼ばず、次の依存方向で組むことです。
 
@@ -213,7 +213,7 @@ flowchart TD
     D --> E[StudyHomeView]
 ```
 
-詳細は [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md) を参照してください。
+詳細は [navigation.md](./navigation.md) を参照してください。
 
 ## モックが残っている場所
 

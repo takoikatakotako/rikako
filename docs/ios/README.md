@@ -4,21 +4,21 @@
 
 ## まず読むもの
 
-- [architecture.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/architecture.md)
+- [architecture.md](./architecture.md)
   - ディレクトリ構成、責務、依存方向
-- [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md)
+- [navigation.md](./navigation.md)
   - `RootView` からの画面遷移
-- [onboarding.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/onboarding.md)
+- [onboarding.md](./onboarding.md)
   - オンボーディングの画面仕様
 
 ## ドキュメントの見方
 
 - 全体の構成を知りたいとき
-  - [architecture.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/architecture.md)
+  - [architecture.md](./architecture.md)
 - どの画面にどう遷移するかを見たいとき
-  - [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md)
+  - [navigation.md](./navigation.md)
 - オンボーディングの文言や画面意図を見たいとき
-  - [onboarding.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/onboarding.md)
+  - [onboarding.md](./onboarding.md)
 
 ## 現在の前提
 
