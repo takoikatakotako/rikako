@@ -295,7 +295,7 @@ func (h *Handler) GetQuestions(ctx context.Context, request adminapi.GetQuestion
 		return nil, err
 	}
 
-	rows, err := h.queries.ListQuestions(ctx, db.ListQuestionsParams{
+	rows, err := h.queries.ListQuestionsWithChoices(ctx, db.ListQuestionsWithChoicesParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
 	})
@@ -304,14 +304,62 @@ func (h *Handler) GetQuestions(ctx context.Context, request adminapi.GetQuestion
 		return nil, err
 	}
 
-	questions := []adminapi.Question{}
+	type questionData struct {
+		question adminapi.Question
+	}
+
+	questionsMap := map[int64]*questionData{}
+	questionOrder := make([]int64, 0)
+
 	for _, row := range rows {
-		q, err := h.getQuestionByID(ctx, row.ID)
+		qd, exists := questionsMap[row.ID]
+		if !exists {
+			q := adminapi.Question{
+				Id:   row.ID,
+				Type: adminapi.QuestionTypeSingleChoice,
+				Text: row.Text,
+			}
+			if row.Explanation.Valid {
+				q.Explanation = &row.Explanation.String
+			}
+			qd = &questionData{question: q}
+			questionsMap[row.ID] = qd
+			questionOrder = append(questionOrder, row.ID)
+		}
+
+		if row.ChoiceText.Valid {
+			qd.question.Choices = append(qd.question.Choices, adminapi.Choice{
+				Text:      row.ChoiceText.String,
+				IsCorrect: row.IsCorrect.Valid && row.IsCorrect.Bool,
+			})
+		}
+	}
+
+	if len(questionOrder) > 0 {
+		imageRows, err := h.queries.GetImageURLsByQuestionIDs(ctx, questionOrder)
 		if err != nil {
-			h.logger.Error("failed to get question", "error", err, "question_id", row.ID)
+			h.logger.Error("failed to get question images", "error", err)
 			return nil, err
 		}
-		questions = append(questions, *q)
+
+		for _, imageRow := range imageRows {
+			if qd, ok := questionsMap[imageRow.QuestionID]; ok {
+				url := fmt.Sprintf("%s/%s", h.imageBaseURL, imageRow.Path)
+				if qd.question.Images == nil {
+					urls := []string{url}
+					qd.question.Images = &urls
+				} else {
+					*qd.question.Images = append(*qd.question.Images, url)
+				}
+			}
+		}
+	}
+
+	questions := make([]adminapi.Question, 0, len(questionOrder))
+	for _, questionID := range questionOrder {
+		if qd, ok := questionsMap[questionID]; ok {
+			questions = append(questions, qd.question)
+		}
 	}
 
 	return adminapi.GetQuestions200JSONResponse{Questions: questions, Total: int(total)}, nil
