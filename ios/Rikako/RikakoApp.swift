@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct RikakoApp: App {
+    @State private var studyStore = StudyStore.shared
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(studyStore)
+                .preferredColorScheme(.light)
         }
     }
 }
