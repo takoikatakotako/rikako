@@ -116,14 +116,26 @@ export function WorkbookDetail({ id }: { id: number }) {
                     <TableRow key={q.id}>
                       <TableCell>{q.id}</TableCell>
                       <TableCell>
-                        <Link
-                          href={`/questions/${q.id}`}
-                          className="hover:underline"
-                        >
-                          {q.text.length > 60
-                            ? `${q.text.slice(0, 60)}...`
-                            : q.text}
-                        </Link>
+                        <div className="space-y-2">
+                          <Link
+                            href={`/questions/${q.id}`}
+                            className="hover:underline"
+                          >
+                            {q.text.length > 60
+                              ? `${q.text.slice(0, 60)}...`
+                              : q.text}
+                          </Link>
+                          {q.explanation && (
+                            <div className="rounded-md bg-muted/50 p-3">
+                              <p className="text-xs font-medium text-muted-foreground">
+                                解説
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-sm">
+                                {q.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">
