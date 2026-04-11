@@ -491,3 +491,57 @@ func TestGetQuestions_Pagination(t *testing.T) {
 		}
 	})
 }
+
+func TestGetQuestions_IncludesChoices(t *testing.T) {
+	h := newTestHandler()
+	ctx := context.Background()
+
+	beforeResp, err := h.GetQuestions(ctx, adminapi.GetQuestionsRequestObject{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	before := beforeResp.(adminapi.GetQuestions200JSONResponse)
+
+	createResp, err := h.CreateQuestion(ctx, adminapi.CreateQuestionRequestObject{
+		Body: &adminapi.CreateQuestionRequest{
+			Type: adminapi.CreateQuestionRequestTypeSingleChoice,
+			Text: "list question",
+			Choices: []adminapi.Choice{
+				{Text: "A", IsCorrect: false},
+				{Text: "B", IsCorrect: true},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	created := createResp.(adminapi.CreateQuestion201JSONResponse)
+
+	limit := 1
+	offset := before.Total
+	resp, err := h.GetQuestions(ctx, adminapi.GetQuestionsRequestObject{
+		Params: adminapi.GetQuestionsParams{Limit: &limit, Offset: &offset},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, ok := resp.(adminapi.GetQuestions200JSONResponse)
+	if !ok {
+		t.Fatalf("expected GetQuestions200JSONResponse, got %T", resp)
+	}
+	if len(got.Questions) == 0 {
+		t.Fatal("expected at least one question")
+	}
+	target := got.Questions[0]
+	if target.Id != created.Id {
+		t.Fatalf("expected created question %d, got %d", created.Id, target.Id)
+	}
+	if len(target.Choices) != 2 {
+		t.Fatalf("expected 2 choices, got %d", len(target.Choices))
+	}
+	if !target.Choices[1].IsCorrect {
+		t.Fatal("expected second choice to be correct")
+	}
+
+	testDB.ExecContext(ctx, `DELETE FROM questions WHERE id = $1`, created.Id)
+}
