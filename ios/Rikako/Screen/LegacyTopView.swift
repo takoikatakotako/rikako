@@ -13,7 +13,12 @@ struct LegacyTopView: View {
     }
 
     private var nextWorkbook: Workbook? {
-        workbooks.first { !studyStore.completedWorkbookIDs.contains($0.id) } ?? workbooks.first
+        if let selectedWorkbookID = studyStore.selectedWorkbookID,
+           let selectedWorkbook = workbooks.first(where: { $0.id == selectedWorkbookID }),
+           !studyStore.completedWorkbookIDs.contains(selectedWorkbookID) {
+            return selectedWorkbook
+        }
+        return workbooks.first { !studyStore.completedWorkbookIDs.contains($0.id) } ?? workbooks.first
     }
 
     var body: some View {

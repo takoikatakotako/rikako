@@ -15,6 +15,7 @@ struct RikakoApp: App {
         WindowGroup {
             ContentView()
                 .environment(studyStore)
+                .preferredColorScheme(.light)
         }
     }
 }

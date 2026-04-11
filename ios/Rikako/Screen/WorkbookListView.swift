@@ -73,4 +73,3 @@ struct WorkbookRow: View {
         WorkbookListView()
     }
 }
-
