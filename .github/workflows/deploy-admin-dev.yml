@@ -64,17 +64,19 @@ jobs:
             --function-name "$FUNCTION_NAME"
 
       - name: Smoke tests
+        env:
+          ADMIN_API_URL: https://admin.dev.rikako.jp/api
         run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config --function-name rikako-admin-api-development --query 'FunctionUrl' --output text)
+          ADMIN_BASIC_AUTH_USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
+          ADMIN_BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
           FAILED=0
 
           check_endpoint() {
             local name="$1"
             local url="$2"
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              --aws-sigv4 "aws:amz:${AWS_REGION}:lambda" \
-              --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
-              -H "x-amz-security-token: ${AWS_SESSION_TOKEN}" \
+              -L \
+              -u "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" \
               "$url")
             if [ "$STATUS" = "200" ]; then
               echo "✅ $name (HTTP $STATUS)"
@@ -85,9 +87,9 @@ jobs:
           }
 
           echo "Running smoke tests..."
-          check_endpoint "Admin API /health" "${FUNCTION_URL}health"
-          check_endpoint "Admin API /categories" "${FUNCTION_URL}categories"
-          check_endpoint "Admin API /workbooks" "${FUNCTION_URL}workbooks"
+          check_endpoint "Admin API /health" "${ADMIN_API_URL}/health"
+          check_endpoint "Admin API /categories" "${ADMIN_API_URL}/categories"
+          check_endpoint "Admin API /workbooks" "${ADMIN_API_URL}/workbooks"
 
           if [ "$FAILED" -eq 1 ]; then
             echo "::error::Smoke tests failed"
