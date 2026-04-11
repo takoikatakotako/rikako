@@ -1,5 +1,11 @@
 # iOS Onboarding
 
+## 関連ドキュメント
+
+- [README.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/README.md)
+- [architecture.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/architecture.md)
+- [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md)
+
 ## 目的
 - 初回起動時にキャラクターとアプリの世界観を伝える
 - 最初の学習導線として問題集を1つ選ばせる
@@ -111,6 +117,8 @@ flowchart TD
 - 3枚目だけ説明ではなく選択操作を含む
 - ログインはオンボーディング中に必須化しない
 - 選択した問題集は初期ホーム表示やおすすめ表示に利用できる
+- 現在の Root からの遷移は [navigation.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/navigation.md) を参照
+- レイヤ構成や責務分担は [architecture.md](/Users/jumpei.ono/MyProject/rikako/docs/ios/architecture.md) を参照
 
 ## 今後の検討
 - 3枚目の問題集選択を完全な別画面にするか、オンボーディング内の1ページとして見せるか

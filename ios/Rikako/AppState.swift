@@ -3,8 +3,8 @@ import Observation
 
 @Observable
 @MainActor
-final class StudyStore {
-    static let shared = StudyStore()
+final class AppState {
+    static let shared = AppState()
 
     var hasCompletedOnboarding: Bool
     var isLoggedIn: Bool

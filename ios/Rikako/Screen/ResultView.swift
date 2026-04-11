@@ -7,7 +7,7 @@ struct ResultView: View {
     let workbookId: Int64
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(StudyStore.self) private var studyStore
+    @Environment(AppState.self) private var appState
     @State private var didSubmit = false
 
     private var correctCount: Int {
@@ -44,7 +44,7 @@ struct ResultView: View {
         .task {
             guard !didSubmit else { return }
             didSubmit = true
-            studyStore.recordSession(workbookId: workbookId, questions: questions, answers: answers)
+            appState.recordSession(workbookId: workbookId, questions: questions, answers: answers)
         }
     }
 
@@ -147,6 +147,6 @@ struct ResultView: View {
             workbookTitle: "基礎化学",
             workbookId: 1
         )
-        .environment(StudyStore.shared)
+        .environment(AppState.shared)
     }
 }

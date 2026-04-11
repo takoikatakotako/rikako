@@ -73,7 +73,7 @@ struct WorkbookDetailView: View {
         isLoading = true
         errorMessage = nil
         do {
-            workbook = try await APIClient.shared.fetchWorkbookDetail(id: workbookID)
+            workbook = try await AppContainer.shared.learningUseCases.fetchWorkbookDetail.execute(id: workbookID)
             isLoading = false
         } catch {
             errorMessage = error.localizedDescription

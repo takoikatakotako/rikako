@@ -41,7 +41,7 @@ struct WorkbookListView: View {
         isLoading = true
         errorMessage = nil
         do {
-            workbooks = try await APIClient.shared.fetchWorkbooks()
+            workbooks = try await AppContainer.shared.learningUseCases.fetchWorkbooks.execute()
             isLoading = false
         } catch {
             errorMessage = error.localizedDescription
