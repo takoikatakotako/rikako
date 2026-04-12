@@ -26,13 +26,14 @@ struct SettingsView: View {
 
             NavigationLink(destination: ProfileView()) {
                 HStack(spacing: 14) {
-                    Image("top-rikako-standing")
-                        .resizable()
-                        .scaledToFit()
+                    Circle()
+                        .fill(Color("main").opacity(0.10))
                         .frame(width: 52, height: 52)
-                        .padding(4)
-                        .background(Color("main").opacity(0.10))
-                        .clipShape(Circle())
+                        .overlay(
+                            Image(systemName: "tortoise.fill")
+                                .font(.title3)
+                                .foregroundStyle(Color("main"))
+                        )
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員")

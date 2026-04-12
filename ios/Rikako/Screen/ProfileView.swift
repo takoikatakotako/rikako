@@ -11,9 +11,14 @@ struct ProfileView: View {
                 HStack {
                     Spacer()
                     VStack(spacing: 12) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 80))
-                            .foregroundStyle(Color.accentColor)
+                        Circle()
+                            .fill(Color("main").opacity(0.10))
+                            .frame(width: 92, height: 92)
+                            .overlay(
+                                Image(systemName: "tortoise.fill")
+                                    .font(.system(size: 40, weight: .bold))
+                                    .foregroundStyle(Color("main"))
+                            )
                         Text("ゲストユーザー")
                             .font(.headline)
                     }

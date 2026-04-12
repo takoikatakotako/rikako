@@ -26,13 +26,14 @@ struct MyPageView: View {
     private var profileCard: some View {
         NavigationLink(destination: ProfileView()) {
             HStack(spacing: 14) {
-                Image("top-rikako-standing")
-                    .resizable()
-                    .scaledToFit()
+                Circle()
+                    .fill(Color("main").opacity(0.10))
                     .frame(width: 58, height: 58)
-                    .padding(4)
-                    .background(Color("main").opacity(0.10))
-                    .clipShape(Circle())
+                    .overlay(
+                        Image(systemName: "tortoise.fill")
+                            .font(.title2)
+                            .foregroundStyle(Color("main"))
+                    )
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("かびごん")
