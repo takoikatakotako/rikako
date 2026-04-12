@@ -48,4 +48,34 @@ enum MockData {
             images: []
         ),
     ]
+
+    static let questionsWithImages: [Question] = [
+        Question(
+            id: 101,
+            type: .singleChoice,
+            text: "次の図の器具を使った実験で発生する気体として最も適切なものはどれか？",
+            choices: ["酸素", "水素", "二酸化炭素", "窒素"],
+            correct: 1,
+            explanation: "金属と酸の反応では水素が発生する。図のような装置では発生した気体を集めて性質を確認する。",
+            images: ["https://d1ovm6exq28tn1.cloudfront.net/1.png"]
+        ),
+        Question(
+            id: 102,
+            type: .singleChoice,
+            text: "この粒子モデルが表している状態として最も適切なものはどれか？",
+            choices: ["固体", "液体", "気体", "プラズマ"],
+            correct: 2,
+            explanation: "粒子どうしの間隔が大きく自由に動いているので気体のモデルと考えられる。",
+            images: ["https://d1ovm6exq28tn1.cloudfront.net/2.png"]
+        ),
+        Question(
+            id: 103,
+            type: .singleChoice,
+            text: "このグラフから読み取れる中和反応の関係として正しいものはどれか？",
+            choices: ["酸を加えるほどpHは下がる", "塩基を加えるほどpHは上がる", "中和点付近でpHが急変する", "pHは常に7で一定である"],
+            correct: 2,
+            explanation: "中和滴定の曲線では、中和点付近でpHが大きく変化するのが特徴である。",
+            images: ["https://d1ovm6exq28tn1.cloudfront.net/3.png"]
+        ),
+    ]
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @Observable
 @MainActor
@@ -8,6 +9,11 @@ final class MyPageViewModel {
         let id: String
         let title: String
         let symbol: String
+        let colorHexName: String
+
+        var color: Color {
+            Color(colorHexName)
+        }
     }
 
     struct FooterItem: Identifiable {
@@ -16,8 +22,8 @@ final class MyPageViewModel {
     }
 
     let shortcutItems: [ShortcutItem] = [
-        .init(id: "exam", title: "実力テスト", symbol: "trophy"),
-        .init(id: "ranking", title: "ランキング", symbol: "crown")
+        .init(id: "exam", title: "実力テスト", symbol: "trophy", colorHexName: "main"),
+        .init(id: "ranking", title: "ランキング", symbol: "crown", colorHexName: "correctPink")
     ]
 
     let footerItems: [FooterItem] = [
