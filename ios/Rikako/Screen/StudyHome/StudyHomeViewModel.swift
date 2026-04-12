@@ -66,12 +66,12 @@ final class StudyHomeViewModel {
 
     func chapters() -> [Chapter] {
         guard let workbookDetail else { return [] }
-        let size = 10
+        let chunkSize = 10
         let total = workbookDetail.questions.count
-        let chunkCount = Int(ceil(Double(total) / Double(size)))
+        let chunkCount = Int(ceil(Double(total) / Double(chunkSize)))
         return (0..<chunkCount).map { index in
-            let start = index * size
-            let end = min(start + size, total)
+            let start = index * chunkSize
+            let end = min(start + chunkSize, total)
             return Chapter(
                 id: index + 1,
                 title: "第\(index + 1)章 Lesson \(index + 1)",
@@ -79,5 +79,19 @@ final class StudyHomeViewModel {
                 isLocked: index > 0
             )
         }
+    }
+
+    func questions(for chapter: Chapter) -> [Question] {
+        guard let workbookDetail else { return [] }
+        let chunkSize = 10
+        let start = max((chapter.id - 1) * chunkSize, 0)
+        let end = min(start + chunkSize, workbookDetail.questions.count)
+        guard start < end else { return [] }
+        return Array(workbookDetail.questions[start..<end])
+    }
+
+    func firstChapterQuestions() -> [Question] {
+        guard let firstChapter = chapters().first else { return [] }
+        return questions(for: firstChapter)
     }
 }

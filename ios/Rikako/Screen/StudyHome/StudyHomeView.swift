@@ -167,7 +167,7 @@ struct StudyHomeView: View {
 
             if let workbookDetail = viewModel.workbookDetail {
                 NavigationLink(destination: QuizView(
-                    questions: workbookDetail.questions,
+                    questions: viewModel.firstChapterQuestions(),
                     workbookTitle: workbookDetail.title,
                     workbookId: workbookDetail.id
                 )) {
