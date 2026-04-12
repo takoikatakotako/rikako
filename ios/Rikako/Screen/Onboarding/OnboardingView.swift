@@ -2,10 +2,19 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
-    @State private var viewModel = OnboardingViewModel(
-        fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks
-    )
+    @State private var viewModel: OnboardingViewModel
     @State private var currentPage = 0
+
+    @MainActor
+    init() {
+        _viewModel = State(initialValue: OnboardingViewModel(
+            fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks
+        ))
+    }
+
+    init(viewModel: OnboardingViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
 
     var body: some View {
         TabView(selection: $currentPage) {
@@ -300,6 +309,6 @@ private struct OnboardingFinishPage: View {
 }
 
 #Preview {
-    OnboardingView()
-        .environment(AppState.shared)
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel())
+        .environment(AppState.preview())
 }

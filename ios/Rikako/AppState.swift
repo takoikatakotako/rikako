@@ -5,6 +5,7 @@ import Observation
 @MainActor
 final class AppState {
     static let shared = AppState()
+    static func preview() -> AppState { AppState() }
 
     var hasCompletedOnboarding: Bool
     var isLoggedIn: Bool
