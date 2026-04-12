@@ -4,6 +4,7 @@ import Observation
 @Observable
 @MainActor
 final class OnboardingViewModel {
+    var workbooks: [Workbook] = []
     var recommendedWorkbook: Workbook?
     var isLoading = true
     var errorMessage: String?
@@ -14,8 +15,13 @@ final class OnboardingViewModel {
         self.fetchWorkbooksUseCase = fetchWorkbooksUseCase
     }
 
+    var otherWorkbooks: [Workbook] {
+        guard let recommendedWorkbook else { return workbooks }
+        return workbooks.filter { $0.id != recommendedWorkbook.id }
+    }
+
     func loadRecommendedWorkbookIfNeeded() async {
-        guard recommendedWorkbook == nil else { return }
+        guard workbooks.isEmpty else { return }
         await loadRecommendedWorkbook()
     }
 
@@ -23,10 +29,17 @@ final class OnboardingViewModel {
         isLoading = true
         errorMessage = nil
         do {
-            recommendedWorkbook = try await fetchWorkbooksUseCase.execute().first
+            let fetchedWorkbooks = try await fetchWorkbooksUseCase.execute()
+            workbooks = fetchedWorkbooks
+            recommendedWorkbook = fetchedWorkbooks.first
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    func start(appState: AppState) {
+        let anonymousUserId = appState.anonymousUserId ?? "mock-anonymous-\(UUID().uuidString)"
+        appState.completeOnboarding(anonymousUserId: anonymousUserId)
     }
 }
