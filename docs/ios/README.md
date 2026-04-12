@@ -28,3 +28,8 @@
 - 学習記録やお知らせなどは一部仮実装
 
 詳細は各ドキュメントを参照してください。
+
+## 画像生成
+
+- オンボーディング画像の生成: `swift scripts/render_onboarding.swift`
+- 出力先: `docs/ios/images/onboarding/`

@@ -4,6 +4,7 @@ struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: OnboardingViewModel
     @State private var currentPage = 0
+    @State private var hasAgreedToTerms = false
 
     @MainActor
     init() {
@@ -33,10 +34,16 @@ struct OnboardingView: View {
             OnboardingAppIntroPage(currentPage: $currentPage)
                 .tag(3)
 
-            OnboardingFinishPage {
-                appState.completeOnboarding()
-            }
+            OnboardingTermsAgreementPage(
+                currentPage: $currentPage,
+                hasAgreedToTerms: $hasAgreedToTerms
+            )
             .tag(4)
+
+            OnboardingFinishPage {
+                viewModel.start(appState: appState)
+            }
+            .tag(5)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -110,18 +117,11 @@ private struct OnboardingContainer<Content: View>: View {
 
 private struct OnboardingCharacterArt: View {
     var body: some View {
-        VStack(spacing: 12) {
-            Image("top-rikako-standing")
-                .resizable()
-                .scaledToFit()
-                .frame(maxHeight: 260)
-
-            Image("top-app-logo")
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 180)
-        }
-        .padding(.horizontal, 24)
+        Image("top-rikako-standing")
+            .resizable()
+            .scaledToFit()
+            .frame(maxHeight: 260)
+            .padding(.horizontal, 24)
     }
 }
 
@@ -179,89 +179,144 @@ private struct OnboardingWorkbookSelectionPage: View {
     @Bindable var viewModel: OnboardingViewModel
 
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer(minLength: 24)
+        ScrollView {
+            VStack(spacing: 20) {
+                Spacer(minLength: 24)
 
-            VStack(spacing: 10) {
-                Text("最初の問題集を選ぼう")
-                    .font(.system(size: 28, weight: .bold))
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 10) {
+                    Text("最初の問題集を選ぼう")
+                        .font(.system(size: 28, weight: .bold))
+                        .multilineTextAlignment(.center)
 
-                Text("おすすめの1冊を用意したよ。まずはここから始めてみよう！")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            if viewModel.isLoading {
-                Spacer()
-                ProgressView("問題集を読み込み中...")
-                Spacer()
-            } else if let errorMessage = viewModel.errorMessage {
-                Spacer()
-                ContentUnavailableView {
-                    Label("読み込みエラー", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(errorMessage)
-                } actions: {
-                    Button("再読み込み") {
-                        Task { await viewModel.loadRecommendedWorkbook() }
-                    }
+                    Text("おすすめの1冊を用意したよ。まずはここから始めてみよう！")
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
-                Spacer()
-            } else if let recommendedWorkbook = viewModel.recommendedWorkbook {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("おすすめ")
-                        .font(.headline)
-                        .foregroundStyle(Color("main"))
 
-                    Button {
-                        appState.selectWorkbook(recommendedWorkbook.id)
-                        withAnimation { currentPage = 3 }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(recommendedWorkbook.title)
-                                .font(.title3.bold())
-                            Text(recommendedWorkbook.description)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
-                            HStack {
-                                Text("\(recommendedWorkbook.questionCount)問")
-                                    .font(.caption.bold())
+                if viewModel.isLoading {
+                    Spacer()
+                    ProgressView("問題集を読み込み中...")
+                    Spacer()
+                } else if let errorMessage = viewModel.errorMessage {
+                    Spacer()
+                    ContentUnavailableView {
+                        Label("読み込みエラー", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(errorMessage)
+                    } actions: {
+                        Button("再読み込み") {
+                            Task { await viewModel.loadRecommendedWorkbook() }
+                        }
+                    }
+                    Spacer()
+                } else if let recommendedWorkbook = viewModel.recommendedWorkbook {
+                    VStack(alignment: .leading, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("おすすめ")
+                                .font(.headline)
+                                .foregroundStyle(Color("main"))
+
+                            workbookButton(for: recommendedWorkbook, emphasizesPrimary: true)
+                        }
+
+                        if !viewModel.otherWorkbooks.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("その他")
+                                    .font(.headline)
                                     .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(appState.selectedWorkbookID == recommendedWorkbook.id ? "選択中" : "この問題集にする")
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(Color("main"))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color("main").opacity(0.12))
-                                    .clipShape(Capsule())
+
+                                VStack(spacing: 12) {
+                                    ForEach(viewModel.otherWorkbooks) { workbook in
+                                        workbookButton(for: workbook, emphasizesPrimary: false)
+                                    }
+                                }
                             }
                         }
-                        .padding(20)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.secondarySystemBackground))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(Color("main").opacity(0.2), lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 24))
                     }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 24)
+                    .padding(.horizontal, 24)
 
-                Spacer()
-            } else {
-                Spacer()
-                ContentUnavailableView("問題集がありません", systemImage: "book")
-                Spacer()
+                    Spacer()
+                } else {
+                    Spacer()
+                    ContentUnavailableView("問題集がありません", systemImage: "book")
+                    Spacer()
+                }
             }
         }
         .task {
             await viewModel.loadRecommendedWorkbookIfNeeded()
         }
+        .background(PageSwipeLock(isEnabled: true))
+    }
+
+    private func workbookButton(for workbook: Workbook, emphasizesPrimary: Bool) -> some View {
+        Button {
+            appState.selectWorkbook(workbook.id)
+            withAnimation { currentPage = 3 }
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(workbook.title)
+                    .font(emphasizesPrimary ? .title3.bold() : .headline)
+
+                Text(workbook.description)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(emphasizesPrimary ? nil : 2)
+
+                HStack {
+                    Text("\(workbook.questionCount)問")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Text("この問題集で始める")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Color("main"))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color("main").opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(Color("main").opacity(emphasizesPrimary ? 0.2 : 0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct PageSwipeLock: UIViewRepresentable {
+    let isEnabled: Bool
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        DispatchQueue.main.async {
+            updateScrollState(from: view)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            updateScrollState(from: uiView)
+        }
+    }
+
+    private func updateScrollState(from view: UIView) {
+        guard let scrollView = sequence(first: view.superview, next: { $0?.superview })
+            .first(where: { $0 is UIScrollView }) as? UIScrollView else {
+            return
+        }
+
+        scrollView.isScrollEnabled = !isEnabled
     }
 }
 
@@ -294,17 +349,128 @@ private struct OnboardingAppIntroPage: View {
     }
 }
 
+private struct OnboardingTermsAgreementPage: View {
+    @Binding var currentPage: Int
+    @Binding var hasAgreedToTerms: Bool
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 24)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color("main").opacity(0.10))
+                    .frame(width: 112, height: 112)
+                Image(systemName: "checkmark.seal.text.page")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Color("main"))
+            }
+
+            VStack(spacing: 12) {
+                Text("利用規約に同意して始めよう")
+                    .font(.system(size: 30, weight: .bold))
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 8) {
+                    Text("アプリを使い始める前に、利用規約への同意をお願いしています。")
+                    Text("内容を確認したうえで、同意して次へ進んでください。")
+                }
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            }
+
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("以下の内容を確認できます。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Link("利用規約を確認する", destination: Links.termsOfService)
+                        .font(.subheadline.weight(.semibold))
+
+                    Link("プライバシーポリシーを確認する", destination: Links.privacyPolicy)
+                        .font(.subheadline.weight(.semibold))
+                }
+
+                Toggle(isOn: $hasAgreedToTerms) {
+                    Text("利用規約に同意します")
+                        .font(.headline)
+                }
+                .toggleStyle(.switch)
+
+                Text("リンク先を確認したうえで、同意して次へ進んでください。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(20)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 24)
+
+            Spacer()
+        }
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                withAnimation { currentPage = 5 }
+            } label: {
+                Text("同意して次へ")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(hasAgreedToTerms ? Color("main") : Color(.systemGray4))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .disabled(!hasAgreedToTerms)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 56)
+            .background(Color(.systemBackground))
+        }
+    }
+}
+
 private struct OnboardingFinishPage: View {
     let action: () -> Void
 
     var body: some View {
-        OnboardingContainer(
-            title: "それではさっそく勉強していこう！",
-            messageLines: ["一緒に頑張ろうね！"],
-            primaryButtonTitle: "はじめる",
-            artwork: { OnboardingCharacterArt() },
-            action: action
-        )
+        VStack(spacing: 24) {
+            Spacer(minLength: 24)
+
+            OnboardingCharacterArt()
+
+            VStack(spacing: 12) {
+                Text("それではさっそく勉強していこう！")
+                    .font(.system(size: 30, weight: .bold))
+                    .multilineTextAlignment(.center)
+
+                Text("一緒に頑張ろうね！")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 24)
+
+            Spacer()
+
+            Button(action: action) {
+                Text("はじめる")
+                    .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color("main"))
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 48)
+        }
     }
 }
 

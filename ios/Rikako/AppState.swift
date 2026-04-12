@@ -5,19 +5,30 @@ import Observation
 @MainActor
 final class AppState {
     static let shared = AppState()
-    static func preview() -> AppState { AppState() }
+    static func preview() -> AppState {
+        AppState(userDefaults: UserDefaults(suiteName: "jp.conol.rikako.preview.\(UUID().uuidString)")!)
+    }
+
+    private enum DefaultsKey {
+        static let hasCompletedOnboarding = "jp.conol.rikako.hasCompletedOnboarding"
+        static let anonymousUserId = "jp.conol.rikako.anonymousUserId"
+    }
 
     var hasCompletedOnboarding: Bool
     var isLoggedIn: Bool
+    var anonymousUserId: String?
     var selectedWorkbookID: Int64?
     private(set) var totalAnswered: Int
     private(set) var totalCorrect: Int
     private(set) var completedWorkbookIDs: Set<Int64>
     private(set) var wrongQuestions: [Question]
+    private let userDefaults: UserDefaults
 
-    private init() {
-        self.hasCompletedOnboarding = false
+    private init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
         self.isLoggedIn = false
+        self.anonymousUserId = userDefaults.string(forKey: DefaultsKey.anonymousUserId)
         self.selectedWorkbookID = nil
         self.totalAnswered = 0
         self.totalCorrect = 0
@@ -31,8 +42,11 @@ final class AppState {
         return "\(percentage)%"
     }
 
-    func completeOnboarding() {
+    func completeOnboarding(anonymousUserId: String) {
+        self.anonymousUserId = anonymousUserId
         hasCompletedOnboarding = true
+        userDefaults.set(anonymousUserId, forKey: DefaultsKey.anonymousUserId)
+        userDefaults.set(true, forKey: DefaultsKey.hasCompletedOnboarding)
     }
 
     func setLoggedIn(_ value: Bool) {
