@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MyPageView: View {
+    @Environment(AppState.self) private var appState
     @State private var viewModel = MyPageViewModel()
 
     var body: some View {
@@ -25,20 +26,19 @@ struct MyPageView: View {
     private var profileCard: some View {
         NavigationLink(destination: ProfileView()) {
             HStack(spacing: 14) {
-                Circle()
-                    .fill(Color.orange.opacity(0.18))
+                Image("top-rikako-standing")
+                    .resizable()
+                    .scaledToFit()
                     .frame(width: 58, height: 58)
-                    .overlay(
-                        Image(systemName: "tortoise.fill")
-                            .font(.title2)
-                            .foregroundStyle(Color.orange)
-                    )
+                    .padding(4)
+                    .background(Color("main").opacity(0.10))
+                    .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("かびごん")
                         .font(.headline.bold())
                         .foregroundStyle(.primary)
-                    Text("無料会員")
+                    Text(appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -49,8 +49,18 @@ struct MyPageView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(16)
-            .background(Color.white)
+            .background(
+                LinearGradient(
+                    colors: [Color.white, Color("main").opacity(0.06)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color("main").opacity(0.10), lineWidth: 1.5)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -58,7 +68,7 @@ struct MyPageView: View {
     private var shortcutButtons: some View {
         HStack(spacing: 12) {
             ForEach(viewModel.shortcutItems) { item in
-                shortcutButton(title: item.title, symbol: item.symbol)
+                shortcutButton(title: item.title, symbol: item.symbol, accentColor: item.color)
             }
         }
     }
@@ -68,6 +78,7 @@ struct MyPageView: View {
             menuLinkRow(
                 symbol: "gearshape",
                 title: "設定",
+                accentColor: Color("main"),
                 destination: AnyView(SettingsView())
             )
             Divider().padding(.leading, 48)
@@ -75,30 +86,36 @@ struct MyPageView: View {
                 symbol: "bell",
                 title: "お知らせ",
                 badge: "12",
+                accentColor: .orange,
                 destination: AnyView(NotificationsView())
             )
             Divider().padding(.leading, 48)
             menuLinkRow(
                 symbol: "questionmark.bubble",
                 title: "よくある質問・お問い合わせ",
+                accentColor: .blue,
                 destination: AnyView(HelpAndSupportView())
             )
         }
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color("main").opacity(0.08), lineWidth: 1)
+        )
     }
 
     private var promoRow: some View {
         HStack(spacing: 10) {
             promoCard(
-                title: "春のチャレンジ\n応援SALE",
-                subtitle: "Premium 55% OFF",
-                color: Color.pink.opacity(0.16)
+                title: "今日のおすすめ\n10問学習を続けよう",
+                subtitle: "学習タブへ",
+                color: Color("main").opacity(0.16)
             )
             promoCard(
-                title: "メンバー募集中\n一緒に開発\nしませんか？",
-                subtitle: "採用サイトへ",
-                color: Color.blue.opacity(0.12)
+                title: "理科子をもっと\n使いやすくする",
+                subtitle: "お知らせを見る",
+                color: Color.orange.opacity(0.12)
             )
         }
     }
@@ -114,29 +131,36 @@ struct MyPageView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func shortcutButton(title: String, symbol: String) -> some View {
+    private func shortcutButton(title: String, symbol: String, accentColor: Color) -> some View {
         Button {} label: {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
+                    .foregroundStyle(accentColor)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
             }
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.white)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
     }
 
-    private func menuLinkRow(symbol: String, title: String, badge: String? = nil, destination: AnyView) -> some View {
+    private func menuLinkRow(symbol: String, title: String, badge: String? = nil, accentColor: Color, destination: AnyView) -> some View {
         NavigationLink(destination: destination) {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.title3)
-                    .foregroundStyle(.primary)
-                    .frame(width: 28)
+                    .foregroundStyle(accentColor)
+                    .frame(width: 28, height: 28)
+                    .background(accentColor.opacity(0.10))
+                    .clipShape(Circle())
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(.primary)
@@ -172,6 +196,10 @@ struct MyPageView: View {
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
         .background(color)
         .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.white.opacity(0.6), lineWidth: 1)
+        )
     }
 }
 

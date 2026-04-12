@@ -48,7 +48,7 @@ struct StudyHomeView: View {
                     Button {
                         viewModel.isShowingWorkbookPicker = true
                     } label: {
-                        Image(systemName: "gearshape")
+                        Image(systemName: "books.vertical.fill")
                             .font(.headline)
                     }
                     .accessibilityLabel("問題集を変更")
