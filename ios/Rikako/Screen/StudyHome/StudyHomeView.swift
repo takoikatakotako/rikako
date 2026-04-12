@@ -34,8 +34,6 @@ struct StudyHomeView: View {
                             }
 
                             chapterPanel
-
-                            workbookPickerSection
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -45,6 +43,20 @@ struct StudyHomeView: View {
             }
             .navigationTitle("学習")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        viewModel.isShowingWorkbookPicker = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.headline)
+                    }
+                    .accessibilityLabel("問題集を変更")
+                }
+            }
+        }
+        .sheet(isPresented: $viewModel.isShowingWorkbookPicker) {
+            workbookPickerSheet
         }
         .task {
             await loadInitialState()
@@ -118,18 +130,6 @@ struct StudyHomeView: View {
                             .background(Color.white.opacity(0.18))
                             .foregroundStyle(.white)
                             .clipShape(Capsule())
-
-                        Button {
-                            viewModel.isShowingWorkbookPicker = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text("詳細情報")
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.bold())
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                        }
                     }
 
                     Spacer()
@@ -177,14 +177,14 @@ struct StudyHomeView: View {
                         Text(viewModel.chapters().first?.title ?? "Lesson 1")
                             .font(.caption)
                     }
-                    .foregroundStyle(.black.opacity(0.82))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
-                    .background(Color.orange)
+                    .background(Color("main"))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.orange.opacity(0.75), lineWidth: 4)
+                            .stroke(Color("main").opacity(0.75), lineWidth: 4)
                     )
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
@@ -246,24 +246,10 @@ struct StudyHomeView: View {
         .padding(.vertical, 14)
     }
 
-    private var workbookPickerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("教材を切り替える")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button(viewModel.isShowingWorkbookPicker ? "閉じる" : "開く") {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        viewModel.isShowingWorkbookPicker.toggle()
-                    }
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color("main"))
-            }
-
-            if viewModel.isShowingWorkbookPicker {
-                VStack(spacing: 10) {
+    private var workbookPickerSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 12) {
                     ForEach(viewModel.workbooks) { workbook in
                         Button {
                             appState.selectWorkbook(workbook.id)
@@ -275,6 +261,11 @@ struct StudyHomeView: View {
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(.primary)
                                         .multilineTextAlignment(.leading)
+                                    Text(workbook.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.leading)
+                                        .lineLimit(2)
                                     Text("\(workbook.questionCount)問")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -293,6 +284,17 @@ struct StudyHomeView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("問題集を変更")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") {
+                        viewModel.isShowingWorkbookPicker = false
                     }
                 }
             }

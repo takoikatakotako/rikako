@@ -36,6 +36,7 @@ struct QuizView: View {
         .navigationTitle("Q\(currentIndex + 1) / \(questions.count)")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(showExplanation)
+        .toolbar(.hidden, for: .tabBar)
         .navigationDestination(isPresented: $showResult) {
             ResultView(questions: questions, answers: answers, workbookTitle: workbookTitle, workbookId: workbookId)
         }

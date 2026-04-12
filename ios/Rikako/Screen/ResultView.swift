@@ -41,6 +41,7 @@ struct ResultView: View {
         .navigationTitle("結果")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .tabBar)
         .task {
             guard !didSubmit else { return }
             didSubmit = true
