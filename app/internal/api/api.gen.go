@@ -29,6 +29,12 @@ func (e QuestionType) Valid() bool {
 	}
 }
 
+// AnonymousSignInResponse defines model for AnonymousSignInResponse.
+type AnonymousSignInResponse struct {
+	// IdentityId Cognito Identity ID
+	IdentityId string `json:"identityId"`
+}
+
 // AnswerItem defines model for AnswerItem.
 type AnswerItem struct {
 	QuestionId     int64 `json:"questionId"`
@@ -164,6 +170,12 @@ type SubmitAnswersParams struct {
 	XDeviceID DeviceID `json:"X-Device-ID"`
 }
 
+// AnonymousSignOutParams defines parameters for AnonymousSignOut.
+type AnonymousSignOutParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // GetCategoriesParams defines parameters for GetCategories.
 type GetCategoriesParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -202,6 +214,12 @@ type ServerInterface interface {
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx echo.Context, params SubmitAnswersParams) error
+	// 匿名サインイン
+	// (POST /auth/anonymous/sign-in)
+	AnonymousSignIn(ctx echo.Context) error
+	// 匿名サインアウト
+	// (POST /auth/anonymous/sign-out)
+	AnonymousSignOut(ctx echo.Context, params AnonymousSignOutParams) error
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx echo.Context, params GetCategoriesParams) error
@@ -270,6 +288,46 @@ func (w *ServerInterfaceWrapper) SubmitAnswers(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.SubmitAnswers(ctx, params)
+	return err
+}
+
+// AnonymousSignIn converts echo context to params.
+func (w *ServerInterfaceWrapper) AnonymousSignIn(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AnonymousSignIn(ctx)
+	return err
+}
+
+// AnonymousSignOut converts echo context to params.
+func (w *ServerInterfaceWrapper) AnonymousSignOut(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AnonymousSignOutParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.AnonymousSignOut(ctx, params)
 	return err
 }
 
@@ -479,6 +537,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/", wrapper.Root)
 	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
+	router.POST(baseURL+"/auth/anonymous/sign-in", wrapper.AnonymousSignIn)
+	router.POST(baseURL+"/auth/anonymous/sign-out", wrapper.AnonymousSignOut)
 	router.GET(baseURL+"/categories", wrapper.GetCategories)
 	router.GET(baseURL+"/categories/:categoryId", wrapper.GetCategory)
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
@@ -527,6 +587,56 @@ func (response SubmitAnswers200JSONResponse) VisitSubmitAnswersResponse(w http.R
 type SubmitAnswers400JSONResponse Error
 
 func (response SubmitAnswers400JSONResponse) VisitSubmitAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AnonymousSignInRequestObject struct {
+}
+
+type AnonymousSignInResponseObject interface {
+	VisitAnonymousSignInResponse(w http.ResponseWriter) error
+}
+
+type AnonymousSignIn200JSONResponse AnonymousSignInResponse
+
+func (response AnonymousSignIn200JSONResponse) VisitAnonymousSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AnonymousSignIn500JSONResponse Error
+
+func (response AnonymousSignIn500JSONResponse) VisitAnonymousSignInResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AnonymousSignOutRequestObject struct {
+	Params AnonymousSignOutParams
+}
+
+type AnonymousSignOutResponseObject interface {
+	VisitAnonymousSignOutResponse(w http.ResponseWriter) error
+}
+
+type AnonymousSignOut204Response struct {
+}
+
+func (response AnonymousSignOut204Response) VisitAnonymousSignOutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type AnonymousSignOut400JSONResponse Error
+
+func (response AnonymousSignOut400JSONResponse) VisitAnonymousSignOutResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
@@ -739,6 +849,12 @@ type StrictServerInterface interface {
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx context.Context, request SubmitAnswersRequestObject) (SubmitAnswersResponseObject, error)
+	// 匿名サインイン
+	// (POST /auth/anonymous/sign-in)
+	AnonymousSignIn(ctx context.Context, request AnonymousSignInRequestObject) (AnonymousSignInResponseObject, error)
+	// 匿名サインアウト
+	// (POST /auth/anonymous/sign-out)
+	AnonymousSignOut(ctx context.Context, request AnonymousSignOutRequestObject) (AnonymousSignOutResponseObject, error)
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx context.Context, request GetCategoriesRequestObject) (GetCategoriesResponseObject, error)
@@ -825,6 +941,54 @@ func (sh *strictHandler) SubmitAnswers(ctx echo.Context, params SubmitAnswersPar
 		return err
 	} else if validResponse, ok := response.(SubmitAnswersResponseObject); ok {
 		return validResponse.VisitSubmitAnswersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AnonymousSignIn operation middleware
+func (sh *strictHandler) AnonymousSignIn(ctx echo.Context) error {
+	var request AnonymousSignInRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AnonymousSignIn(ctx.Request().Context(), request.(AnonymousSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnonymousSignIn")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AnonymousSignInResponseObject); ok {
+		return validResponse.VisitAnonymousSignInResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AnonymousSignOut operation middleware
+func (sh *strictHandler) AnonymousSignOut(ctx echo.Context, params AnonymousSignOutParams) error {
+	var request AnonymousSignOutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AnonymousSignOut(ctx.Request().Context(), request.(AnonymousSignOutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnonymousSignOut")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AnonymousSignOutResponseObject); ok {
+		return validResponse.VisitAnonymousSignOutResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

@@ -8,6 +8,8 @@ module "lambda" {
   timeout       = 30
   memory_size   = 512
 
+  cognito_identity_pool_arn = module.cognito_identity.identity_pool_arn
+
   environment_variables = {
     DATABASE_URL                     = neon_project.default.connection_uri
     PORT                             = "8080"
