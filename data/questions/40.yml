@@ -13,4 +13,8 @@ text: |
   | ウ | SLA | SCM |
   | エ | SLA | SLM |
 choices:
+  - "ア"
+  - "イ"
+  - "ウ"
+  - "エ"
 correct: 3

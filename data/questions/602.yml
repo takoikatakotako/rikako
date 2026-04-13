@@ -13,4 +13,8 @@ text: |
   | ウ | 低い | GHz |
   | エ | 低い | MHz |
 choices:
+  - "ア"
+  - "イ"
+  - "ウ"
+  - "エ"
 correct: 1

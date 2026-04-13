@@ -92,6 +92,8 @@ resource "aws_cloudfront_function" "admin_api_auth_rewrite" {
           headers: { 'www-authenticate': { value: 'Basic realm="Admin"' } },
         };
       }
+      // OAC SigV4署名と競合するため、Basic Auth確認後にAuthorizationヘッダーを削除
+      delete request.headers.authorization;
       request.uri = request.uri.replace(/^\/api/, '');
       if (request.uri === '') {
         request.uri = '/';
@@ -164,17 +166,8 @@ resource "aws_cloudfront_distribution" "admin" {
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
 
-    forwarded_values {
-      query_string = true
-      headers      = ["Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"]
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac" # AllViewerExceptHostHeader
 
     function_association {
       event_type   = "viewer-request"

@@ -25,25 +25,44 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// CloudFront OAC + Lambda Function URL ではPOST/PUTのペイロード署名が必要。
+// リクエストボディのSHA-256ハッシュを x-amz-content-sha256 ヘッダーに含める。
+async function computePayloadHash(payload: string): Promise<string> {
+  const data = new TextEncoder().encode(payload);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
   return handleResponse<T>(response);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const jsonBody = JSON.stringify(body);
+  const payloadHash = await computePayloadHash(jsonBody);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      "x-amz-content-sha256": payloadHash,
+    },
+    body: jsonBody,
   });
   return handleResponse<T>(response);
 }
 
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const jsonBody = JSON.stringify(body);
+  const payloadHash = await computePayloadHash(jsonBody);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      "x-amz-content-sha256": payloadHash,
+    },
+    body: jsonBody,
   });
   return handleResponse<T>(response);
 }
