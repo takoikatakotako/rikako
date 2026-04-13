@@ -69,9 +69,6 @@ go run ./cmd/datasync -data ../data -env local plan
 ### dev環境（Neon）
 
 ```bash
-# 事前にSSOログイン
-aws sso login --profile rikako-development-sso
-
 # plan
 go run ./cmd/datasync -data ../data -env dev plan
 
@@ -80,6 +77,7 @@ go run ./cmd/datasync -data ../data -env dev apply
 ```
 
 AWS SSM Parameter Store (`/rikako/dev/database-url`) からNeonの接続URLを取得して接続します。
+事前に `AWS_PROFILE` の設定と `aws sso login` が必要です（[AWS CLI セットアップ](aws-setup.md) 参照）。
 
 ### DATABASE_URL 直接指定
 

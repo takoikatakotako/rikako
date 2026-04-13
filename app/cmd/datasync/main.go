@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	localDSN       = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
-	devSSMParam    = "/rikako/dev/database-url"
-	devAWSProfile  = "rikako-development-sso"
+	localDSN    = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
+	devSSMParam = "/rikako/dev/database-url"
 )
 
 func main() {
@@ -32,12 +31,15 @@ Subcommands:
 
 Environments:
   local   ローカルPostgreSQL (localhost:5432)
-  dev     Neon dev環境 (SSMからURL取得、要: aws sso login --profile %s)
+  dev     Neon dev環境 (SSMからURL取得)
+
+ローカルからdev環境に接続する場合:
+  AWS_PROFILE=rikako-development-sso datasync -data ../data -env dev plan
 
 DATABASE_URL環境変数が設定されている場合は--envより優先されます。
 
 Flags:
-`, devAWSProfile)
+`)
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -114,20 +116,18 @@ func resolveDSN(env string) (string, error) {
 	case "local":
 		return localDSN, nil
 	case "dev":
-		return fetchDSNFromSSM(devAWSProfile, devSSMParam)
+		return fetchDSNFromSSM(devSSMParam)
 	default:
 		return "", fmt.Errorf("unknown environment: %s", env)
 	}
 }
 
-func fetchDSNFromSSM(profile, paramName string) (string, error) {
+func fetchDSNFromSSM(paramName string) (string, error) {
 	ctx := context.Background()
 
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile(profile),
-	)
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return "", fmt.Errorf("AWS config load failed (profile: %s): %w\nRun: aws sso login --profile %s", profile, err, profile)
+		return "", fmt.Errorf("AWS config load failed: %w", err)
 	}
 
 	client := ssm.NewFromConfig(cfg)
@@ -136,7 +136,7 @@ func fetchDSNFromSSM(profile, paramName string) (string, error) {
 		WithDecryption: boolPtr(true),
 	})
 	if err != nil {
-		return "", fmt.Errorf("SSM GetParameter failed (%s): %w\nRun: aws sso login --profile %s", paramName, err, profile)
+		return "", fmt.Errorf("SSM GetParameter failed (%s): %w", paramName, err)
 	}
 
 	return *out.Parameter.Value, nil

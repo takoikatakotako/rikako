@@ -82,3 +82,4 @@ module "lambda_admin" {
     ManagedBy   = "terraform"
   }
 }
+
