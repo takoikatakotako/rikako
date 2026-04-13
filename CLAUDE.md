@@ -139,16 +139,13 @@ cd app && go test ./internal/admin/
 
 ### Terraform操作
 ```bash
-# SSO ログイン（dev環境）
-aws sso login --profile rikako-development-sso
-
-# SSO ログイン（shared環境）
-aws sso login --profile rikako-shared-sso
+# 事前に AWS_PROFILE を設定して SSO ログイン（docs/aws-setup.md 参照）
+# export AWS_PROFILE=rikako-development-sso && aws sso login
 
 # Plan/Apply（dev環境）
 cd terraform/environments/dev
-AWS_PROFILE=rikako-development-sso terraform plan
-AWS_PROFILE=rikako-development-sso terraform apply
+terraform plan
+terraform apply
 ```
 
 ### ドキュメント生成

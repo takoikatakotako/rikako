@@ -1,5 +1,15 @@
 # 運用ランブック
 
+> **前提**: AWS CLI プロファイルの設定が必要です。[AWS CLI セットアップ](aws-setup.md) を参照してください。
+>
+> 以降のコマンドは事前に `aws sso login` 済みで `AWS_PROFILE` が設定されている前提です。
+> ```bash
+> # dev環境
+> export AWS_PROFILE=rikako-development-sso
+> # shared環境（ECR操作時）
+> export AWS_PROFILE=rikako-shared-sso
+> ```
+
 ## 環境情報
 
 | 項目 | dev環境 |
@@ -17,8 +27,8 @@
 | CloudWatch Dashboard | `rikako-dev` |
 | AWSアカウント (dev) | 197865631794 |
 | AWSアカウント (shared) | 579039992557 |
-| AWS Profile (dev) | `rikako-development-sso` |
-| AWS Profile (shared) | `rikako-shared-sso` |
+| AWS Profile (dev) | [セットアップ参照](aws-setup.md) |
+| AWS Profile (shared) | [セットアップ参照](aws-setup.md) |
 
 ---
 
@@ -71,22 +81,20 @@ gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref 
 ECRのイメージタグ `dev` は上書き可能。直前のイメージに戻すには:
 
 ```bash
-aws sso login --profile rikako-development-sso
-
 # 直近のイメージダイジェストを確認
-AWS_PROFILE=rikako-development-sso aws ecr describe-images \
+aws ecr describe-images \
   --registry-id 579039992557 \
   --repository-name rikako-api \
   --query 'imageDetails | sort_by(@, &imagePushedAt) | [-5:].[imagePushedAt,imageDigest]' \
   --output table
 
 # 特定のダイジェストに戻す（公開API）
-AWS_PROFILE=rikako-development-sso aws lambda update-function-code \
+aws lambda update-function-code \
   --function-name rikako-api-development \
   --image-uri 579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-api@sha256:<digest>
 
 # 管理APIも同様
-AWS_PROFILE=rikako-development-sso aws lambda update-function-code \
+aws lambda update-function-code \
   --function-name rikako-admin-api-development \
   --image-uri 579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api@sha256:<digest>
 ```
@@ -161,7 +169,7 @@ cd app
 go run ./cmd/datasync -data ../data plan     # 差分確認
 go run ./cmd/datasync -data ../data apply    # 反映
 
-# dev環境（要: aws sso login --profile rikako-development-sso）
+# dev環境
 go run ./cmd/datasync -data ../data -env dev plan
 go run ./cmd/datasync -data ../data -env dev apply
 ```
@@ -171,13 +179,11 @@ go run ./cmd/datasync -data ../data -env dev apply
 ### 画像のS3アップロード
 
 ```bash
-aws sso login --profile rikako-development-sso
-
 # アップロード
-AWS_PROFILE=rikako-development-sso aws s3 sync data/images/ s3://rikako-images-development/ --exclude ".DS_Store"
+aws s3 sync data/images/ s3://rikako-images-development/ --exclude ".DS_Store"
 
 # 確認
-AWS_PROFILE=rikako-development-sso aws s3 ls s3://rikako-images-development/ | wc -l
+aws s3 ls s3://rikako-images-development/ | wc -l
 ```
 
 ### importer（全件再投入）
@@ -197,8 +203,6 @@ cd app && go run ./cmd/importer -data ../data
 **症状**: APIがエラーを返す、タイムアウトする
 
 ```bash
-aws sso login --profile rikako-development-sso
-
 # 1. ヘルスチェック
 curl -s https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/health
 
@@ -206,10 +210,10 @@ curl -s https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aw
 # https://ap-northeast-1.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards/dashboard/rikako-dev
 
 # 3. Lambda最新ログを確認
-AWS_PROFILE=rikako-development-sso aws logs tail /aws/lambda/rikako-api-development --since 30m
+aws logs tail /aws/lambda/rikako-api-development --since 30m
 
 # 4. エラーのみ抽出
-AWS_PROFILE=rikako-development-sso aws logs filter-log-events \
+aws logs filter-log-events \
   --log-group-name /aws/lambda/rikako-api-development \
   --start-time $(date -v-1H +%s000) \
   --filter-pattern "ERROR"
@@ -226,8 +230,7 @@ AWS_PROFILE=rikako-development-sso aws logs filter-log-events \
 # https://console.neon.tech/
 
 # 2. 接続テスト
-AWS_PROFILE=rikako-development-sso AWS_REGION=ap-northeast-1 \
-  go run ./cmd/datasync -data ../data -env dev plan
+go run ./cmd/datasync -data ../data -env dev plan
 
 # 3. Neonのステータスページを確認
 # https://neonstatus.com/
@@ -246,10 +249,10 @@ AWS_PROFILE=rikako-development-sso AWS_REGION=ap-northeast-1 \
 curl -I https://d1ovm6exq28tn1.cloudfront.net/1.png
 
 # 2. S3直接確認
-AWS_PROFILE=rikako-development-sso aws s3 ls s3://rikako-images-development/1.png
+aws s3 ls s3://rikako-images-development/1.png
 
 # 3. CloudFrontキャッシュが古い場合は無効化
-AWS_PROFILE=rikako-development-sso aws cloudfront create-invalidation \
+aws cloudfront create-invalidation \
   --distribution-id E1LVBAGQ7YS8CR \
   --paths "/*"
 ```
@@ -261,22 +264,20 @@ AWS_PROFILE=rikako-development-sso aws cloudfront create-invalidation \
 ### CloudWatch Logs
 
 ```bash
-aws sso login --profile rikako-development-sso
-
 # 直近30分のログ（公開API）
-AWS_PROFILE=rikako-development-sso aws logs tail /aws/lambda/rikako-api-development --since 30m --follow
+aws logs tail /aws/lambda/rikako-api-development --since 30m --follow
 
 # 直近30分のログ（管理API）
-AWS_PROFILE=rikako-development-sso aws logs tail /aws/lambda/rikako-admin-api-development --since 30m --follow
+aws logs tail /aws/lambda/rikako-admin-api-development --since 30m --follow
 
 # 特定パターンで検索
-AWS_PROFILE=rikako-development-sso aws logs filter-log-events \
+aws logs filter-log-events \
   --log-group-name /aws/lambda/rikako-api-development \
   --start-time $(date -v-1H +%s000) \
   --filter-pattern "ERROR"
 
 # 特定リクエストの調査（パスで絞り込み）
-AWS_PROFILE=rikako-development-sso aws logs filter-log-events \
+aws logs filter-log-events \
   --log-group-name /aws/lambda/rikako-api-development \
   --start-time $(date -v-1H +%s000) \
   --filter-pattern "/questions"
@@ -306,11 +307,10 @@ AWS_PROFILE=rikako-development-sso aws logs filter-log-events \
 
 ```bash
 cd terraform/environments/dev
-aws sso login --profile rikako-development-sso
 
 # terraform で変更（neon.tf の min/max compute units を編集）
-AWS_PROFILE=rikako-development-sso terraform plan
-AWS_PROFILE=rikako-development-sso terraform apply
+terraform plan
+terraform apply
 ```
 
 `neon.tf` の該当箇所:
@@ -335,8 +335,8 @@ module "lambda" {
 
 ```bash
 cd terraform/environments/dev
-AWS_PROFILE=rikako-development-sso terraform plan
-AWS_PROFILE=rikako-development-sso terraform apply
+terraform plan
+terraform apply
 ```
 
 ### Lambda同時実行数の制限
@@ -345,12 +345,12 @@ AWS_PROFILE=rikako-development-sso terraform apply
 
 ```bash
 # 一時的に制限（Terraform外）
-AWS_PROFILE=rikako-development-sso aws lambda put-function-concurrency \
+aws lambda put-function-concurrency \
   --function-name rikako-api-development \
   --reserved-concurrent-executions 100
 
 # 制限解除
-AWS_PROFILE=rikako-development-sso aws lambda delete-function-concurrency \
+aws lambda delete-function-concurrency \
   --function-name rikako-api-development
 ```
 
@@ -359,19 +359,15 @@ AWS_PROFILE=rikako-development-sso aws lambda delete-function-concurrency \
 ## 8. Terraform操作
 
 ```bash
-# SSOログイン
-aws sso login --profile rikako-development-sso   # dev環境
-aws sso login --profile rikako-shared-sso         # shared環境（ECR）
-
 # Plan/Apply（dev）
 cd terraform/environments/dev
-AWS_PROFILE=rikako-development-sso terraform plan
-AWS_PROFILE=rikako-development-sso terraform apply
+terraform plan
+terraform apply
 
 # Plan/Apply（shared）
 cd terraform/environments/shared
-AWS_PROFILE=rikako-shared-sso terraform plan
-AWS_PROFILE=rikako-shared-sso terraform apply
+terraform plan
+terraform apply
 ```
 
 > **注意**: PRで `terraform/` 配下を変更するとGitHub Actionsで自動的にplanが実行され、結果がPRにコメントされる。
@@ -391,7 +387,7 @@ AWS_PROFILE=rikako-shared-sso terraform apply
 ### Cognito ユーザー作成
 
 ```bash
-AWS_PROFILE=rikako-development-sso aws cognito-idp admin-create-user \
+aws cognito-idp admin-create-user \
   --user-pool-id ap-northeast-1_DvsZzCoJw \
   --username <email> \
   --user-attributes Name=email,Value=<email>
@@ -401,12 +397,12 @@ AWS_PROFILE=rikako-development-sso aws cognito-idp admin-create-user \
 
 ```bash
 # 画像CDN
-AWS_PROFILE=rikako-development-sso aws cloudfront create-invalidation \
+aws cloudfront create-invalidation \
   --distribution-id E1LVBAGQ7YS8CR \
   --paths "/*"
 
 # 管理画面
-AWS_PROFILE=rikako-development-sso aws cloudfront create-invalidation \
+aws cloudfront create-invalidation \
   --distribution-id EIA13UUJ41NKO \
   --paths "/*"
 ```
