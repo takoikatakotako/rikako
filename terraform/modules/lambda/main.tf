@@ -52,6 +52,24 @@ resource "aws_iam_role_policy" "lambda_ecr" {
   })
 }
 
+# Cognito Identity Pool access (for anonymous sign-in)
+resource "aws_iam_role_policy" "lambda_cognito_identity" {
+  count = var.cognito_identity_pool_arn != "" ? 1 : 0
+  name  = "cognito-identity-access"
+  role  = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-identity:GetId"]
+        Resource = [var.cognito_identity_pool_arn]
+      }
+    ]
+  })
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"

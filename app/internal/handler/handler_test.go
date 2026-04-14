@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/identity"
 )
 
 var testDB *sql.DB
@@ -35,7 +36,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRoot(t *testing.T) {
-	h := New(testDB, "https://example.com", testLogger)
+	h := New(testDB, "https://example.com", testLogger, &identity.MockProvider{})
 	resp, err := h.Root(context.Background(), api.RootRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -51,7 +52,7 @@ func TestRoot(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	h := New(testDB, "https://example.com", testLogger)
+	h := New(testDB, "https://example.com", testLogger, &identity.MockProvider{})
 	resp, err := h.HealthCheck(context.Background(), api.HealthCheckRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -67,7 +68,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestGetQuestions(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", testLogger)
+	h := New(testDB, "https://cdn.example.com", testLogger, &identity.MockProvider{})
 
 	t.Run("default pagination", func(t *testing.T) {
 		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{})
@@ -171,7 +172,7 @@ func TestGetQuestions(t *testing.T) {
 }
 
 func TestGetQuestion(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", testLogger)
+	h := New(testDB, "https://cdn.example.com", testLogger, &identity.MockProvider{})
 
 	t.Run("existing question", func(t *testing.T) {
 		var dbID int64
@@ -221,7 +222,7 @@ func TestGetQuestion(t *testing.T) {
 }
 
 func TestGetWorkbooks(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", testLogger)
+	h := New(testDB, "https://cdn.example.com", testLogger, &identity.MockProvider{})
 
 	t.Run("default", func(t *testing.T) {
 		resp, err := h.GetWorkbooks(context.Background(), api.GetWorkbooksRequestObject{})
@@ -266,7 +267,7 @@ func TestGetWorkbooks(t *testing.T) {
 }
 
 func TestGetWorkbook(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", testLogger)
+	h := New(testDB, "https://cdn.example.com", testLogger, &identity.MockProvider{})
 
 	t.Run("existing workbook", func(t *testing.T) {
 		var dbID int64
@@ -313,7 +314,7 @@ func TestGetWorkbook(t *testing.T) {
 }
 
 func TestGetQuestionsWithImages(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", testLogger)
+	h := New(testDB, "https://cdn.example.com", testLogger, &identity.MockProvider{})
 
 	// Fetch enough questions to find some with images
 	limit := 100

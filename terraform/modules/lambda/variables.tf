@@ -50,6 +50,12 @@ variable "function_url_auth_type" {
   default     = "NONE"
 }
 
+variable "cognito_identity_pool_arn" {
+  description = "ARN of the Cognito Identity Pool (enables cognito-identity:GetId permission)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

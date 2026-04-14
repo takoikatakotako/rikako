@@ -231,6 +231,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /auth/anonymous/sign-in:
+    post:
+      summary: 匿名サインイン
+      operationId: anonymousSignIn
+      tags:
+        - Auth
+      security: []
+      responses:
+        '200':
+          description: サインイン成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousSignInResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/anonymous/sign-out:
+    post:
+      summary: 匿名サインアウト
+      operationId: anonymousSignOut
+      tags:
+        - Auth
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '204':
+          description: サインアウト成功
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /answers:
     post:
       summary: 回答送信
@@ -535,6 +575,16 @@ components:
             $ref: '#/components/schemas/Question'
         total:
           type: integer
+
+    AnonymousSignInResponse:
+      type: object
+      required:
+        - identityId
+      properties:
+        identityId:
+          type: string
+          description: Cognito Identity ID
+          example: "ap-northeast-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
     Error:
       type: object

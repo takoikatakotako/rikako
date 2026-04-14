@@ -14,6 +14,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/auth"
 	"github.com/takoikatakotako/rikako/internal/handler"
+	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/logging"
 )
 
@@ -59,8 +60,24 @@ func main() {
 	// カスタムエラーハンドラ
 	e.HTTPErrorHandler = newHTTPErrorHandler(logger)
 
-	// 認証ミドルウェア
+	// Identity Provider（匿名認証用）
 	cognitoRegion := os.Getenv("COGNITO_REGION")
+	cognitoIdentityPoolID := os.Getenv("COGNITO_IDENTITY_POOL_ID")
+
+	var idProvider identity.Provider
+	if cognitoRegion != "" && cognitoIdentityPoolID != "" {
+		var err error
+		idProvider, err = identity.NewCognitoProvider(cognitoRegion, cognitoIdentityPoolID)
+		if err != nil {
+			logger.Error("failed to create identity provider", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		idProvider = &identity.MockProvider{}
+		logger.Info("using mock identity provider (COGNITO_IDENTITY_POOL_ID not set)")
+	}
+
+	// 認証ミドルウェア
 	cognitoUserPoolID := os.Getenv("COGNITO_USER_POOL_ID")
 
 	var middlewares []api.StrictMiddlewareFunc
@@ -69,7 +86,7 @@ func main() {
 	}
 
 	// ハンドラー登録
-	h := handler.New(db, imageBaseURL, logger)
+	h := handler.New(db, imageBaseURL, logger, idProvider)
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 

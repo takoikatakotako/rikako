@@ -8,19 +8,22 @@ import (
 
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/db"
+	"github.com/takoikatakotako/rikako/internal/identity"
 )
 
 type Handler struct {
-	queries      *db.Queries
-	imageBaseURL string
-	logger       *slog.Logger
+	queries          *db.Queries
+	imageBaseURL     string
+	logger           *slog.Logger
+	identityProvider identity.Provider
 }
 
-func New(d *sql.DB, imageBaseURL string, logger *slog.Logger) *Handler {
+func New(d *sql.DB, imageBaseURL string, logger *slog.Logger, identityProvider identity.Provider) *Handler {
 	return &Handler{
-		queries:      db.New(d),
-		imageBaseURL: imageBaseURL,
-		logger:       logger,
+		queries:          db.New(d),
+		imageBaseURL:     imageBaseURL,
+		logger:           logger,
+		identityProvider: identityProvider,
 	}
 }
 
