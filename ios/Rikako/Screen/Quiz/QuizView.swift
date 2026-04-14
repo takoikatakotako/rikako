@@ -2,9 +2,11 @@ import SwiftUI
 
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var viewModel: QuizViewModel
     @State private var isNextButtonVisible = false
     @State private var scrollViewHeight: CGFloat = 0
+    @State private var showExitConfirmation = false
 
     private let choiceLabels = ["A", "B", "C", "D"]
 
@@ -55,8 +57,31 @@ struct QuizView: View {
         }
         .navigationTitle(viewModel.workbookTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(viewModel.showExplanation)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showExitConfirmation = true
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+            }
+        }
         .toolbar(.hidden, for: .tabBar)
+        .alert("クイズを終了しますか？", isPresented: $showExitConfirmation) {
+            Button("戻る", role: .destructive) {
+                dismiss()
+            }
+            Button("履歴を保存して戻る") {
+                appState.recordSession(
+                    workbookId: viewModel.workbookId,
+                    questions: viewModel.questions,
+                    answers: viewModel.answers
+                )
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) {}
+        }
         .navigationDestination(isPresented: $viewModel.showResult) {
             ResultView(
                 questions: viewModel.questions,
