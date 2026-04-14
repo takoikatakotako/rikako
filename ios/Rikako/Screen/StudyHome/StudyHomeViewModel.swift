@@ -94,4 +94,25 @@ final class StudyHomeViewModel {
         guard let firstChapter = chapters().first else { return [] }
         return questions(for: firstChapter)
     }
+
+    #if DEBUG
+    static func previewLoading() -> StudyHomeViewModel {
+        let vm = StudyHomeViewModel(
+            fetchWorkbooksUseCase: PreviewAppContainer.makeLearningUseCases().fetchWorkbooks,
+            fetchWorkbookDetailUseCase: PreviewAppContainer.makeLearningUseCases().fetchWorkbookDetail
+        )
+        vm.isLoading = true
+        return vm
+    }
+
+    static func previewError() -> StudyHomeViewModel {
+        let vm = StudyHomeViewModel(
+            fetchWorkbooksUseCase: PreviewAppContainer.makeLearningUseCases().fetchWorkbooks,
+            fetchWorkbookDetailUseCase: PreviewAppContainer.makeLearningUseCases().fetchWorkbookDetail
+        )
+        vm.isLoading = false
+        vm.errorMessage = "ネットワーク接続を確認してください。"
+        return vm
+    }
+    #endif
 }

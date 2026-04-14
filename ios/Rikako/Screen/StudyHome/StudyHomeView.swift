@@ -2,10 +2,21 @@ import SwiftUI
 
 struct StudyHomeView: View {
     @Environment(AppState.self) private var appState
-    @State private var viewModel = StudyHomeViewModel(
-        fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks,
-        fetchWorkbookDetailUseCase: AppContainer.shared.learningUseCases.fetchWorkbookDetail
-    )
+    @State private var viewModel: StudyHomeViewModel
+    private let isPreview: Bool
+
+    init() {
+        _viewModel = State(initialValue: StudyHomeViewModel(
+            fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks,
+            fetchWorkbookDetailUseCase: AppContainer.shared.learningUseCases.fetchWorkbookDetail
+        ))
+        isPreview = false
+    }
+
+    fileprivate init(viewModel: StudyHomeViewModel) {
+        _viewModel = State(initialValue: viewModel)
+        isPreview = true
+    }
 
     private var selectedWorkbook: Workbook? {
         viewModel.selectedWorkbook(selectedWorkbookID: appState.selectedWorkbookID)
@@ -59,9 +70,11 @@ struct StudyHomeView: View {
             workbookPickerSheet
         }
         .task {
+            guard !isPreview else { return }
             await loadInitialState()
         }
         .task(id: appState.selectedWorkbookID) {
+            guard !isPreview else { return }
             await viewModel.loadSelectedWorkbookDetail(selectedWorkbookID: appState.selectedWorkbookID)
         }
     }
@@ -360,7 +373,17 @@ struct StudyHomeView: View {
     }
 }
 
-#Preview {
+#Preview("通常") {
     StudyHomeView()
+        .environment(AppState.shared)
+}
+
+#Preview("読み込み中") {
+    StudyHomeView(viewModel: .previewLoading())
+        .environment(AppState.shared)
+}
+
+#Preview("エラー") {
+    StudyHomeView(viewModel: .previewError())
         .environment(AppState.shared)
 }
