@@ -29,7 +29,7 @@ struct MainView: View {
                 }
                 .tag(Tab.myPage)
         }
-        .tint(Color("main"))
+        .tint(Color(.main))
     }
 }
 

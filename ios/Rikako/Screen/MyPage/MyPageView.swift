@@ -27,12 +27,12 @@ struct MyPageView: View {
         NavigationLink(destination: ProfileView()) {
             HStack(spacing: 14) {
                 Circle()
-                    .fill(Color("main").opacity(0.10))
+                    .fill(Color(.main).opacity(0.10))
                     .frame(width: 58, height: 58)
                     .overlay(
                         Image(systemName: "tortoise.fill")
                             .font(.title2)
-                            .foregroundStyle(Color("main"))
+                            .foregroundStyle(Color(.main))
                     )
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -52,7 +52,7 @@ struct MyPageView: View {
             .padding(16)
             .background(
                 LinearGradient(
-                    colors: [Color.white, Color("main").opacity(0.06)],
+                    colors: [Color.white, Color(.main).opacity(0.06)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -60,7 +60,7 @@ struct MyPageView: View {
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color("main").opacity(0.10), lineWidth: 1.5)
+                    .stroke(Color(.main).opacity(0.10), lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)
@@ -79,7 +79,7 @@ struct MyPageView: View {
             menuLinkRow(
                 symbol: "gearshape",
                 title: "設定",
-                accentColor: Color("main"),
+                accentColor: Color(.main),
                 destination: AnyView(SettingsView())
             )
             Divider().padding(.leading, 48)
@@ -102,7 +102,7 @@ struct MyPageView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(Color("main").opacity(0.08), lineWidth: 1)
+                .stroke(Color(.main).opacity(0.08), lineWidth: 1)
         )
     }
 
@@ -111,7 +111,7 @@ struct MyPageView: View {
             promoCard(
                 title: "今日のおすすめ\n10問学習を続けよう",
                 subtitle: "学習タブへ",
-                color: Color("main").opacity(0.16)
+                color: Color(.main).opacity(0.16)
             )
             promoCard(
                 title: "理科子をもっと\n使いやすくする",
@@ -191,7 +191,7 @@ struct MyPageView: View {
             Spacer()
             Text(subtitle)
                 .font(.caption.bold())
-                .foregroundStyle(Color("main"))
+                .foregroundStyle(Color(.main))
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)

@@ -107,6 +107,10 @@ final class PreviewLearningRepository: LearningRepository {
 enum PreviewAppContainer {
     private static let learningUseCases = LearningUseCases(repository: PreviewLearningRepository())
 
+    static func makeLearningUseCases() -> LearningUseCases {
+        learningUseCases
+    }
+
     static func makeOnboardingViewModel() -> OnboardingViewModel {
         OnboardingViewModel(fetchWorkbooksUseCase: learningUseCases.fetchWorkbooks)
     }

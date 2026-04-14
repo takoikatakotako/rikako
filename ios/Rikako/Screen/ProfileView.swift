@@ -12,12 +12,12 @@ struct ProfileView: View {
                     Spacer()
                     VStack(spacing: 12) {
                         Circle()
-                            .fill(Color("main").opacity(0.10))
+                            .fill(Color(.main).opacity(0.10))
                             .frame(width: 92, height: 92)
                             .overlay(
                                 Image(systemName: "tortoise.fill")
                                     .font(.system(size: 40, weight: .bold))
-                                    .foregroundStyle(Color("main"))
+                                    .foregroundStyle(Color(.main))
                             )
                         Text("ゲストユーザー")
                             .font(.headline)

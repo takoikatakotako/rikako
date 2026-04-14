@@ -2,7 +2,11 @@ import SwiftUI
 
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var viewModel: QuizViewModel
+    @State private var isNextButtonVisible = false
+    @State private var scrollViewHeight: CGFloat = 0
+    @State private var showExitConfirmation = false
 
     private let choiceLabels = ["A", "B", "C", "D"]
 
@@ -15,23 +19,69 @@ struct QuizView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                progressSection
-                questionSection
-                choicesSection
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    progressSection
+                        .id("top")
+                    questionSection
+                    choicesSection
 
-                if viewModel.showExplanation {
-                    explanationSection
-                    nextButton
+                    if viewModel.showExplanation {
+                        explanationSection
+                        nextButton(scrollProxy: proxy)
+                            .onGeometryChange(for: CGRect.self) { geo in
+                                geo.frame(in: .named("scroll"))
+                            } action: { frame in
+                                isNextButtonVisible = frame.minY < scrollViewHeight && frame.maxY > 0
+                            }
+                    }
+                }
+                .padding()
+            }
+            .coordinateSpace(name: "scroll")
+            .onGeometryChange(for: CGFloat.self) { geo in
+                geo.size.height
+            } action: { height in
+                scrollViewHeight = height
+            }
+            .overlay(alignment: .bottom) {
+                if viewModel.showExplanation && !isNextButtonVisible {
+                    nextButton(scrollProxy: proxy)
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .padding()
+            .animation(.easeInOut(duration: 0.15), value: isNextButtonVisible)
         }
-        .navigationTitle("Q\(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
+        .navigationTitle(viewModel.workbookTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(viewModel.showExplanation)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showExitConfirmation = true
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+            }
+        }
         .toolbar(.hidden, for: .tabBar)
+        .alert("クイズを終了しますか？", isPresented: $showExitConfirmation) {
+            Button("戻る", role: .destructive) {
+                dismiss()
+            }
+            Button("履歴を保存して戻る") {
+                appState.recordSession(
+                    workbookId: viewModel.workbookId,
+                    questions: viewModel.questions,
+                    answers: viewModel.answers
+                )
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) {}
+        }
         .navigationDestination(isPresented: $viewModel.showResult) {
             ResultView(
                 questions: viewModel.questions,
@@ -46,54 +96,30 @@ struct QuizView: View {
     }
 
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(viewModel.workbookTitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    Text("Q\(viewModel.currentIndex + 1)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(Color("main"))
-                }
+        VStack(spacing: 8) {
+            HStack {
+                Text("Q\(viewModel.currentIndex + 1)")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Color(.main))
 
                 Spacer()
 
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color("main").opacity(0.1))
-                    .clipShape(Capsule())
             }
 
             ProgressView(value: Double(viewModel.currentIndex + 1), total: Double(viewModel.questions.count))
-                .tint(Color("main"))
-                .scaleEffect(x: 1, y: 1.6, anchor: .center)
+                .tint(Color(.main))
         }
-        .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color("main").opacity(0.16), Color("main").opacity(0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.main).opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var questionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("問題")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color("main"))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color("main").opacity(0.12))
-                .clipShape(Capsule())
-
             Text(viewModel.currentQuestion.text)
                 .font(.title3.weight(.semibold))
                 .lineSpacing(4)
@@ -132,11 +158,11 @@ struct QuizView: View {
 
                         if viewModel.showExplanation {
                             if index == viewModel.currentQuestion.correctIndex {
-                                Image("question-correct")
+                                Image(.questionCorrect)
                                     .resizable()
                                     .frame(width: 26, height: 26)
                             } else if index == viewModel.selectedChoice {
-                                Image("question-discorrect")
+                                Image(.questionDiscorrect)
                                     .resizable()
                                     .frame(width: 26, height: 26)
                             }
@@ -159,7 +185,7 @@ struct QuizView: View {
     private var explanationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? "question-correct" : "question-discorrect")
+                Image(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? .questionCorrect : .questionDiscorrect)
                     .resizable()
                     .frame(width: 28, height: 28)
                 Text(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? "正解！" : "不正解")
@@ -178,17 +204,18 @@ struct QuizView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
-    private var nextButton: some View {
+    private func nextButton(scrollProxy proxy: ScrollViewProxy) -> some View {
         Button {
             withAnimation {
                 viewModel.goToNextQuestionOrResult()
+                proxy.scrollTo("top", anchor: .top)
             }
         } label: {
             Text(viewModel.isLastQuestion ? "結果を見る" : "次の問題へ")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color("main"))
+                .background(Color(.main))
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -201,29 +228,29 @@ struct QuizView: View {
 
     private func choiceTextColor(for index: Int) -> Color {
         if !viewModel.showExplanation { return .primary }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return .secondary
     }
 
     private func choiceBackground(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemBackground) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main").opacity(0.10) }
-        if index == viewModel.selectedChoice && index != viewModel.currentQuestion.correctIndex { return Color("correctPink").opacity(0.12) }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main).opacity(0.10) }
+        if index == viewModel.selectedChoice && index != viewModel.currentQuestion.correctIndex { return Color(.correctPink).opacity(0.12) }
         return Color(.systemBackground)
     }
 
     private func choiceBorderColor(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemGray4) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return Color(.systemGray4)
     }
 
     private func choiceBadgeBackground(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemGray6) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return Color(.systemGray6)
     }
 
