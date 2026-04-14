@@ -100,7 +100,7 @@ struct QuizView: View {
             HStack {
                 Text("Q\(viewModel.currentIndex + 1)")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color("main"))
+                    .foregroundStyle(Color(.main))
 
                 Spacer()
 
@@ -110,11 +110,11 @@ struct QuizView: View {
             }
 
             ProgressView(value: Double(viewModel.currentIndex + 1), total: Double(viewModel.questions.count))
-                .tint(Color("main"))
+                .tint(Color(.main))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color("main").opacity(0.08))
+        .background(Color(.main).opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -158,11 +158,11 @@ struct QuizView: View {
 
                         if viewModel.showExplanation {
                             if index == viewModel.currentQuestion.correctIndex {
-                                Image("question-correct")
+                                Image(.questionCorrect)
                                     .resizable()
                                     .frame(width: 26, height: 26)
                             } else if index == viewModel.selectedChoice {
-                                Image("question-discorrect")
+                                Image(.questionDiscorrect)
                                     .resizable()
                                     .frame(width: 26, height: 26)
                             }
@@ -185,7 +185,7 @@ struct QuizView: View {
     private var explanationSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? "question-correct" : "question-discorrect")
+                Image(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? .questionCorrect : .questionDiscorrect)
                     .resizable()
                     .frame(width: 28, height: 28)
                 Text(viewModel.selectedChoice == viewModel.currentQuestion.correctIndex ? "正解！" : "不正解")
@@ -215,7 +215,7 @@ struct QuizView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color("main"))
+                .background(Color(.main))
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -228,29 +228,29 @@ struct QuizView: View {
 
     private func choiceTextColor(for index: Int) -> Color {
         if !viewModel.showExplanation { return .primary }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return .secondary
     }
 
     private func choiceBackground(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemBackground) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main").opacity(0.10) }
-        if index == viewModel.selectedChoice && index != viewModel.currentQuestion.correctIndex { return Color("correctPink").opacity(0.12) }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main).opacity(0.10) }
+        if index == viewModel.selectedChoice && index != viewModel.currentQuestion.correctIndex { return Color(.correctPink).opacity(0.12) }
         return Color(.systemBackground)
     }
 
     private func choiceBorderColor(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemGray4) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return Color(.systemGray4)
     }
 
     private func choiceBadgeBackground(for index: Int) -> Color {
         if !viewModel.showExplanation { return Color(.systemGray6) }
-        if index == viewModel.currentQuestion.correctIndex { return Color("main") }
-        if index == viewModel.selectedChoice { return Color("correctPink") }
+        if index == viewModel.currentQuestion.correctIndex { return Color(.main) }
+        if index == viewModel.selectedChoice { return Color(.correctPink) }
         return Color(.systemGray6)
     }
 

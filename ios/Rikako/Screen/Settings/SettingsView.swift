@@ -7,7 +7,6 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                accountCard
                 learningCard
                 aboutCard
                 logoutButton
@@ -20,43 +19,6 @@ struct SettingsView: View {
         .background(Color(.systemGroupedBackground))
     }
 
-    private var accountCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("アカウント")
-
-            NavigationLink(destination: ProfileView()) {
-                HStack(spacing: 14) {
-                    Circle()
-                        .fill(Color("main").opacity(0.10))
-                        .frame(width: 52, height: 52)
-                        .overlay(
-                            Image(systemName: "tortoise.fill")
-                                .font(.title3)
-                                .foregroundStyle(Color("main"))
-                        )
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員")
-                            .font(.headline.bold())
-                            .foregroundStyle(.primary)
-                        Text("プロフィールを編集")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
-                }
-                .padding(16)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
     private var learningCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("学習")
@@ -66,7 +28,7 @@ struct SettingsView: View {
                     title: "解答した問題数",
                     value: viewModel.answeredText(totalAnswered: appState.totalAnswered),
                     symbol: "checkmark.circle.fill",
-                    accentColor: Color("main")
+                    accentColor: Color(.main)
                 )
                 statTile(
                     title: "正答率",
@@ -85,7 +47,7 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 infoRow(symbol: "info.circle.fill", title: "バージョン", trailing: viewModel.versionText, accentColor: .blue)
                 Divider().padding(.leading, 48)
-                infoRow(symbol: "questionmark.circle.fill", title: "使い方", accentColor: Color("main"))
+                infoRow(symbol: "questionmark.circle.fill", title: "使い方", accentColor: Color(.main))
                 Divider().padding(.leading, 48)
                 infoRow(symbol: "star.fill", title: "レビューする", accentColor: .orange)
                 Divider().padding(.leading, 48)

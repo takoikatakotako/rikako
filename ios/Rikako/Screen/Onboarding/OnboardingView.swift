@@ -104,7 +104,7 @@ private struct OnboardingContainer<Content: View>: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(isPrimaryEnabled ? Color("main") : Color(.systemGray4))
+                    .background(isPrimaryEnabled ? Color(.main) : Color(.systemGray4))
                     .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
@@ -117,7 +117,7 @@ private struct OnboardingContainer<Content: View>: View {
 
 private struct OnboardingCharacterArt: View {
     var body: some View {
-        Image("top-rikako-standing")
+        Image(.topRikakoStanding)
             .resizable()
             .scaledToFit()
             .frame(maxHeight: 260)
@@ -159,11 +159,11 @@ private struct OnboardingWorkbookIntroPage: View {
             artwork: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color("correctPink").opacity(0.16))
+                        .fill(Color(.correctPink).opacity(0.16))
                         .frame(width: 220, height: 220)
                     Image(systemName: "books.vertical.fill")
                         .font(.system(size: 84))
-                        .foregroundStyle(Color("main"))
+                        .foregroundStyle(Color(.main))
                 }
             },
             action: {
@@ -215,7 +215,7 @@ private struct OnboardingWorkbookSelectionPage: View {
                         VStack(alignment: .leading, spacing: 16) {
                             Text("おすすめ")
                                 .font(.headline)
-                                .foregroundStyle(Color("main"))
+                                .foregroundStyle(Color(.main))
 
                             workbookButton(for: recommendedWorkbook, emphasizesPrimary: true)
                         }
@@ -273,10 +273,10 @@ private struct OnboardingWorkbookSelectionPage: View {
 
                     Text("この問題集で始める")
                         .font(.subheadline.bold())
-                        .foregroundStyle(Color("main"))
+                        .foregroundStyle(Color(.main))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color("main").opacity(0.12))
+                        .background(Color(.main).opacity(0.12))
                         .clipShape(Capsule())
                 }
             }
@@ -285,7 +285,7 @@ private struct OnboardingWorkbookSelectionPage: View {
             .background(Color(.secondarySystemBackground))
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color("main").opacity(emphasizesPrimary ? 0.2 : 0.12), lineWidth: 1)
+                    .stroke(Color(.main).opacity(emphasizesPrimary ? 0.2 : 0.12), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
@@ -335,11 +335,11 @@ private struct OnboardingAppIntroPage: View {
             artwork: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Color("incorrectBlue").opacity(0.14))
+                        .fill(Color(.incorrectBlue).opacity(0.14))
                         .frame(width: 220, height: 220)
                     Image(systemName: "ipad.and.iphone")
                         .font(.system(size: 80))
-                        .foregroundStyle(Color("incorrectBlue"))
+                        .foregroundStyle(Color(.incorrectBlue))
                 }
             },
             action: {
@@ -359,11 +359,11 @@ private struct OnboardingTermsAgreementPage: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color("main").opacity(0.10))
+                    .fill(Color(.main).opacity(0.10))
                     .frame(width: 112, height: 112)
                 Image(systemName: "checkmark.seal.text.page")
                     .font(.system(size: 40))
-                    .foregroundStyle(Color("main"))
+                    .foregroundStyle(Color(.main))
             }
 
             VStack(spacing: 12) {
@@ -423,7 +423,7 @@ private struct OnboardingTermsAgreementPage: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(hasAgreedToTerms ? Color("main") : Color(.systemGray4))
+                    .background(hasAgreedToTerms ? Color(.main) : Color(.systemGray4))
                     .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
@@ -464,7 +464,7 @@ private struct OnboardingFinishPage: View {
                     .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color("main"))
+                .background(Color(.main))
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             }

@@ -107,7 +107,7 @@ struct StudyHomeView: View {
             RoundedRectangle(cornerRadius: 28)
                 .fill(
                     LinearGradient(
-                        colors: [Color("main"), Color.blue.opacity(0.7)],
+                        colors: [Color(.main), Color.blue.opacity(0.7)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -193,11 +193,11 @@ struct StudyHomeView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
-                    .background(Color("main"))
+                    .background(Color(.main))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color("main").opacity(0.75), lineWidth: 4)
+                            .stroke(Color(.main).opacity(0.75), lineWidth: 4)
                     )
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
@@ -346,7 +346,7 @@ struct StudyHomeView: View {
 
                                 if appState.selectedWorkbookID == workbook.id {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(Color("main"))
+                                        .foregroundStyle(Color(.main))
                                 }
                             }
                             .padding(.horizontal, 14)

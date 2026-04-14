@@ -122,7 +122,7 @@ struct ResultView: View {
                     ResultQuestionDetailView(row: row)
                 } label: {
                     HStack {
-                        Image(row.isCorrect ? "result-correct" : "result-discorrect")
+                        Image(row.isCorrect ? .resultCorrect : .resultDiscorrect)
                             .resizable()
                             .frame(width: 28, height: 28)
                             .opacity(0.8)
@@ -133,7 +133,7 @@ struct ResultView: View {
                             .lineLimit(1)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Image("result-next")
+                        Image(.resultNext)
                             .resizable()
                             .frame(width: 18, height: 18)
                             .opacity(0.4)
@@ -160,7 +160,7 @@ struct ResultView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color("main"))
+                .background(Color(.main))
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
@@ -175,7 +175,7 @@ private struct ResultQuestionDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
-                        Image(row.isCorrect ? "result-correct" : "result-discorrect")
+                        Image(row.isCorrect ? .resultCorrect : .resultDiscorrect)
                             .resizable()
                             .frame(width: 28, height: 28)
 
@@ -214,11 +214,11 @@ private struct ResultQuestionDetailView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             if index == row.question.correctIndex {
-                                Image("question-correct")
+                                Image(.questionCorrect)
                                     .resizable()
                                     .frame(width: 24, height: 24)
                             } else if index == row.selectedAnswer {
-                                Image("question-discorrect")
+                                Image(.questionDiscorrect)
                                     .resizable()
                                     .frame(width: 24, height: 24)
                             }
@@ -251,14 +251,14 @@ private struct ResultQuestionDetailView: View {
     }
 
     private func backgroundColor(for index: Int) -> Color {
-        if index == row.question.correctIndex { return Color("main").opacity(0.10) }
-        if index == row.selectedAnswer { return Color("correctPink").opacity(0.12) }
+        if index == row.question.correctIndex { return Color(.main).opacity(0.10) }
+        if index == row.selectedAnswer { return Color(.correctPink).opacity(0.12) }
         return Color(.systemBackground)
     }
 
     private func badgeBackground(for index: Int) -> Color {
-        if index == row.question.correctIndex { return Color("main") }
-        if index == row.selectedAnswer { return Color("correctPink") }
+        if index == row.question.correctIndex { return Color(.main) }
+        if index == row.selectedAnswer { return Color(.correctPink) }
         return Color(.systemGray5)
     }
 

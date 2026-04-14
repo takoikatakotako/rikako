@@ -35,7 +35,7 @@ struct StudyRecordView: View {
             .frame(height: 76)
             .overlay(
                 HStack(spacing: 14) {
-                    Image("top-app-logo")
+                    Image(.topAppLogo)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 48, height: 48)
@@ -51,7 +51,7 @@ struct StudyRecordView: View {
                     Spacer()
 
                     Image(systemName: "chevron.right.circle.fill")
-                        .foregroundStyle(Color("main"))
+                        .foregroundStyle(Color(.main))
                         .font(.title3)
                 }
                 .padding(.horizontal, 18)
@@ -60,12 +60,12 @@ struct StudyRecordView: View {
 
     private var greetingSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image("top-rikako-standing")
+            Image(.topRikakoStanding)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 56, height: 56)
                 .padding(4)
-                .background(Color("main").opacity(0.10))
+                .background(Color(.main).opacity(0.10))
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 6) {
@@ -95,10 +95,10 @@ struct StudyRecordView: View {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(viewModel.streakText(completedWorkbookIDs: appState.completedWorkbookIDs))
                         .font(.system(size: 48, weight: .bold))
-                        .foregroundStyle(Color("main"))
+                        .foregroundStyle(Color(.main))
                     Text("日")
                         .font(.headline.bold())
-                        .foregroundStyle(Color("main"))
+                        .foregroundStyle(Color(.main))
                 }
             }
 
@@ -109,11 +109,11 @@ struct StudyRecordView: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         Circle()
-                            .stroke(Color("main").opacity(0.6), lineWidth: 2)
+                            .stroke(Color(.main).opacity(0.6), lineWidth: 2)
                             .frame(width: 24, height: 24)
                             .background(
                                 Circle()
-                                    .fill(index < viewModel.activeDays(completedWorkbookIDs: appState.completedWorkbookIDs) ? Color("main").opacity(0.18) : Color.clear)
+                                    .fill(index < viewModel.activeDays(completedWorkbookIDs: appState.completedWorkbookIDs) ? Color(.main).opacity(0.18) : Color.clear)
                             )
                     }
                     .frame(maxWidth: .infinity)
@@ -128,7 +128,7 @@ struct StudyRecordView: View {
         .padding(20)
         .background(
             LinearGradient(
-                colors: [Color.white, Color("main").opacity(0.06)],
+                colors: [Color.white, Color(.main).opacity(0.06)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -136,14 +136,14 @@ struct StudyRecordView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22))
         .overlay(
             RoundedRectangle(cornerRadius: 22)
-                .stroke(Color("main").opacity(0.10), lineWidth: 1.5)
+                .stroke(Color(.main).opacity(0.10), lineWidth: 1.5)
         )
     }
 
     private var reminderBanner: some View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color("main").opacity(0.18))
+                .fill(Color(.main).opacity(0.18))
                 .frame(height: 88)
                 .overlay(
                     VStack(alignment: .leading, spacing: 8) {
@@ -158,13 +158,13 @@ struct StudyRecordView: View {
                 )
 
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color("main").opacity(0.12))
+                .fill(Color(.main).opacity(0.12))
                 .frame(width: 110, height: 88)
                 .overlay(
                     VStack(spacing: 8) {
                         Text("\(appState.totalAnswered)")
                             .font(.title.bold())
-                            .foregroundStyle(Color("main"))
+                            .foregroundStyle(Color(.main))
                         Text("今までの解答数")
                             .font(.caption.bold())
                             .foregroundStyle(.secondary)
@@ -194,7 +194,7 @@ struct StudyRecordView: View {
                     title: "解答した問題",
                     value: "\(appState.totalAnswered)問",
                     icon: "square.and.pencil",
-                    accentColor: Color("main")
+                    accentColor: Color(.main)
                 )
                 statTile(
                     title: "正答率",
@@ -233,8 +233,8 @@ struct StudyRecordView: View {
                     VStack(spacing: 6) {
                         Text("\(appState.wrongQuestions.count)問")
                             .font(.headline.bold())
-                            .foregroundStyle(Color("main"))
-                        Image("result-next")
+                            .foregroundStyle(Color(.main))
+                        Image(.resultNext)
                             .resizable()
                             .frame(width: 18, height: 18)
                             .opacity(0.35)
@@ -243,7 +243,7 @@ struct StudyRecordView: View {
                 .padding(18)
                 .background(
                     LinearGradient(
-                        colors: [Color.white, Color("main").opacity(0.05)],
+                        colors: [Color.white, Color(.main).opacity(0.05)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -251,7 +251,7 @@ struct StudyRecordView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color("main").opacity(0.10), lineWidth: 1.5)
+                        .stroke(Color(.main).opacity(0.10), lineWidth: 1.5)
                 )
             }
             .buttonStyle(.plain)
@@ -269,7 +269,7 @@ struct StudyRecordView: View {
                         .fill(Color(.systemGray5))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color("main").opacity(0.85))
+                        .fill(Color(.main).opacity(0.85))
                         .frame(width: max(proxy.size.width * CGFloat(value) / 30.0, 12), height: 8)
                 }
             }
