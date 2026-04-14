@@ -15,20 +15,23 @@ struct QuizView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                progressSection
-                questionSection
-                choicesSection
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    progressSection
+                        .id("top")
+                    questionSection
+                    choicesSection
 
-                if viewModel.showExplanation {
-                    explanationSection
-                    nextButton
+                    if viewModel.showExplanation {
+                        explanationSection
+                        nextButton(scrollProxy: proxy)
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
-        .navigationTitle("Q\(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
+        .navigationTitle(viewModel.workbookTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(viewModel.showExplanation)
         .toolbar(.hidden, for: .tabBar)
@@ -46,54 +49,30 @@ struct QuizView: View {
     }
 
     private var progressSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(viewModel.workbookTitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    Text("Q\(viewModel.currentIndex + 1)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(Color("main"))
-                }
+        VStack(spacing: 8) {
+            HStack {
+                Text("Q\(viewModel.currentIndex + 1)")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Color("main"))
 
                 Spacer()
 
                 Text("\(viewModel.currentIndex + 1) / \(viewModel.questions.count)")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color("main").opacity(0.1))
-                    .clipShape(Capsule())
             }
 
             ProgressView(value: Double(viewModel.currentIndex + 1), total: Double(viewModel.questions.count))
                 .tint(Color("main"))
-                .scaleEffect(x: 1, y: 1.6, anchor: .center)
         }
-        .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color("main").opacity(0.16), Color("main").opacity(0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color("main").opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var questionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("問題")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color("main"))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color("main").opacity(0.12))
-                .clipShape(Capsule())
-
             Text(viewModel.currentQuestion.text)
                 .font(.title3.weight(.semibold))
                 .lineSpacing(4)
@@ -178,10 +157,11 @@ struct QuizView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
-    private var nextButton: some View {
+    private func nextButton(scrollProxy proxy: ScrollViewProxy) -> some View {
         Button {
             withAnimation {
                 viewModel.goToNextQuestionOrResult()
+                proxy.scrollTo("top", anchor: .top)
             }
         } label: {
             Text(viewModel.isLastQuestion ? "結果を見る" : "次の問題へ")
