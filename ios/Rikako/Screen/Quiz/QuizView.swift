@@ -3,6 +3,8 @@ import SwiftUI
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: QuizViewModel
+    @State private var isNextButtonVisible = false
+    @State private var scrollViewHeight: CGFloat = 0
 
     private let choiceLabels = ["A", "B", "C", "D"]
 
@@ -26,10 +28,30 @@ struct QuizView: View {
                     if viewModel.showExplanation {
                         explanationSection
                         nextButton(scrollProxy: proxy)
+                            .onGeometryChange(for: CGRect.self) { geo in
+                                geo.frame(in: .named("scroll"))
+                            } action: { frame in
+                                isNextButtonVisible = frame.minY < scrollViewHeight && frame.maxY > 0
+                            }
                     }
                 }
                 .padding()
             }
+            .coordinateSpace(name: "scroll")
+            .onGeometryChange(for: CGFloat.self) { geo in
+                geo.size.height
+            } action: { height in
+                scrollViewHeight = height
+            }
+            .overlay(alignment: .bottom) {
+                if viewModel.showExplanation && !isNextButtonVisible {
+                    nextButton(scrollProxy: proxy)
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.15), value: isNextButtonVisible)
         }
         .navigationTitle(viewModel.workbookTitle)
         .navigationBarTitleDisplayMode(.inline)
