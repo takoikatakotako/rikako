@@ -15,7 +15,7 @@ struct StudyHomeView: View {
         NavigationStack {
             Group {
                 if viewModel.isLoading {
-                    ProgressView("問題集を読み込み中...")
+                    skeletonView
                 } else if let errorMessage = viewModel.errorMessage {
                     ContentUnavailableView {
                         Label("読み込みエラー", systemImage: "exclamationmark.triangle")
@@ -244,6 +244,64 @@ struct StudyHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .padding(.vertical, 14)
+    }
+
+    private var skeletonView: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+                // Hero skeleton
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(Color(.systemGray5))
+                    .frame(height: 230)
+
+                // Chapter panel skeleton
+                VStack(spacing: 0) {
+                    VStack(spacing: 8) {
+                        skeletonRect(width: 120, height: 14)
+                        skeletonRect(width: 80, height: 4)
+                    }
+                    .padding(.top, 18)
+                    .padding(.bottom, 16)
+
+                    skeletonRect(height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 14)
+
+                    VStack(spacing: 0) {
+                        ForEach(0..<4, id: \.self) { index in
+                            HStack(spacing: 14) {
+                                Circle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 38, height: 38)
+                                skeletonRect(width: 120, height: 14)
+                                Spacer()
+                                skeletonRect(width: 50, height: 30)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .padding(.vertical, 14)
+
+                            if index < 3 {
+                                Divider().padding(.leading, 54)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 16)
+                }
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func skeletonRect(width: CGFloat? = nil, height: CGFloat = 14) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color(.systemGray5))
+            .frame(width: width, height: height)
     }
 
     private var workbookPickerSheet: some View {
