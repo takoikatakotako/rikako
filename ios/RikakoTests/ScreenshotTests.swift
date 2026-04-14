@@ -64,6 +64,7 @@ final class ScreenshotTests: XCTestCase {
                 workbookId: 1
             )
         }
+        .environment(makeAppState())
         takeScreenshot(view: view, name: "06_quiz")
     }
 
