@@ -4,6 +4,8 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = SettingsViewModel()
     @State private var showLogoutConfirmation = false
+    @State private var versionTapCount = 0
+    @State private var showDebug = false
 
     var body: some View {
         ScrollView {
@@ -17,6 +19,9 @@ struct SettingsView: View {
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(.systemGroupedBackground))
+        .navigationDestination(isPresented: $showDebug) {
+            DebugView()
+        }
         .alert("ログアウト", isPresented: $showLogoutConfirmation) {
             Button("キャンセル", role: .cancel) {}
             Button("ログアウト", role: .destructive) {
@@ -33,6 +38,13 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 infoRow(symbol: "info.circle.fill", title: "バージョン", trailing: viewModel.versionText, accentColor: .blue)
+                    .onTapGesture {
+                        versionTapCount += 1
+                        if versionTapCount >= 3 {
+                            versionTapCount = 0
+                            showDebug = true
+                        }
+                    }
                 Divider().padding(.leading, 48)
                 infoRow(symbol: "questionmark.circle.fill", title: "使い方", accentColor: Color(.main))
                 Divider().padding(.leading, 48)
