@@ -26,8 +26,10 @@ var publicOperations = map[string]bool{
 	"GetWorkbook":     true,
 	"SubmitAnswers":    true,
 	"GetWrongAnswers":  true,
-	"AnonymousSignIn":  true,
-	"AnonymousSignOut": true,
+	"AnonymousSignIn":    true,
+	"AnonymousSignOut":   true,
+	"GetUserProfile":     true,
+	"UpdateUserProfile":  true,
 }
 
 // NewAuthMiddleware creates a StrictMiddlewareFunc that validates Cognito JWT tokens.
