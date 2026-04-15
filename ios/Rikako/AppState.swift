@@ -53,6 +53,19 @@ final class AppState {
         isLoggedIn = value
     }
 
+    func resetToInitialState() {
+        hasCompletedOnboarding = false
+        isLoggedIn = false
+        anonymousUserId = nil
+        selectedWorkbookID = nil
+        totalAnswered = 0
+        totalCorrect = 0
+        completedWorkbookIDs = []
+        wrongQuestions = []
+        userDefaults.removeObject(forKey: DefaultsKey.hasCompletedOnboarding)
+        userDefaults.removeObject(forKey: DefaultsKey.anonymousUserId)
+    }
+
     func selectWorkbook(_ workbookID: Int64) {
         selectedWorkbookID = workbookID
     }

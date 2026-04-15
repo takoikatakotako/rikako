@@ -19,8 +19,15 @@ struct ProfileView: View {
                                     .font(.system(size: 40, weight: .bold))
                                     .foregroundStyle(Color(.main))
                             )
-                        Text("ゲストユーザー")
-                            .font(.headline)
+                        VStack(spacing: 4) {
+                            Text("ゲストユーザー")
+                                .font(.headline)
+                            if let userId = appState.anonymousUserId {
+                                Text(userId)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
                     Spacer()
                 }

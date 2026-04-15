@@ -8,11 +8,15 @@ final class OnboardingViewModel {
     var recommendedWorkbook: Workbook?
     var isLoading = true
     var errorMessage: String?
+    var isStarting = false
+    var startErrorMessage: String?
 
     private let fetchWorkbooksUseCase: FetchWorkbooksUseCase
+    private let deviceIdentityProvider: DeviceIdentityProviding
 
-    init(fetchWorkbooksUseCase: FetchWorkbooksUseCase) {
+    init(fetchWorkbooksUseCase: FetchWorkbooksUseCase, deviceIdentityProvider: DeviceIdentityProviding) {
         self.fetchWorkbooksUseCase = fetchWorkbooksUseCase
+        self.deviceIdentityProvider = deviceIdentityProvider
     }
 
     var otherWorkbooks: [Workbook] {
@@ -38,8 +42,15 @@ final class OnboardingViewModel {
         isLoading = false
     }
 
-    func start(appState: AppState) {
-        let anonymousUserId = appState.anonymousUserId ?? "mock-anonymous-\(UUID().uuidString)"
-        appState.completeOnboarding(anonymousUserId: anonymousUserId)
+    func start(appState: AppState) async {
+        isStarting = true
+        startErrorMessage = nil
+        do {
+            let identityId = try await deviceIdentityProvider.getIdentityId()
+            appState.completeOnboarding(anonymousUserId: identityId)
+        } catch {
+            startErrorMessage = error.localizedDescription
+        }
+        isStarting = false
     }
 }

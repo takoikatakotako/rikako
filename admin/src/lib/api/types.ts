@@ -115,6 +115,17 @@ export interface PublishResponse {
   workbooksCount?: number;
 }
 
+export interface User {
+  id: number;
+  identityId: string;
+  createdAt: string;
+}
+
+export interface UsersResponse {
+  users: User[];
+  total: number;
+}
+
 export interface ApiError {
   code: string;
   message: string;

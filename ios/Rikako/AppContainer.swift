@@ -5,6 +5,7 @@ final class AppContainer {
 
     let appState: AppState
     let learningUseCases: LearningUseCases
+    let deviceIdentityProvider: DeviceIdentityProviding
 
     private init() {
         let httpClient = URLSessionHTTPClient(session: .shared)
@@ -19,5 +20,6 @@ final class AppContainer {
 
         self.appState = AppState.shared
         self.learningUseCases = LearningUseCases(repository: repository)
+        self.deviceIdentityProvider = deviceIdentityProvider
     }
 }

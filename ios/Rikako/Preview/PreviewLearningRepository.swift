@@ -104,6 +104,12 @@ final class PreviewLearningRepository: LearningRepository {
     }
 }
 
+private struct PreviewDeviceIdentityProvider: DeviceIdentityProviding {
+    func getIdentityId() async throws -> String {
+        "preview-anonymous-\(UUID().uuidString)"
+    }
+}
+
 enum PreviewAppContainer {
     private static let learningUseCases = LearningUseCases(repository: PreviewLearningRepository())
 
@@ -112,6 +118,9 @@ enum PreviewAppContainer {
     }
 
     static func makeOnboardingViewModel() -> OnboardingViewModel {
-        OnboardingViewModel(fetchWorkbooksUseCase: learningUseCases.fetchWorkbooks)
+        OnboardingViewModel(
+            fetchWorkbooksUseCase: learningUseCases.fetchWorkbooks,
+            deviceIdentityProvider: PreviewDeviceIdentityProvider()
+        )
     }
 }

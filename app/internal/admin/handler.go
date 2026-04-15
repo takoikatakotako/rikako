@@ -889,6 +889,44 @@ func (h *Handler) DeleteWorkbook(ctx context.Context, request adminapi.DeleteWor
 	return adminapi.DeleteWorkbook204Response{}, nil
 }
 
+// --- Users ---
+
+func (h *Handler) GetUsers(ctx context.Context, request adminapi.GetUsersRequestObject) (adminapi.GetUsersResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return adminapi.GetUsers400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	total, err := h.queries.CountUsers(ctx)
+	if err != nil {
+		h.logger.Error("failed to count users", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUsers(ctx, db.ListUsersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query users", "error", err)
+		return nil, err
+	}
+
+	users := []adminapi.User{}
+	for _, row := range rows {
+		u := adminapi.User{
+			Id:         row.ID,
+			IdentityId: row.IdentityID,
+		}
+		if row.CreatedAt.Valid {
+			u.CreatedAt = row.CreatedAt.Time
+		}
+		users = append(users, u)
+	}
+
+	return adminapi.GetUsers200JSONResponse{Users: users, Total: int(total)}, nil
+}
+
 // --- Images ---
 
 func (h *Handler) CreatePresignedUrl(ctx context.Context, request adminapi.CreatePresignedUrlRequestObject) (adminapi.CreatePresignedUrlResponseObject, error) {

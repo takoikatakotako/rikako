@@ -217,6 +217,19 @@ type UpdateWorkbookRequest struct {
 	Title       string   `json:"title"`
 }
 
+// User defines model for User.
+type User struct {
+	CreatedAt  time.Time `json:"createdAt"`
+	Id         int64     `json:"id"`
+	IdentityId string    `json:"identityId"`
+}
+
+// UsersResponse defines model for UsersResponse.
+type UsersResponse struct {
+	Total int    `json:"total"`
+	Users []User `json:"users"`
+}
+
 // Workbook defines model for Workbook.
 type Workbook struct {
 	CategoryId    *int64  `json:"categoryId,omitempty"`
@@ -249,6 +262,12 @@ type GetCategoriesParams struct {
 
 // GetQuestionsParams defines parameters for GetQuestions.
 type GetQuestionsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUsersParams defines parameters for GetUsers.
+type GetUsersParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
@@ -324,6 +343,9 @@ type ServerInterface interface {
 	// 問題更新
 	// (PUT /questions/{questionId})
 	UpdateQuestion(ctx echo.Context, questionId int64) error
+	// ユーザー一覧取得
+	// (GET /users)
+	GetUsers(ctx echo.Context, params GetUsersParams) error
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx echo.Context, params GetWorkbooksParams) error
@@ -546,6 +568,31 @@ func (w *ServerInterfaceWrapper) UpdateQuestion(ctx echo.Context) error {
 	return err
 }
 
+// GetUsers converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUsers(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUsersParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUsers(ctx, params)
+	return err
+}
+
 // GetWorkbooks converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWorkbooks(ctx echo.Context) error {
 	var err error
@@ -670,6 +717,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/questions/:questionId", wrapper.DeleteQuestion)
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
 	router.PUT(baseURL+"/questions/:questionId", wrapper.UpdateQuestion)
+	router.GET(baseURL+"/users", wrapper.GetUsers)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.POST(baseURL+"/workbooks", wrapper.CreateWorkbook)
 	router.DELETE(baseURL+"/workbooks/:workbookId", wrapper.DeleteWorkbook)
@@ -1039,6 +1087,32 @@ func (response UpdateQuestion404JSONResponse) VisitUpdateQuestionResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetUsersRequestObject struct {
+	Params GetUsersParams
+}
+
+type GetUsersResponseObject interface {
+	VisitGetUsersResponse(w http.ResponseWriter) error
+}
+
+type GetUsers200JSONResponse UsersResponse
+
+func (response GetUsers200JSONResponse) VisitGetUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsers400JSONResponse Error
+
+func (response GetUsers400JSONResponse) VisitGetUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWorkbooksRequestObject struct {
 	Params GetWorkbooksParams
 }
@@ -1222,6 +1296,9 @@ type StrictServerInterface interface {
 	// 問題更新
 	// (PUT /questions/{questionId})
 	UpdateQuestion(ctx context.Context, request UpdateQuestionRequestObject) (UpdateQuestionResponseObject, error)
+	// ユーザー一覧取得
+	// (GET /users)
+	GetUsers(ctx context.Context, request GetUsersRequestObject) (GetUsersResponseObject, error)
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx context.Context, request GetWorkbooksRequestObject) (GetWorkbooksResponseObject, error)
@@ -1613,6 +1690,31 @@ func (sh *strictHandler) UpdateQuestion(ctx echo.Context, questionId int64) erro
 		return err
 	} else if validResponse, ok := response.(UpdateQuestionResponseObject); ok {
 		return validResponse.VisitUpdateQuestionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUsers operation middleware
+func (sh *strictHandler) GetUsers(ctx echo.Context, params GetUsersParams) error {
+	var request GetUsersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUsers(ctx.Request().Context(), request.(GetUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUsersResponseObject); ok {
+		return validResponse.VisitGetUsersResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
