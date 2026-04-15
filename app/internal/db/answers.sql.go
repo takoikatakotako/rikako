@@ -133,7 +133,7 @@ func (q *Queries) GetUserByIdentityID(ctx context.Context, identityID string) (i
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, identity_id, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, identity_id, display_name, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListUsersParams struct {
@@ -142,9 +142,10 @@ type ListUsersParams struct {
 }
 
 type ListUsersRow struct {
-	ID         int64        `json:"id"`
-	IdentityID string       `json:"identity_id"`
-	CreatedAt  sql.NullTime `json:"created_at"`
+	ID          int64          `json:"id"`
+	IdentityID  string         `json:"identity_id"`
+	DisplayName sql.NullString `json:"display_name"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
@@ -156,7 +157,12 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 	items := []ListUsersRow{}
 	for rows.Next() {
 		var i ListUsersRow
-		if err := rows.Scan(&i.ID, &i.IdentityID, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.IdentityID,
+			&i.DisplayName,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

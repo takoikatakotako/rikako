@@ -118,12 +118,44 @@ export interface PublishResponse {
 export interface User {
   id: number;
   identityId: string;
+  displayName?: string;
   createdAt: string;
+}
+
+export interface UserAppSetting {
+  appSlug: string;
+  appTitle: string;
+  selectedWorkbookId?: number;
+}
+
+export interface UserDetail {
+  id: number;
+  identityId: string;
+  displayName?: string;
+  createdAt: string;
+  appSettings: UserAppSetting[];
 }
 
 export interface UsersResponse {
   users: User[];
   total: number;
+}
+
+export interface App {
+  id: number;
+  slug: string;
+  title: string;
+  createdAt?: string;
+}
+
+export interface AppsResponse {
+  apps: App[];
+  total: number;
+}
+
+export interface CreateAppRequest {
+  slug: string;
+  title: string;
 }
 
 export interface ApiError {

@@ -520,6 +520,150 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /apps:
+    get:
+      summary: アプリ一覧取得
+      operationId: getApps
+      tags:
+        - Apps
+      responses:
+        '200':
+          description: アプリ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppsResponse'
+    post:
+      summary: アプリ作成
+      operationId: createApp
+      tags:
+        - Apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppRequest'
+      responses:
+        '201':
+          description: アプリ作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /apps/{appId}:
+    get:
+      summary: アプリ取得
+      operationId: getApp
+      tags:
+        - Apps
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: アプリ詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+        '404':
+          description: アプリが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: アプリ更新
+      operationId: updateApp
+      tags:
+        - Apps
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppRequest'
+      responses:
+        '200':
+          description: アプリ更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+        '404':
+          description: アプリが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: アプリ削除
+      operationId: deleteApp
+      tags:
+        - Apps
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 削除成功
+        '404':
+          description: アプリが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{userId}:
+    get:
+      summary: ユーザー詳細取得
+      operationId: getUser
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: ユーザー詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          description: ユーザーが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /images/presigned-url:
     post:
       summary: 画像アップロード用Presigned URL発行
@@ -874,6 +1018,48 @@ components:
         workbooksCount:
           type: integer
 
+    App:
+      type: object
+      required:
+        - id
+        - slug
+        - title
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AppsResponse:
+      type: object
+      required:
+        - apps
+        - total
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/App'
+        total:
+          type: integer
+
+    CreateAppRequest:
+      type: object
+      required:
+        - slug
+        - title
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+
     User:
       type: object
       required:
@@ -886,9 +1072,48 @@ components:
           format: int64
         identityId:
           type: string
+        displayName:
+          type: string
         createdAt:
           type: string
           format: date-time
+
+    UserDetail:
+      type: object
+      required:
+        - id
+        - identityId
+        - createdAt
+        - appSettings
+      properties:
+        id:
+          type: integer
+          format: int64
+        identityId:
+          type: string
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        appSettings:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAppSetting'
+
+    UserAppSetting:
+      type: object
+      required:
+        - appSlug
+        - appTitle
+      properties:
+        appSlug:
+          type: string
+        appTitle:
+          type: string
+        selectedWorkbookId:
+          type: integer
+          format: int64
 
     UsersResponse:
       type: object

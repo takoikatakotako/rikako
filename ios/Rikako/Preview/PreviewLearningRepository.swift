@@ -100,6 +100,14 @@ final class PreviewLearningRepository: LearningRepository {
         "preview-anonymous-\(UUID().uuidString)"
     }
 
+    func fetchUserProfile(appSlug: String) async throws -> UserProfile {
+        UserProfile(identityId: "preview-identity", displayName: "プレビューユーザー", selectedWorkbookId: 1)
+    }
+
+    func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile {
+        UserProfile(identityId: "preview-identity", displayName: request.displayName, selectedWorkbookId: request.selectedWorkbookId)
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         WrongAnswerListResponse(
             questions: Array(MockData.questions.prefix(limit)),

@@ -3,7 +3,8 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(AppState.self) private var appState
     @State private var displayName = ""
-    @State private var email = "guest@example.com"
+    @State private var isSaving = false
+    @FocusState private var isDisplayNameFocused: Bool
 
     var body: some View {
         List {
@@ -20,7 +21,7 @@ struct ProfileView: View {
                                     .foregroundStyle(Color(.main))
                             )
                         VStack(spacing: 4) {
-                            Text("ゲストユーザー")
+                            Text(appState.displayName ?? "ゲストユーザー")
                                 .font(.headline)
                             if let userId = appState.anonymousUserId {
                                 Text(userId)
@@ -41,12 +42,10 @@ struct ProfileView: View {
                     TextField("未設定", text: $displayName)
                         .multilineTextAlignment(.trailing)
                         .foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("メール")
-                    Spacer()
-                    Text(email)
-                        .foregroundStyle(.secondary)
+                        .focused($isDisplayNameFocused)
+                        .onSubmit {
+                            Task { await saveDisplayName() }
+                        }
                 }
             }
 
@@ -73,6 +72,30 @@ struct ProfileView: View {
         }
         .navigationTitle("プロフィール")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            displayName = appState.displayName ?? ""
+        }
+        .onChange(of: isDisplayNameFocused) { _, focused in
+            if !focused {
+                Task { await saveDisplayName() }
+            }
+        }
+    }
+
+    private func saveDisplayName() async {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (appState.displayName ?? "") else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let profile = try await AppContainer.shared.learningUseCases.updateUserProfile.execute(
+                appSlug: "chemistry",
+                request: UpdateUserProfileRequest(displayName: trimmed.isEmpty ? nil : trimmed)
+            )
+            appState.displayName = profile.displayName
+        } catch {
+            // Save failure is non-fatal
+        }
     }
 }
 

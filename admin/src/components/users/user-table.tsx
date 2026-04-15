@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ export function UserTable({ users }: UserTableProps) {
         <TableRow>
           <TableHead className="w-16">ID</TableHead>
           <TableHead>Identity ID</TableHead>
+          <TableHead>表示名</TableHead>
           <TableHead className="w-48">登録日</TableHead>
         </TableRow>
       </TableHeader>
@@ -39,8 +41,16 @@ export function UserTable({ users }: UserTableProps) {
         {users.map((user) => (
           <TableRow key={user.id}>
             <TableCell>{user.id}</TableCell>
-            <TableCell className="font-mono text-sm">
-              {user.identityId}
+            <TableCell>
+              <Link
+                href={`/users/${user.id}`}
+                className="font-mono text-sm text-primary hover:underline"
+              >
+                {user.identityId}
+              </Link>
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {user.displayName || "-"}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {formatDate(user.createdAt)}

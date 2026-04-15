@@ -12,11 +12,13 @@ import (
 type Querier interface {
 	CategoryExists(ctx context.Context, id int64) (bool, error)
 	CheckAnswerCorrect(ctx context.Context, arg CheckAnswerCorrectParams) (bool, error)
+	CountApps(ctx context.Context) (int64, error)
 	CountCategories(ctx context.Context) (int64, error)
 	CountQuestions(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CountWorkbooks(ctx context.Context) (int64, error)
 	CountWrongAnswers(ctx context.Context, userID int64) (int64, error)
+	CreateApp(ctx context.Context, arg CreateAppParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (int64, error)
 	CreateChoice(ctx context.Context, arg CreateChoiceParams) error
 	CreateImage(ctx context.Context, path string) (int64, error)
@@ -34,12 +36,15 @@ type Querier interface {
 	DeleteAllSingleChoices(ctx context.Context) error
 	DeleteAllWorkbookQuestions(ctx context.Context) error
 	DeleteAllWorkbooks(ctx context.Context) error
+	DeleteApp(ctx context.Context, id int64) (sql.Result, error)
 	DeleteCategory(ctx context.Context, id int64) (sql.Result, error)
 	DeleteChoicesByQuestionID(ctx context.Context, questionID int64) error
 	DeleteQuestion(ctx context.Context, id int64) (sql.Result, error)
 	DeleteQuestionImages(ctx context.Context, questionID int64) error
 	DeleteWorkbook(ctx context.Context, id int64) (sql.Result, error)
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
+	GetAppByID(ctx context.Context, id int64) (App, error)
+	GetAppBySlug(ctx context.Context, slug string) (GetAppBySlugRow, error)
 	GetCategoryByID(ctx context.Context, id int64) (GetCategoryByIDRow, error)
 	GetCategoryTitle(ctx context.Context, id int64) (GetCategoryTitleRow, error)
 	GetChoicesByQuestionID(ctx context.Context, questionID int64) ([]GetChoicesByQuestionIDRow, error)
@@ -48,7 +53,9 @@ type Querier interface {
 	GetImageURLsByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetImageURLsByQuestionIDsRow, error)
 	GetQuestionByID(ctx context.Context, id int64) (GetQuestionByIDRow, error)
 	GetSingleChoiceID(ctx context.Context, questionID int64) (int64, error)
+	GetUserAppSetting(ctx context.Context, arg GetUserAppSettingParams) (GetUserAppSettingRow, error)
 	GetUserByIdentityID(ctx context.Context, identityID string) (int64, error)
+	GetUserProfile(ctx context.Context, id int64) (GetUserProfileRow, error)
 	GetWorkbookByID(ctx context.Context, id int64) (GetWorkbookByIDRow, error)
 	GetWorkbookTitle(ctx context.Context, id int64) (GetWorkbookTitleRow, error)
 	ImportCategory(ctx context.Context, arg ImportCategoryParams) error
@@ -61,11 +68,13 @@ type Querier interface {
 	ImportWorkbookQuestion(ctx context.Context, arg ImportWorkbookQuestionParams) error
 	ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error)
 	ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, error)
+	ListApps(ctx context.Context) ([]App, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]ListCategoriesRow, error)
 	ListQuestions(ctx context.Context, arg ListQuestionsParams) ([]ListQuestionsRow, error)
 	ListQuestionsByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsByWorkbookRow, error)
 	ListQuestionsWithChoices(ctx context.Context, arg ListQuestionsWithChoicesParams) ([]ListQuestionsWithChoicesRow, error)
 	ListQuestionsWithChoicesByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsWithChoicesByWorkbookRow, error)
+	ListUserAppSettings(ctx context.Context, userID int64) ([]ListUserAppSettingsRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
 	ListWorkbooks(ctx context.Context, arg ListWorkbooksParams) ([]ListWorkbooksRow, error)
 	ListWorkbooksByCategory(ctx context.Context, categoryID sql.NullInt64) ([]ListWorkbooksByCategoryRow, error)
@@ -73,11 +82,14 @@ type Querier interface {
 	ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	SetWorkbookCategory(ctx context.Context, arg SetWorkbookCategoryParams) error
+	UpdateApp(ctx context.Context, arg UpdateAppParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateQuestionTimestamp(ctx context.Context, arg UpdateQuestionTimestampParams) error
 	UpdateSingleChoice(ctx context.Context, arg UpdateSingleChoiceParams) error
+	UpdateUserDisplayName(ctx context.Context, arg UpdateUserDisplayNameParams) error
 	UpdateWorkbook(ctx context.Context, arg UpdateWorkbookParams) error
 	UpsertUser(ctx context.Context, identityID string) (int64, error)
+	UpsertUserAppSetting(ctx context.Context, arg UpsertUserAppSettingParams) error
 	WorkbookExists(ctx context.Context, id int64) (bool, error)
 }
 

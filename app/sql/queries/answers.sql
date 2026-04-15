@@ -61,7 +61,7 @@ LEFT JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
 ORDER BY q.id, c.choice_index;
 
 -- name: ListUsers :many
-SELECT id, identity_id, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2;
+SELECT id, identity_id, display_name, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;

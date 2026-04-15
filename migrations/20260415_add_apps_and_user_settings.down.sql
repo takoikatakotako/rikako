@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS user_app_settings;
+ALTER TABLE users DROP COLUMN IF EXISTS display_name;
+DROP TABLE IF EXISTS apps;

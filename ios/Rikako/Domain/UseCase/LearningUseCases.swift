@@ -7,6 +7,8 @@ struct LearningUseCases {
     let fetchCategoryDetail: FetchCategoryDetailUseCase
     let submitAnswers: SubmitAnswersUseCase
     let fetchWrongAnswers: FetchWrongAnswersUseCase
+    let fetchUserProfile: FetchUserProfileUseCase
+    let updateUserProfile: UpdateUserProfileUseCase
 
     init(repository: LearningRepository) {
         self.fetchWorkbooks = FetchWorkbooksUseCase(repository: repository)
@@ -15,6 +17,8 @@ struct LearningUseCases {
         self.fetchCategoryDetail = FetchCategoryDetailUseCase(repository: repository)
         self.submitAnswers = SubmitAnswersUseCase(repository: repository)
         self.fetchWrongAnswers = FetchWrongAnswersUseCase(repository: repository)
+        self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
+        self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
     }
 }
 
@@ -87,5 +91,29 @@ struct FetchWrongAnswersUseCase {
 
     func execute(limit: Int = 50, offset: Int = 0) async throws -> WrongAnswerListResponse {
         try await repository.fetchWrongAnswers(limit: limit, offset: offset)
+    }
+}
+
+struct FetchUserProfileUseCase {
+    private let repository: LearningRepository
+
+    init(repository: LearningRepository) {
+        self.repository = repository
+    }
+
+    func execute(appSlug: String) async throws -> UserProfile {
+        try await repository.fetchUserProfile(appSlug: appSlug)
+    }
+}
+
+struct UpdateUserProfileUseCase {
+    private let repository: LearningRepository
+
+    init(repository: LearningRepository) {
+        self.repository = repository
+    }
+
+    func execute(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile {
+        try await repository.updateUserProfile(appSlug: appSlug, request: request)
     }
 }
