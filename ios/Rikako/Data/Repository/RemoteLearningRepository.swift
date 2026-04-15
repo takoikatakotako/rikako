@@ -51,6 +51,20 @@ final class RemoteLearningRepository: LearningRepository {
         return try await postJSON(url: url, body: body, authenticated: true)
     }
 
+    func anonymousSignIn() async throws -> String {
+        let url = apiBaseURL.appendingPathComponent("auth/anonymous/sign-in")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+
+        struct SignInResponse: Decodable { let identityId: String }
+        let result = try decoder.decode(SignInResponse.self, from: data)
+        return result.identityId
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/wrong-answers"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

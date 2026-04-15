@@ -10,7 +10,7 @@ struct OnboardingView: View {
     init() {
         _viewModel = State(initialValue: OnboardingViewModel(
             fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks,
-            deviceIdentityProvider: AppContainer.shared.deviceIdentityProvider
+            anonymousSignIn: AppContainer.shared.anonymousSignIn
         ))
         _currentPage = State(initialValue: 0)
     }

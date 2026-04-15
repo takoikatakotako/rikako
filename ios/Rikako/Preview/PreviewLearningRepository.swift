@@ -96,17 +96,15 @@ final class PreviewLearningRepository: LearningRepository {
         )
     }
 
+    func anonymousSignIn() async throws -> String {
+        "preview-anonymous-\(UUID().uuidString)"
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         WrongAnswerListResponse(
             questions: Array(MockData.questions.prefix(limit)),
             total: min(limit, MockData.questions.count)
         )
-    }
-}
-
-private struct PreviewDeviceIdentityProvider: DeviceIdentityProviding {
-    func getIdentityId() async throws -> String {
-        "preview-anonymous-\(UUID().uuidString)"
     }
 }
 
@@ -120,7 +118,7 @@ enum PreviewAppContainer {
     static func makeOnboardingViewModel() -> OnboardingViewModel {
         OnboardingViewModel(
             fetchWorkbooksUseCase: learningUseCases.fetchWorkbooks,
-            deviceIdentityProvider: PreviewDeviceIdentityProvider()
+            anonymousSignIn: { "preview-anonymous-\(UUID().uuidString)" }
         )
     }
 }

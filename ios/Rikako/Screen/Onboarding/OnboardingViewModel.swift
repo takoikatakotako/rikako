@@ -12,11 +12,11 @@ final class OnboardingViewModel {
     var startErrorMessage: String?
 
     private let fetchWorkbooksUseCase: FetchWorkbooksUseCase
-    private let deviceIdentityProvider: DeviceIdentityProviding
+    private let anonymousSignIn: () async throws -> String
 
-    init(fetchWorkbooksUseCase: FetchWorkbooksUseCase, deviceIdentityProvider: DeviceIdentityProviding) {
+    init(fetchWorkbooksUseCase: FetchWorkbooksUseCase, anonymousSignIn: @escaping () async throws -> String) {
         self.fetchWorkbooksUseCase = fetchWorkbooksUseCase
-        self.deviceIdentityProvider = deviceIdentityProvider
+        self.anonymousSignIn = anonymousSignIn
     }
 
     var otherWorkbooks: [Workbook] {
@@ -46,7 +46,7 @@ final class OnboardingViewModel {
         isStarting = true
         startErrorMessage = nil
         do {
-            let identityId = try await deviceIdentityProvider.getIdentityId()
+            let identityId = try await anonymousSignIn()
             appState.completeOnboarding(anonymousUserId: identityId)
         } catch {
             startErrorMessage = error.localizedDescription
