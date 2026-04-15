@@ -36,7 +36,7 @@ struct MyPageView: View {
                     )
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("かびごん")
+                    Text(appState.displayName ?? "ゲストユーザー")
                         .font(.headline.bold())
                         .foregroundStyle(.primary)
                     Text(appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員")
