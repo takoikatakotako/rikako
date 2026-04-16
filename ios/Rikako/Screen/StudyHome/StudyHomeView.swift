@@ -254,28 +254,18 @@ struct StudyHomeView: View {
 
                 Spacer()
 
-                if progress.answered > 0 {
-                    HStack(spacing: 2) {
-                        Text("\(progress.correct)")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(Color(.main))
-                        Text("/\(section.questionCount)")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGray6))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                } else {
-                    Text("\(section.questionCount)問")
+                HStack(spacing: 2) {
+                    Text("\(progress.correct)")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(progress.answered > 0 ? Color(.main) : Color.secondary)
+                    Text("/\(section.questionCount)")
                         .font(.subheadline.bold())
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .padding(.vertical, 14)
         }
