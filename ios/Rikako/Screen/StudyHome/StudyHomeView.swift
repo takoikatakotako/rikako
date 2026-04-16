@@ -182,7 +182,9 @@ struct StudyHomeView: View {
                 NavigationLink(destination: QuizView(
                     questions: viewModel.firstSectionQuestions(),
                     workbookTitle: workbookDetail.title,
-                    workbookId: workbookDetail.id
+                    workbookId: workbookDetail.id,
+                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                    currentSectionIndex: 0
                 )) {
                     VStack(spacing: 4) {
                         Text("はじめる")
@@ -234,7 +236,9 @@ struct StudyHomeView: View {
                 QuizView(
                     questions: questions,
                     workbookTitle: workbookDetail.title,
-                    workbookId: workbookDetail.id
+                    workbookId: workbookDetail.id,
+                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                    currentSectionIndex: section.id - 1
                 )
             }
         }) {
