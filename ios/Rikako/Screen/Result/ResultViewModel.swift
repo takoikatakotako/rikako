@@ -80,5 +80,25 @@ final class ResultViewModel {
         guard !didSubmit else { return }
         didSubmit = true
         appState.recordSession(workbookId: workbookId, questions: questions, answers: answers)
+        submitAnswersToServer()
+    }
+
+    private func submitAnswersToServer() {
+        let answerItems = zip(questions, answers).compactMap { question, answer -> AnswerItem? in
+            guard let choice = answer else { return nil }
+            return AnswerItem(questionId: question.id, selectedChoice: choice)
+        }
+        guard !answerItems.isEmpty else { return }
+
+        Task {
+            do {
+                try await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                    workbookId: workbookId,
+                    answers: answerItems
+                )
+            } catch {
+                // ログ送信失敗はサイレントに無視（ユーザー体験を損なわない）
+            }
+        }
     }
 }
