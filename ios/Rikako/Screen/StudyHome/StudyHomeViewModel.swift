@@ -4,7 +4,7 @@ import Observation
 @Observable
 @MainActor
 final class StudyHomeViewModel {
-    struct Chapter: Identifiable {
+    struct Section: Identifiable {
         let id: Int
         let title: String
         let questionCount: Int
@@ -64,7 +64,7 @@ final class StudyHomeViewModel {
         }
     }
 
-    func chapters() -> [Chapter] {
+    func sections() -> [Section] {
         guard let workbookDetail else { return [] }
         let chunkSize = 10
         let total = workbookDetail.questions.count
@@ -72,27 +72,41 @@ final class StudyHomeViewModel {
         return (0..<chunkCount).map { index in
             let start = index * chunkSize
             let end = min(start + chunkSize, total)
-            return Chapter(
+            return Section(
                 id: index + 1,
-                title: "第\(index + 1)章 Lesson \(index + 1)",
+                title: "Section \(index + 1)",
                 questionCount: max(end - start, 0),
-                isLocked: index > 0
+                isLocked: false
             )
         }
     }
 
-    func questions(for chapter: Chapter) -> [Question] {
+    func questions(for section: Section) -> [Question] {
         guard let workbookDetail else { return [] }
         let chunkSize = 10
-        let start = max((chapter.id - 1) * chunkSize, 0)
+        let start = max((section.id - 1) * chunkSize, 0)
         let end = min(start + chunkSize, workbookDetail.questions.count)
         guard start < end else { return [] }
         return Array(workbookDetail.questions[start..<end])
     }
 
-    func firstChapterQuestions() -> [Question] {
-        guard let firstChapter = chapters().first else { return [] }
-        return questions(for: firstChapter)
+    // セクションの正解数と回答済み数を返す
+    func sectionProgress(for section: Section, questionResults: [String: Bool]) -> (correct: Int, answered: Int) {
+        let qs = questions(for: section)
+        var correct = 0
+        var answered = 0
+        for q in qs {
+            if let isCorrect = questionResults[String(q.id)] {
+                answered += 1
+                if isCorrect { correct += 1 }
+            }
+        }
+        return (correct, answered)
+    }
+
+    func firstSectionQuestions() -> [Question] {
+        guard let firstSection = sections().first else { return [] }
+        return questions(for: firstSection)
     }
 
     #if DEBUG

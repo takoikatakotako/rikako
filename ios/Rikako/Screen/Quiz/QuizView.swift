@@ -10,12 +10,17 @@ struct QuizView: View {
 
     private let choiceLabels = ["A", "B", "C", "D"]
 
-    init(questions: [Question], workbookTitle: String, workbookId: Int64) {
+    private let allSectionsQuestions: [[Question]]
+    private let currentSectionIndex: Int
+
+    init(questions: [Question], workbookTitle: String, workbookId: Int64, allSectionsQuestions: [[Question]] = [], currentSectionIndex: Int = 0) {
         _viewModel = State(initialValue: QuizViewModel(
             questions: questions,
             workbookTitle: workbookTitle,
             workbookId: workbookId
         ))
+        self.allSectionsQuestions = allSectionsQuestions
+        self.currentSectionIndex = currentSectionIndex
     }
 
     var body: some View {
@@ -88,6 +93,8 @@ struct QuizView: View {
                 answers: viewModel.answers,
                 workbookTitle: viewModel.workbookTitle,
                 workbookId: viewModel.workbookId,
+                allSectionsQuestions: allSectionsQuestions,
+                currentSectionIndex: currentSectionIndex,
                 onBackToWorkbookList: {
                     dismiss()
                 }
@@ -141,6 +148,8 @@ struct QuizView: View {
                     withAnimation {
                         viewModel.selectChoice(index)
                     }
+                    let feedback = UINotificationFeedbackGenerator()
+                    feedback.notificationOccurred(index == viewModel.currentQuestion.correctIndex ? .success : .error)
                 } label: {
                     HStack(spacing: 14) {
                         Text(choiceLabel(for: index))
@@ -156,17 +165,6 @@ struct QuizView: View {
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        if viewModel.showExplanation {
-                            if index == viewModel.currentQuestion.correctIndex {
-                                Image(.questionCorrect)
-                                    .resizable()
-                                    .frame(width: 26, height: 26)
-                            } else if index == viewModel.selectedChoice {
-                                Image(.questionDiscorrect)
-                                    .resizable()
-                                    .frame(width: 26, height: 26)
-                            }
-                        }
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -4,6 +4,9 @@ struct ResultView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @State private var viewModel: ResultViewModel
+    @State private var showContinueQuiz = false
+    private let allSectionsQuestions: [[Question]]
+    private let currentSectionIndex: Int
     private let onBackToWorkbookList: () -> Void
 
     init(
@@ -11,6 +14,8 @@ struct ResultView: View {
         answers: [Int?],
         workbookTitle: String,
         workbookId: Int64,
+        allSectionsQuestions: [[Question]] = [],
+        currentSectionIndex: Int = 0,
         onBackToWorkbookList: @escaping () -> Void = {}
     ) {
         _viewModel = State(initialValue: ResultViewModel(
@@ -19,6 +24,8 @@ struct ResultView: View {
             workbookTitle: workbookTitle,
             workbookId: workbookId
         ))
+        self.allSectionsQuestions = allSectionsQuestions
+        self.currentSectionIndex = currentSectionIndex
         self.onBackToWorkbookList = onBackToWorkbookList
     }
 
@@ -27,6 +34,7 @@ struct ResultView: View {
             VStack(spacing: 24) {
                 scoreCard
                 questionResults
+                continueButton
                 backButton
             }
             .padding()
@@ -149,6 +157,33 @@ struct ResultView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
+    private var continueButton: some View {
+        let nextIndex = allSectionsQuestions.isEmpty ? 0 : (currentSectionIndex + 1) % allSectionsQuestions.count
+        let nextQuestions = allSectionsQuestions.isEmpty ? viewModel.questions : allSectionsQuestions[nextIndex]
+        let nextSectionNumber = nextIndex + 1
+
+        return Button {
+            showContinueQuiz = true
+        } label: {
+            Text(allSectionsQuestions.isEmpty ? "つづける" : "Section \(nextSectionNumber) へ")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color(.main))
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .navigationDestination(isPresented: $showContinueQuiz) {
+            QuizView(
+                questions: nextQuestions,
+                workbookTitle: viewModel.workbookTitle,
+                workbookId: viewModel.workbookId,
+                allSectionsQuestions: allSectionsQuestions,
+                currentSectionIndex: nextIndex
+            )
+        }
+    }
+
     private var backButton: some View {
         Button {
             dismiss()
@@ -160,8 +195,8 @@ struct ResultView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(.main))
-                .foregroundStyle(.white)
+                .background(Color(.systemGray5))
+                .foregroundStyle(.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }

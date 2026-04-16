@@ -8,7 +8,6 @@ struct StudyRecordView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    saleBanner
                     greetingSection
                     streakCard
                     reminderBanner
@@ -23,53 +22,17 @@ struct StudyRecordView: View {
         }
     }
 
-    private var saleBanner: some View {
-        RoundedRectangle(cornerRadius: 18)
-            .fill(
-                LinearGradient(
-                    colors: [Color.pink.opacity(0.22), Color.orange.opacity(0.20)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(height: 76)
-            .overlay(
-                HStack(spacing: 14) {
-                    Image(.topAppLogo)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 48, height: 48)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("春のチャレンジ応援")
-                            .font(.headline.bold())
-                        Text("今日も10問ずつ進めていこう")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right.circle.fill")
-                        .foregroundStyle(Color(.main))
-                        .font(.title3)
-                }
-                .padding(.horizontal, 18)
-            )
-    }
-
     private var greetingSection: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(.topRikakoStanding)
-                .resizable()
-                .scaledToFit()
+            Image(systemName: "tortoise.fill")
+                .font(.title2)
+                .foregroundStyle(Color(.main))
                 .frame(width: 56, height: 56)
-                .padding(4)
                 .background(Color(.main).opacity(0.10))
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("理科子さん、今日も勉強してえらいね！")
+                Text(appState.displayName.map { "\($0)さん、今日も勉強してえらいね！" } ?? "今日も勉強してえらいね！")
                     .font(.title3.bold())
                     .foregroundStyle(.primary)
 
@@ -82,18 +45,22 @@ struct StudyRecordView: View {
     }
 
     private var streakCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let weekly = viewModel.weeklyStudied(studyDates: appState.studyDates)
+        let weeklyCount = viewModel.weeklyStudyCount(studyDates: appState.studyDates)
+        let streak = viewModel.streak(studyDates: appState.studyDates)
+
+        return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("連続学習日数")
                         .font(.headline.bold())
-                    Text("自己ベスト: 2日")
+                    Text("今週の学習: \(weeklyCount)日")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    Text(viewModel.streakText(completedWorkbookIDs: appState.completedWorkbookIDs))
+                    Text("\(streak)")
                         .font(.system(size: 48, weight: .bold))
                         .foregroundStyle(Color(.main))
                     Text("日")
@@ -113,17 +80,14 @@ struct StudyRecordView: View {
                             .frame(width: 24, height: 24)
                             .background(
                                 Circle()
-                                    .fill(index < viewModel.activeDays(completedWorkbookIDs: appState.completedWorkbookIDs) ? Color(.main).opacity(0.18) : Color.clear)
+                                    .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
                             )
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
 
-            VStack(spacing: 12) {
-                chartRow(label: "学習時間", value: viewModel.chartValue(totalAnswered: appState.totalAnswered))
-                chartRow(label: "問題数", value: viewModel.chartValue(totalAnswered: appState.totalAnswered))
-            }
+            chartRow(label: "問題数", value: min(appState.totalAnswered, 30))
         }
         .padding(20)
         .background(
@@ -176,29 +140,19 @@ struct StudyRecordView: View {
 
     private var statsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("学習時間・日数")
-                    .font(.headline.bold())
-                Spacer()
-                Text("これまでの記録")
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray6))
-                    .clipShape(Capsule())
-            }
+            Text("今週の学習時間・日数")
+                .font(.headline.bold())
 
             HStack(spacing: 12) {
                 statTile(
                     title: "解答した問題",
-                    value: "\(appState.totalAnswered)問",
+                    value: "\(appState.weeklyAnswered)問",
                     icon: "square.and.pencil",
                     accentColor: Color(.main)
                 )
                 statTile(
                     title: "正答率",
-                    value: appState.accuracyText,
+                    value: appState.weeklyAccuracyText,
                     icon: "chart.line.uptrend.xyaxis",
                     accentColor: Color.green
                 )
@@ -207,7 +161,7 @@ struct StudyRecordView: View {
             HStack(spacing: 12) {
                 statTile(
                     title: "完了した問題集",
-                    value: "\(appState.completedWorkbookIDs.count)冊",
+                    value: "\(appState.weeklyCompletedWorkbookIDs.count)冊",
                     icon: "books.vertical.fill",
                     accentColor: Color.blue
                 )

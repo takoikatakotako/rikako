@@ -44,7 +44,7 @@ struct StudyHomeView: View {
                                 workbookHero(selectedWorkbook)
                             }
 
-                            chapterPanel
+                            sectionPanel
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -158,7 +158,7 @@ struct StudyHomeView: View {
         .frame(height: 230)
     }
 
-    private var chapterPanel: some View {
+    private var sectionPanel: some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
@@ -180,14 +180,16 @@ struct StudyHomeView: View {
 
             if let workbookDetail = viewModel.workbookDetail {
                 NavigationLink(destination: QuizView(
-                    questions: viewModel.firstChapterQuestions(),
+                    questions: viewModel.firstSectionQuestions(),
                     workbookTitle: workbookDetail.title,
-                    workbookId: workbookDetail.id
+                    workbookId: workbookDetail.id,
+                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                    currentSectionIndex: 0
                 )) {
                     VStack(spacing: 4) {
                         Text("はじめる")
                             .font(.headline.bold())
-                        Text(viewModel.chapters().first?.title ?? "Lesson 1")
+                        Text(viewModel.sections().first?.title ?? "Section 1")
                             .font(.caption)
                     }
                     .foregroundStyle(.white)
@@ -209,9 +211,9 @@ struct StudyHomeView: View {
             }
 
             VStack(spacing: 0) {
-                ForEach(viewModel.chapters()) { chapter in
-                    chapterRow(chapter)
-                    if chapter.id != viewModel.chapters().last?.id {
+                ForEach(viewModel.sections()) { section in
+                    sectionRow(section)
+                    if section.id != viewModel.sections().last?.id {
                         Divider()
                             .padding(.leading, 54)
                     }
@@ -224,39 +226,55 @@ struct StudyHomeView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
-    private func chapterRow(_ chapter: StudyHomeViewModel.Chapter) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .stroke(Color.gray.opacity(0.35), lineWidth: 2)
-                    .frame(width: 38, height: 38)
+    private func sectionRow(_ section: StudyHomeViewModel.Section) -> some View {
+        let questions = viewModel.questions(for: section)
+        let workbookDetail = viewModel.workbookDetail
+        let progress = viewModel.sectionProgress(for: section, questionResults: appState.questionResults)
 
-                if chapter.isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.gray)
-                } else {
-                    Text("\(chapter.id)")
+        return NavigationLink(destination: Group {
+            if let workbookDetail {
+                QuizView(
+                    questions: questions,
+                    workbookTitle: workbookDetail.title,
+                    workbookId: workbookDetail.id,
+                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                    currentSectionIndex: section.id - 1
+                )
+            }
+        }) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.35), lineWidth: 2)
+                        .frame(width: 38, height: 38)
+                    Text("\(section.id)")
                         .font(.headline.bold())
                         .foregroundStyle(.primary)
                 }
-            }
 
-            Text(chapter.title)
-                .font(.headline)
-                .foregroundStyle(chapter.isLocked ? .secondary : .primary)
+                Text(section.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
 
-            Spacer()
+                Spacer()
 
-            Text("\(chapter.questionCount)問")
-                .font(.subheadline.bold())
-                .foregroundStyle(.secondary)
+                HStack(spacing: 2) {
+                    Text("\(progress.correct)")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(progress.answered > 0 ? Color(.main) : Color.secondary)
+                    Text("/\(section.questionCount)")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.secondary)
+                }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color(.systemGray6))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 14)
+        .buttonStyle(.plain)
     }
 
     private var skeletonView: some View {
@@ -267,7 +285,7 @@ struct StudyHomeView: View {
                     .fill(Color(.systemGray5))
                     .frame(height: 230)
 
-                // Chapter panel skeleton
+                // Section panel skeleton
                 VStack(spacing: 0) {
                     VStack(spacing: 8) {
                         skeletonRect(width: 120, height: 14)
