@@ -268,6 +268,7 @@ struct StudyHomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             .padding(.vertical, 14)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
