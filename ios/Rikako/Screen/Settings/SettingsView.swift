@@ -3,11 +3,13 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = SettingsViewModel()
+    @State private var showLogoutConfirmation = false
+    @State private var versionTapCount = 0
+    @State private var showDebug = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                learningCard
                 aboutCard
                 logoutButton
             }
@@ -17,26 +19,16 @@ struct SettingsView: View {
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .background(Color(.systemGroupedBackground))
-    }
-
-    private var learningCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("学習")
-
-            HStack(spacing: 12) {
-                statTile(
-                    title: "解答した問題数",
-                    value: viewModel.answeredText(totalAnswered: appState.totalAnswered),
-                    symbol: "checkmark.circle.fill",
-                    accentColor: Color(.main)
-                )
-                statTile(
-                    title: "正答率",
-                    value: appState.accuracyText,
-                    symbol: "chart.bar.fill",
-                    accentColor: .green
-                )
+        .navigationDestination(isPresented: $showDebug) {
+            DebugView()
+        }
+        .alert("ログアウト", isPresented: $showLogoutConfirmation) {
+            Button("キャンセル", role: .cancel) {}
+            Button("ログアウト", role: .destructive) {
+                appState.resetToInitialState()
             }
+        } message: {
+            Text("ログアウトすると学習データがリセットされます。よろしいですか？")
         }
     }
 
@@ -46,6 +38,13 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 infoRow(symbol: "info.circle.fill", title: "バージョン", trailing: viewModel.versionText, accentColor: .blue)
+                    .onTapGesture {
+                        versionTapCount += 1
+                        if versionTapCount >= 3 {
+                            versionTapCount = 0
+                            showDebug = true
+                        }
+                    }
                 Divider().padding(.leading, 48)
                 infoRow(symbol: "questionmark.circle.fill", title: "使い方", accentColor: Color(.main))
                 Divider().padding(.leading, 48)
@@ -60,7 +59,7 @@ struct SettingsView: View {
 
     private var logoutButton: some View {
         Button(role: .destructive) {
-            appState.setLoggedIn(false)
+            showLogoutConfirmation = true
         } label: {
             HStack {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -79,34 +78,6 @@ struct SettingsView: View {
         Text(title)
             .font(.headline.bold())
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func statTile(title: String, value: String, symbol: String, accentColor: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: symbol)
-                    .font(.caption.bold())
-                    .foregroundStyle(accentColor)
-                    .frame(width: 24, height: 24)
-                    .background(accentColor.opacity(0.12))
-                    .clipShape(Circle())
-
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Text(value)
-                .font(.title2.bold())
-                .foregroundStyle(accentColor)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
-        )
     }
 
     private func infoRow(symbol: String, title: String, trailing: String? = nil, accentColor: Color) -> some View {

@@ -5,6 +5,7 @@ final class AppContainer {
 
     let appState: AppState
     let learningUseCases: LearningUseCases
+    let anonymousSignIn: () async throws -> String
 
     private init() {
         let httpClient = URLSessionHTTPClient(session: .shared)
@@ -19,5 +20,6 @@ final class AppContainer {
 
         self.appState = AppState.shared
         self.learningUseCases = LearningUseCases(repository: repository)
+        self.anonymousSignIn = { try await repository.anonymousSignIn() }
     }
 }

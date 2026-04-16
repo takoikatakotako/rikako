@@ -889,6 +889,228 @@ func (h *Handler) DeleteWorkbook(ctx context.Context, request adminapi.DeleteWor
 	return adminapi.DeleteWorkbook204Response{}, nil
 }
 
+// --- Users ---
+
+func (h *Handler) GetUsers(ctx context.Context, request adminapi.GetUsersRequestObject) (adminapi.GetUsersResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return adminapi.GetUsers400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	total, err := h.queries.CountUsers(ctx)
+	if err != nil {
+		h.logger.Error("failed to count users", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUsers(ctx, db.ListUsersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query users", "error", err)
+		return nil, err
+	}
+
+	users := []adminapi.User{}
+	for _, row := range rows {
+		u := adminapi.User{
+			Id:         row.ID,
+			IdentityId: row.IdentityID,
+		}
+		if row.DisplayName.Valid {
+			u.DisplayName = &row.DisplayName.String
+		}
+		if row.CreatedAt.Valid {
+			u.CreatedAt = row.CreatedAt.Time
+		}
+		users = append(users, u)
+	}
+
+	return adminapi.GetUsers200JSONResponse{Users: users, Total: int(total)}, nil
+}
+
+// --- Apps CRUD ---
+
+func (h *Handler) GetApps(ctx context.Context, _ adminapi.GetAppsRequestObject) (adminapi.GetAppsResponseObject, error) {
+	total, err := h.queries.CountApps(ctx)
+	if err != nil {
+		h.logger.Error("failed to count apps", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListApps(ctx)
+	if err != nil {
+		h.logger.Error("failed to query apps", "error", err)
+		return nil, err
+	}
+
+	apps := []adminapi.App{}
+	for _, row := range rows {
+		a := adminapi.App{
+			Id:    row.ID,
+			Slug:  row.Slug,
+			Title: row.Title,
+		}
+		if row.CreatedAt.Valid {
+			a.CreatedAt = &row.CreatedAt.Time
+		}
+		apps = append(apps, a)
+	}
+
+	return adminapi.GetApps200JSONResponse{Apps: apps, Total: int(total)}, nil
+}
+
+func (h *Handler) GetApp(ctx context.Context, request adminapi.GetAppRequestObject) (adminapi.GetAppResponseObject, error) {
+	row, err := h.queries.GetAppByID(ctx, request.AppId)
+	if err == sql.ErrNoRows {
+		return adminapi.GetApp404JSONResponse{Code: "NOT_FOUND", Message: "app not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get app", "error", err, "app_id", request.AppId)
+		return nil, err
+	}
+
+	a := adminapi.App{
+		Id:    row.ID,
+		Slug:  row.Slug,
+		Title: row.Title,
+	}
+	if row.CreatedAt.Valid {
+		a.CreatedAt = &row.CreatedAt.Time
+	}
+	return adminapi.GetApp200JSONResponse(a), nil
+}
+
+func (h *Handler) CreateApp(ctx context.Context, request adminapi.CreateAppRequestObject) (adminapi.CreateAppResponseObject, error) {
+	body := request.Body
+	id, err := h.queries.CreateApp(ctx, db.CreateAppParams{
+		Slug:  body.Slug,
+		Title: body.Title,
+	})
+	if err != nil {
+		h.logger.Error("failed to create app", "error", err)
+		return adminapi.CreateApp400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	row, err := h.queries.GetAppByID(ctx, id)
+	if err != nil {
+		h.logger.Error("failed to get created app", "error", err)
+		return nil, err
+	}
+
+	a := adminapi.App{
+		Id:    row.ID,
+		Slug:  row.Slug,
+		Title: row.Title,
+	}
+	if row.CreatedAt.Valid {
+		a.CreatedAt = &row.CreatedAt.Time
+	}
+	return adminapi.CreateApp201JSONResponse(a), nil
+}
+
+func (h *Handler) UpdateApp(ctx context.Context, request adminapi.UpdateAppRequestObject) (adminapi.UpdateAppResponseObject, error) {
+	_, err := h.queries.GetAppByID(ctx, request.AppId)
+	if err == sql.ErrNoRows {
+		return adminapi.UpdateApp404JSONResponse{Code: "NOT_FOUND", Message: "app not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get app", "error", err)
+		return nil, err
+	}
+
+	err = h.queries.UpdateApp(ctx, db.UpdateAppParams{
+		Slug:  request.Body.Slug,
+		Title: request.Body.Title,
+		ID:    request.AppId,
+	})
+	if err != nil {
+		h.logger.Error("failed to update app", "error", err)
+		return nil, err
+	}
+
+	row, err := h.queries.GetAppByID(ctx, request.AppId)
+	if err != nil {
+		h.logger.Error("failed to get updated app", "error", err)
+		return nil, err
+	}
+
+	a := adminapi.App{
+		Id:    row.ID,
+		Slug:  row.Slug,
+		Title: row.Title,
+	}
+	if row.CreatedAt.Valid {
+		a.CreatedAt = &row.CreatedAt.Time
+	}
+	return adminapi.UpdateApp200JSONResponse(a), nil
+}
+
+func (h *Handler) DeleteApp(ctx context.Context, request adminapi.DeleteAppRequestObject) (adminapi.DeleteAppResponseObject, error) {
+	result, err := h.queries.DeleteApp(ctx, request.AppId)
+	if err != nil {
+		h.logger.Error("failed to delete app", "error", err, "app_id", request.AppId)
+		return nil, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if rowsAffected == 0 {
+		return adminapi.DeleteApp404JSONResponse{Code: "NOT_FOUND", Message: "app not found"}, nil
+	}
+
+	return adminapi.DeleteApp204Response{}, nil
+}
+
+// --- User Detail ---
+
+func (h *Handler) GetUser(ctx context.Context, request adminapi.GetUserRequestObject) (adminapi.GetUserResponseObject, error) {
+	profile, err := h.queries.GetUserProfile(ctx, request.UserId)
+	if err == sql.ErrNoRows {
+		return adminapi.GetUser404JSONResponse{Code: "NOT_FOUND", Message: "user not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "user_id", request.UserId)
+		return nil, err
+	}
+
+	settings, err := h.queries.ListUserAppSettings(ctx, request.UserId)
+	if err != nil {
+		h.logger.Error("failed to get user app settings", "error", err)
+		return nil, err
+	}
+
+	appSettings := []adminapi.UserAppSetting{}
+	for _, s := range settings {
+		as := adminapi.UserAppSetting{
+			AppSlug:  s.AppSlug,
+			AppTitle: s.AppTitle,
+		}
+		if s.SelectedWorkbookID.Valid {
+			wbID := s.SelectedWorkbookID.Int64
+			as.SelectedWorkbookId = &wbID
+		}
+		appSettings = append(appSettings, as)
+	}
+
+	u := adminapi.UserDetail{
+		Id:          profile.ID,
+		IdentityId:  profile.IdentityID,
+		AppSettings: appSettings,
+	}
+	if profile.DisplayName.Valid {
+		u.DisplayName = &profile.DisplayName.String
+	}
+	if profile.CreatedAt.Valid {
+		u.CreatedAt = profile.CreatedAt.Time
+	}
+
+	return adminapi.GetUser200JSONResponse(u), nil
+}
+
 // --- Images ---
 
 func (h *Handler) CreatePresignedUrl(ctx context.Context, request adminapi.CreatePresignedUrlRequestObject) (adminapi.CreatePresignedUrlResponseObject, error) {

@@ -1,5 +1,17 @@
 import Foundation
 
+struct UserProfile: Codable {
+    var userId: Int64?
+    let identityId: String
+    var displayName: String?
+    var selectedWorkbookId: Int64?
+}
+
+struct UpdateUserProfileRequest: Encodable {
+    var displayName: String?
+    var selectedWorkbookId: Int64?
+}
+
 protocol LearningRepository {
     func fetchWorkbooks() async throws -> [Workbook]
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail
@@ -7,4 +19,7 @@ protocol LearningRepository {
     func fetchCategoryDetail(id: Int64) async throws -> CategoryDetail
     func submitAnswers(workbookId: Int64, answers: [AnswerItem]) async throws -> AnswerSubmissionResponse
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse
+    func anonymousSignIn() async throws -> String
+    func fetchUserProfile(appSlug: String) async throws -> UserProfile
+    func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile
 }

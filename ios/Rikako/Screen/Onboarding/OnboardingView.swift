@@ -3,18 +3,21 @@ import SwiftUI
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: OnboardingViewModel
-    @State private var currentPage = 0
+    @State private var currentPage: Int
     @State private var hasAgreedToTerms = false
 
     @MainActor
     init() {
         _viewModel = State(initialValue: OnboardingViewModel(
-            fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks
+            fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks,
+            anonymousSignIn: AppContainer.shared.anonymousSignIn
         ))
+        _currentPage = State(initialValue: 0)
     }
 
-    init(viewModel: OnboardingViewModel) {
+    init(viewModel: OnboardingViewModel, initialPage: Int = 0) {
         _viewModel = State(initialValue: viewModel)
+        _currentPage = State(initialValue: initialPage)
     }
 
     var body: some View {
@@ -40,10 +43,8 @@ struct OnboardingView: View {
             )
             .tag(4)
 
-            OnboardingFinishPage {
-                viewModel.start(appState: appState)
-            }
-            .tag(5)
+            OnboardingFinishPage(viewModel: viewModel)
+                .tag(5)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -437,7 +438,8 @@ private struct OnboardingTermsAgreementPage: View {
 }
 
 private struct OnboardingFinishPage: View {
-    let action: () -> Void
+    @Environment(AppState.self) private var appState
+    @Bindable var viewModel: OnboardingViewModel
 
     var body: some View {
         VStack(spacing: 24) {
@@ -450,31 +452,73 @@ private struct OnboardingFinishPage: View {
                     .font(.system(size: 30, weight: .bold))
                     .multilineTextAlignment(.center)
 
-                Text("一緒に頑張ろうね！")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                if let errorMessage = viewModel.startErrorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("一緒に頑張ろうね！")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
             .padding(.horizontal, 24)
 
             Spacer()
 
-            Button(action: action) {
-                Text("はじめる")
-                    .font(.headline)
+            Button {
+                Task { await viewModel.start(appState: appState) }
+            } label: {
+                Group {
+                    if viewModel.isStarting {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("はじめる")
+                    }
+                }
+                .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color(.main))
+                .background(viewModel.isStarting ? Color(.systemGray4) : Color(.main))
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             }
+            .disabled(viewModel.isStarting)
             .padding(.horizontal, 24)
             .padding(.bottom, 48)
         }
     }
 }
 
-#Preview {
-    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel())
+#Preview("Welcome") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 0)
+        .environment(AppState.preview())
+}
+
+#Preview("WorkbookIntro") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 1)
+        .environment(AppState.preview())
+}
+
+#Preview("WorkbookSelection") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 2)
+        .environment(AppState.preview())
+}
+
+#Preview("AppIntro") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 3)
+        .environment(AppState.preview())
+}
+
+#Preview("TermsAgreement") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 4)
+        .environment(AppState.preview())
+}
+
+#Preview("Finish") {
+    OnboardingView(viewModel: PreviewAppContainer.makeOnboardingViewModel(), initialPage: 5)
         .environment(AppState.preview())
 }

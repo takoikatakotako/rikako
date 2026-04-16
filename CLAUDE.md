@@ -224,7 +224,13 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 ### 環境
 
 - **Dev環境**
-  - Lambda Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - 公開API: https://api.dev.rikako.jp/
+  - 管理画面: https://admin.dev.rikako.jp/ （Basic Auth）
+  - 管理API: https://admin.dev.rikako.jp/api （CloudFront→Lambda、OAC認証）
+  - Lambda Function URL（公開API）: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
+  - Lambda関数名（公開API）: rikako-api-development
+  - Lambda関数名（管理API）: rikako-admin-api-development
+  - ECRリポジトリ（管理API）: 579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api
   - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
   - Content CDN: https://content.dev.rikako.jp/ （静的JSON配信）
   - Content S3: rikako-content-development
@@ -236,22 +242,26 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 ### GitHub Actions ワークフロー
 
-1. **deploy-dev.yml** - Devデプロイ
+1. **deploy-dev.yml** - Dev公開APIデプロイ
    - Dockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
    - ヘルスチェックで動作確認
    - OIDC認証でAWSアクセス
 
-2. **terraform-plan.yml** - Terraform Plan CI
+2. **deploy-admin-dev.yml** - Dev管理APIデプロイ
+   - 管理APIのDockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
+   - スモークテスト: https://admin.dev.rikako.jp/api
+
+3. **terraform-plan.yml** - Terraform Plan CI
    - PRでterraform/以下の変更時に自動実行
    - shared/devの各環境でplanを実行
    - tfcmtでPRにplan結果をコメント
 
-3. **docs.yml** - ドキュメント生成
+4. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
    - MkDocsビルド
    - GitHub Pagesにデプロイ
 
-4. **migrate.yml** - 手動マイグレーション
+5. **migrate.yml** - 手動マイグレーション
    - 環境選択（dev/prod）
    - 方向選択（up/down）
    - ステップ数指定

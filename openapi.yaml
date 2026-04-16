@@ -300,6 +300,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /users/me:
+    get:
+      summary: ユーザープロフィール取得
+      operationId: getUserProfile
+      tags:
+        - Users
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+        - name: X-App-Slug
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: プロフィール
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: ユーザープロフィール更新
+      operationId: updateUserProfile
+      tags:
+        - Users
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+        - name: X-App-Slug
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /users/me/wrong-answers:
     get:
       summary: 間違えた問題一覧
@@ -575,6 +635,31 @@ components:
             $ref: '#/components/schemas/Question'
         total:
           type: integer
+
+    UserProfile:
+      type: object
+      required:
+        - identityId
+      properties:
+        userId:
+          type: integer
+          format: int64
+        identityId:
+          type: string
+        displayName:
+          type: string
+        selectedWorkbookId:
+          type: integer
+          format: int64
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+        selectedWorkbookId:
+          type: integer
+          format: int64
 
     AnonymousSignInResponse:
       type: object

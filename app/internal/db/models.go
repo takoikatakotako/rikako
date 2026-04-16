@@ -8,6 +8,13 @@ import (
 	"database/sql"
 )
 
+type App struct {
+	ID        int64        `json:"id"`
+	Slug      string       `json:"slug"`
+	Title     string       `json:"title"`
+	CreatedAt sql.NullTime `json:"created_at"`
+}
+
 type Category struct {
 	ID          int64          `json:"id"`
 	Title       string         `json:"title"`
@@ -53,10 +60,11 @@ type QuestionsSingleChoiceChoice struct {
 }
 
 type User struct {
-	ID         int64        `json:"id"`
-	IdentityID string       `json:"identity_id"`
-	CreatedAt  sql.NullTime `json:"created_at"`
-	UpdatedAt  sql.NullTime `json:"updated_at"`
+	ID          int64          `json:"id"`
+	IdentityID  string         `json:"identity_id"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+	UpdatedAt   sql.NullTime   `json:"updated_at"`
+	DisplayName sql.NullString `json:"display_name"`
 }
 
 type UserAnswer struct {
@@ -67,6 +75,15 @@ type UserAnswer struct {
 	SelectedChoice int32        `json:"selected_choice"`
 	IsCorrect      bool         `json:"is_correct"`
 	AnsweredAt     sql.NullTime `json:"answered_at"`
+}
+
+type UserAppSetting struct {
+	ID                 int64         `json:"id"`
+	UserID             int64         `json:"user_id"`
+	AppID              int64         `json:"app_id"`
+	SelectedWorkbookID sql.NullInt64 `json:"selected_workbook_id"`
+	CreatedAt          sql.NullTime  `json:"created_at"`
+	UpdatedAt          sql.NullTime  `json:"updated_at"`
 }
 
 type Workbook struct {

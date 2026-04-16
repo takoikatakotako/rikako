@@ -126,6 +126,20 @@ type SubmitAnswersResponse struct {
 	TotalCount   int `json:"totalCount"`
 }
 
+// UpdateUserProfileRequest defines model for UpdateUserProfileRequest.
+type UpdateUserProfileRequest struct {
+	DisplayName        *string `json:"displayName,omitempty"`
+	SelectedWorkbookId *int64  `json:"selectedWorkbookId,omitempty"`
+}
+
+// UserProfile defines model for UserProfile.
+type UserProfile struct {
+	DisplayName        *string `json:"displayName,omitempty"`
+	IdentityId         string  `json:"identityId"`
+	SelectedWorkbookId *int64  `json:"selectedWorkbookId,omitempty"`
+	UserId             *int64  `json:"userId,omitempty"`
+}
+
 // Workbook defines model for Workbook.
 type Workbook struct {
 	// CategoryId カテゴリID
@@ -188,6 +202,20 @@ type GetQuestionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// GetUserProfileParams defines parameters for GetUserProfile.
+type GetUserProfileParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+	XAppSlug  string   `json:"X-App-Slug"`
+}
+
+// UpdateUserProfileParams defines parameters for UpdateUserProfile.
+type UpdateUserProfileParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+	XAppSlug  string   `json:"X-App-Slug"`
+}
+
 // GetWrongAnswersParams defines parameters for GetWrongAnswers.
 type GetWrongAnswersParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -205,6 +233,9 @@ type GetWorkbooksParams struct {
 
 // SubmitAnswersJSONRequestBody defines body for SubmitAnswers for application/json ContentType.
 type SubmitAnswersJSONRequestBody = SubmitAnswersRequest
+
+// UpdateUserProfileJSONRequestBody defines body for UpdateUserProfile for application/json ContentType.
+type UpdateUserProfileJSONRequestBody = UpdateUserProfileRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -235,6 +266,12 @@ type ServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx echo.Context, questionId int64) error
+	// ユーザープロフィール取得
+	// (GET /users/me)
+	GetUserProfile(ctx echo.Context, params GetUserProfileParams) error
+	// ユーザープロフィール更新
+	// (PUT /users/me)
+	UpdateUserProfile(ctx echo.Context, params UpdateUserProfileParams) error
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx echo.Context, params GetWrongAnswersParams) error
@@ -422,6 +459,102 @@ func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 	return err
 }
 
+// GetUserProfile converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserProfile(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserProfileParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+	// ------------- Required header parameter "X-App-Slug" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Slug")]; found {
+		var XAppSlug string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-App-Slug, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Slug", valueList[0], &XAppSlug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-App-Slug: %s", err))
+		}
+
+		params.XAppSlug = XAppSlug
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-App-Slug is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserProfile(ctx, params)
+	return err
+}
+
+// UpdateUserProfile converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateUserProfile(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateUserProfileParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+	// ------------- Required header parameter "X-App-Slug" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Slug")]; found {
+		var XAppSlug string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-App-Slug, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Slug", valueList[0], &XAppSlug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-App-Slug: %s", err))
+		}
+
+		params.XAppSlug = XAppSlug
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-App-Slug is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateUserProfile(ctx, params)
+	return err
+}
+
 // GetWrongAnswers converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWrongAnswers(ctx echo.Context) error {
 	var err error
@@ -544,6 +677,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
 	router.GET(baseURL+"/questions", wrapper.GetQuestions)
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
+	router.GET(baseURL+"/users/me", wrapper.GetUserProfile)
+	router.PUT(baseURL+"/users/me", wrapper.UpdateUserProfile)
 	router.GET(baseURL+"/users/me/wrong-answers", wrapper.GetWrongAnswers)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.GET(baseURL+"/workbooks/:workbookId", wrapper.GetWorkbook)
@@ -763,6 +898,59 @@ func (response GetQuestion404JSONResponse) VisitGetQuestionResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetUserProfileRequestObject struct {
+	Params GetUserProfileParams
+}
+
+type GetUserProfileResponseObject interface {
+	VisitGetUserProfileResponse(w http.ResponseWriter) error
+}
+
+type GetUserProfile200JSONResponse UserProfile
+
+func (response GetUserProfile200JSONResponse) VisitGetUserProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserProfile400JSONResponse Error
+
+func (response GetUserProfile400JSONResponse) VisitGetUserProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateUserProfileRequestObject struct {
+	Params UpdateUserProfileParams
+	Body   *UpdateUserProfileJSONRequestBody
+}
+
+type UpdateUserProfileResponseObject interface {
+	VisitUpdateUserProfileResponse(w http.ResponseWriter) error
+}
+
+type UpdateUserProfile200JSONResponse UserProfile
+
+func (response UpdateUserProfile200JSONResponse) VisitUpdateUserProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateUserProfile400JSONResponse Error
+
+func (response UpdateUserProfile400JSONResponse) VisitUpdateUserProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWrongAnswersRequestObject struct {
 	Params GetWrongAnswersParams
 }
@@ -870,6 +1058,12 @@ type StrictServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx context.Context, request GetQuestionRequestObject) (GetQuestionResponseObject, error)
+	// ユーザープロフィール取得
+	// (GET /users/me)
+	GetUserProfile(ctx context.Context, request GetUserProfileRequestObject) (GetUserProfileResponseObject, error)
+	// ユーザープロフィール更新
+	// (PUT /users/me)
+	UpdateUserProfile(ctx context.Context, request UpdateUserProfileRequestObject) (UpdateUserProfileResponseObject, error)
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx context.Context, request GetWrongAnswersRequestObject) (GetWrongAnswersResponseObject, error)
@@ -1112,6 +1306,62 @@ func (sh *strictHandler) GetQuestion(ctx echo.Context, questionId int64) error {
 		return err
 	} else if validResponse, ok := response.(GetQuestionResponseObject); ok {
 		return validResponse.VisitGetQuestionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUserProfile operation middleware
+func (sh *strictHandler) GetUserProfile(ctx echo.Context, params GetUserProfileParams) error {
+	var request GetUserProfileRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserProfile(ctx.Request().Context(), request.(GetUserProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUserProfileResponseObject); ok {
+		return validResponse.VisitGetUserProfileResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateUserProfile operation middleware
+func (sh *strictHandler) UpdateUserProfile(ctx echo.Context, params UpdateUserProfileParams) error {
+	var request UpdateUserProfileRequestObject
+
+	request.Params = params
+
+	var body UpdateUserProfileJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateUserProfile(ctx.Request().Context(), request.(UpdateUserProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateUserProfile")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateUserProfileResponseObject); ok {
+		return validResponse.VisitUpdateUserProfileResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

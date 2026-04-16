@@ -78,6 +78,20 @@ func (e UpdateQuestionRequestType) Valid() bool {
 	}
 }
 
+// App defines model for App.
+type App struct {
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+	Id        int64      `json:"id"`
+	Slug      string     `json:"slug"`
+	Title     string     `json:"title"`
+}
+
+// AppsResponse defines model for AppsResponse.
+type AppsResponse struct {
+	Apps  []App `json:"apps"`
+	Total int   `json:"total"`
+}
+
 // CategoriesResponse defines model for CategoriesResponse.
 type CategoriesResponse struct {
 	Categories []Category `json:"categories"`
@@ -104,6 +118,12 @@ type CategoryDetail struct {
 type Choice struct {
 	IsCorrect bool   `json:"isCorrect"`
 	Text      string `json:"text"`
+}
+
+// CreateAppRequest defines model for CreateAppRequest.
+type CreateAppRequest struct {
+	Slug  string `json:"slug"`
+	Title string `json:"title"`
 }
 
 // CreateCategoryRequest defines model for CreateCategoryRequest.
@@ -217,6 +237,36 @@ type UpdateWorkbookRequest struct {
 	Title       string   `json:"title"`
 }
 
+// User defines model for User.
+type User struct {
+	CreatedAt   time.Time `json:"createdAt"`
+	DisplayName *string   `json:"displayName,omitempty"`
+	Id          int64     `json:"id"`
+	IdentityId  string    `json:"identityId"`
+}
+
+// UserAppSetting defines model for UserAppSetting.
+type UserAppSetting struct {
+	AppSlug            string `json:"appSlug"`
+	AppTitle           string `json:"appTitle"`
+	SelectedWorkbookId *int64 `json:"selectedWorkbookId,omitempty"`
+}
+
+// UserDetail defines model for UserDetail.
+type UserDetail struct {
+	AppSettings []UserAppSetting `json:"appSettings"`
+	CreatedAt   time.Time        `json:"createdAt"`
+	DisplayName *string          `json:"displayName,omitempty"`
+	Id          int64            `json:"id"`
+	IdentityId  string           `json:"identityId"`
+}
+
+// UsersResponse defines model for UsersResponse.
+type UsersResponse struct {
+	Total int    `json:"total"`
+	Users []User `json:"users"`
+}
+
 // Workbook defines model for Workbook.
 type Workbook struct {
 	CategoryId    *int64  `json:"categoryId,omitempty"`
@@ -253,11 +303,23 @@ type GetQuestionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// GetUsersParams defines parameters for GetUsers.
+type GetUsersParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetWorkbooksParams defines parameters for GetWorkbooks.
 type GetWorkbooksParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// CreateAppJSONRequestBody defines body for CreateApp for application/json ContentType.
+type CreateAppJSONRequestBody = CreateAppRequest
+
+// UpdateAppJSONRequestBody defines body for UpdateApp for application/json ContentType.
+type UpdateAppJSONRequestBody = CreateAppRequest
 
 // CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
 type CreateCategoryJSONRequestBody = CreateCategoryRequest
@@ -285,6 +347,21 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// アプリ一覧取得
+	// (GET /apps)
+	GetApps(ctx echo.Context) error
+	// アプリ作成
+	// (POST /apps)
+	CreateApp(ctx echo.Context) error
+	// アプリ削除
+	// (DELETE /apps/{appId})
+	DeleteApp(ctx echo.Context, appId int64) error
+	// アプリ取得
+	// (GET /apps/{appId})
+	GetApp(ctx echo.Context, appId int64) error
+	// アプリ更新
+	// (PUT /apps/{appId})
+	UpdateApp(ctx echo.Context, appId int64) error
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx echo.Context, params GetCategoriesParams) error
@@ -324,6 +401,12 @@ type ServerInterface interface {
 	// 問題更新
 	// (PUT /questions/{questionId})
 	UpdateQuestion(ctx echo.Context, questionId int64) error
+	// ユーザー一覧取得
+	// (GET /users)
+	GetUsers(ctx echo.Context, params GetUsersParams) error
+	// ユーザー詳細取得
+	// (GET /users/{userId})
+	GetUser(ctx echo.Context, userId int64) error
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx echo.Context, params GetWorkbooksParams) error
@@ -352,6 +435,72 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// GetApps converts echo context to params.
+func (w *ServerInterfaceWrapper) GetApps(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetApps(ctx)
+	return err
+}
+
+// CreateApp converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateApp(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateApp(ctx)
+	return err
+}
+
+// DeleteApp converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteApp(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "appId" -------------
+	var appId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "appId", ctx.Param("appId"), &appId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter appId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteApp(ctx, appId)
+	return err
+}
+
+// GetApp converts echo context to params.
+func (w *ServerInterfaceWrapper) GetApp(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "appId" -------------
+	var appId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "appId", ctx.Param("appId"), &appId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter appId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetApp(ctx, appId)
+	return err
+}
+
+// UpdateApp converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateApp(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "appId" -------------
+	var appId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "appId", ctx.Param("appId"), &appId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter appId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateApp(ctx, appId)
 	return err
 }
 
@@ -546,6 +695,47 @@ func (w *ServerInterfaceWrapper) UpdateQuestion(ctx echo.Context) error {
 	return err
 }
 
+// GetUsers converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUsers(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUsersParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUsers(ctx, params)
+	return err
+}
+
+// GetUser converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUser(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "userId" -------------
+	var userId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", ctx.Param("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUser(ctx, userId)
+	return err
+}
+
 // GetWorkbooks converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWorkbooks(ctx echo.Context) error {
 	var err error
@@ -657,6 +847,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.GET(baseURL+"/apps", wrapper.GetApps)
+	router.POST(baseURL+"/apps", wrapper.CreateApp)
+	router.DELETE(baseURL+"/apps/:appId", wrapper.DeleteApp)
+	router.GET(baseURL+"/apps/:appId", wrapper.GetApp)
+	router.PUT(baseURL+"/apps/:appId", wrapper.UpdateApp)
 	router.GET(baseURL+"/categories", wrapper.GetCategories)
 	router.POST(baseURL+"/categories", wrapper.CreateCategory)
 	router.DELETE(baseURL+"/categories/:categoryId", wrapper.DeleteCategory)
@@ -670,6 +865,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/questions/:questionId", wrapper.DeleteQuestion)
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
 	router.PUT(baseURL+"/questions/:questionId", wrapper.UpdateQuestion)
+	router.GET(baseURL+"/users", wrapper.GetUsers)
+	router.GET(baseURL+"/users/:userId", wrapper.GetUser)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.POST(baseURL+"/workbooks", wrapper.CreateWorkbook)
 	router.DELETE(baseURL+"/workbooks/:workbookId", wrapper.DeleteWorkbook)
@@ -690,6 +887,126 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAppsRequestObject struct {
+}
+
+type GetAppsResponseObject interface {
+	VisitGetAppsResponse(w http.ResponseWriter) error
+}
+
+type GetApps200JSONResponse AppsResponse
+
+func (response GetApps200JSONResponse) VisitGetAppsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAppRequestObject struct {
+	Body *CreateAppJSONRequestBody
+}
+
+type CreateAppResponseObject interface {
+	VisitCreateAppResponse(w http.ResponseWriter) error
+}
+
+type CreateApp201JSONResponse App
+
+func (response CreateApp201JSONResponse) VisitCreateAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateApp400JSONResponse Error
+
+func (response CreateApp400JSONResponse) VisitCreateAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAppRequestObject struct {
+	AppId int64 `json:"appId"`
+}
+
+type DeleteAppResponseObject interface {
+	VisitDeleteAppResponse(w http.ResponseWriter) error
+}
+
+type DeleteApp204Response struct {
+}
+
+func (response DeleteApp204Response) VisitDeleteAppResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteApp404JSONResponse Error
+
+func (response DeleteApp404JSONResponse) VisitDeleteAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAppRequestObject struct {
+	AppId int64 `json:"appId"`
+}
+
+type GetAppResponseObject interface {
+	VisitGetAppResponse(w http.ResponseWriter) error
+}
+
+type GetApp200JSONResponse App
+
+func (response GetApp200JSONResponse) VisitGetAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetApp404JSONResponse Error
+
+func (response GetApp404JSONResponse) VisitGetAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateAppRequestObject struct {
+	AppId int64 `json:"appId"`
+	Body  *UpdateAppJSONRequestBody
+}
+
+type UpdateAppResponseObject interface {
+	VisitUpdateAppResponse(w http.ResponseWriter) error
+}
+
+type UpdateApp200JSONResponse App
+
+func (response UpdateApp200JSONResponse) VisitUpdateAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateApp404JSONResponse Error
+
+func (response UpdateApp404JSONResponse) VisitUpdateAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1039,6 +1356,58 @@ func (response UpdateQuestion404JSONResponse) VisitUpdateQuestionResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetUsersRequestObject struct {
+	Params GetUsersParams
+}
+
+type GetUsersResponseObject interface {
+	VisitGetUsersResponse(w http.ResponseWriter) error
+}
+
+type GetUsers200JSONResponse UsersResponse
+
+func (response GetUsers200JSONResponse) VisitGetUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUsers400JSONResponse Error
+
+func (response GetUsers400JSONResponse) VisitGetUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserRequestObject struct {
+	UserId int64 `json:"userId"`
+}
+
+type GetUserResponseObject interface {
+	VisitGetUserResponse(w http.ResponseWriter) error
+}
+
+type GetUser200JSONResponse UserDetail
+
+func (response GetUser200JSONResponse) VisitGetUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUser404JSONResponse Error
+
+func (response GetUser404JSONResponse) VisitGetUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWorkbooksRequestObject struct {
 	Params GetWorkbooksParams
 }
@@ -1183,6 +1552,21 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// アプリ一覧取得
+	// (GET /apps)
+	GetApps(ctx context.Context, request GetAppsRequestObject) (GetAppsResponseObject, error)
+	// アプリ作成
+	// (POST /apps)
+	CreateApp(ctx context.Context, request CreateAppRequestObject) (CreateAppResponseObject, error)
+	// アプリ削除
+	// (DELETE /apps/{appId})
+	DeleteApp(ctx context.Context, request DeleteAppRequestObject) (DeleteAppResponseObject, error)
+	// アプリ取得
+	// (GET /apps/{appId})
+	GetApp(ctx context.Context, request GetAppRequestObject) (GetAppResponseObject, error)
+	// アプリ更新
+	// (PUT /apps/{appId})
+	UpdateApp(ctx context.Context, request UpdateAppRequestObject) (UpdateAppResponseObject, error)
 	// カテゴリ一覧取得
 	// (GET /categories)
 	GetCategories(ctx context.Context, request GetCategoriesRequestObject) (GetCategoriesResponseObject, error)
@@ -1222,6 +1606,12 @@ type StrictServerInterface interface {
 	// 問題更新
 	// (PUT /questions/{questionId})
 	UpdateQuestion(ctx context.Context, request UpdateQuestionRequestObject) (UpdateQuestionResponseObject, error)
+	// ユーザー一覧取得
+	// (GET /users)
+	GetUsers(ctx context.Context, request GetUsersRequestObject) (GetUsersResponseObject, error)
+	// ユーザー詳細取得
+	// (GET /users/{userId})
+	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
 	// 問題集一覧取得
 	// (GET /workbooks)
 	GetWorkbooks(ctx context.Context, request GetWorkbooksRequestObject) (GetWorkbooksResponseObject, error)
@@ -1268,6 +1658,139 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetApps operation middleware
+func (sh *strictHandler) GetApps(ctx echo.Context) error {
+	var request GetAppsRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApps(ctx.Request().Context(), request.(GetAppsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApps")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAppsResponseObject); ok {
+		return validResponse.VisitGetAppsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateApp operation middleware
+func (sh *strictHandler) CreateApp(ctx echo.Context) error {
+	var request CreateAppRequestObject
+
+	var body CreateAppJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateApp(ctx.Request().Context(), request.(CreateAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateAppResponseObject); ok {
+		return validResponse.VisitCreateAppResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteApp operation middleware
+func (sh *strictHandler) DeleteApp(ctx echo.Context, appId int64) error {
+	var request DeleteAppRequestObject
+
+	request.AppId = appId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteApp(ctx.Request().Context(), request.(DeleteAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteAppResponseObject); ok {
+		return validResponse.VisitDeleteAppResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetApp operation middleware
+func (sh *strictHandler) GetApp(ctx echo.Context, appId int64) error {
+	var request GetAppRequestObject
+
+	request.AppId = appId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApp(ctx.Request().Context(), request.(GetAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAppResponseObject); ok {
+		return validResponse.VisitGetAppResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateApp operation middleware
+func (sh *strictHandler) UpdateApp(ctx echo.Context, appId int64) error {
+	var request UpdateAppRequestObject
+
+	request.AppId = appId
+
+	var body UpdateAppJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateApp(ctx.Request().Context(), request.(UpdateAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateAppResponseObject); ok {
+		return validResponse.VisitUpdateAppResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -1613,6 +2136,56 @@ func (sh *strictHandler) UpdateQuestion(ctx echo.Context, questionId int64) erro
 		return err
 	} else if validResponse, ok := response.(UpdateQuestionResponseObject); ok {
 		return validResponse.VisitUpdateQuestionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUsers operation middleware
+func (sh *strictHandler) GetUsers(ctx echo.Context, params GetUsersParams) error {
+	var request GetUsersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUsers(ctx.Request().Context(), request.(GetUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUsersResponseObject); ok {
+		return validResponse.VisitGetUsersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUser operation middleware
+func (sh *strictHandler) GetUser(ctx echo.Context, userId int64) error {
+	var request GetUserRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUser(ctx.Request().Context(), request.(GetUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUserResponseObject); ok {
+		return validResponse.VisitGetUserResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

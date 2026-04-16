@@ -34,6 +34,17 @@ func (q *Queries) CheckAnswerCorrect(ctx context.Context, arg CheckAnswerCorrect
 	return exists, err
 }
 
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countWrongAnswers = `-- name: CountWrongAnswers :one
 SELECT COUNT(*) FROM (
     SELECT DISTINCT ON (question_id) is_correct
@@ -119,6 +130,50 @@ func (q *Queries) GetUserByIdentityID(ctx context.Context, identityID string) (i
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, identity_id, display_name, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
+`
+
+type ListUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListUsersRow struct {
+	ID          int64          `json:"id"`
+	IdentityID  string         `json:"identity_id"`
+	DisplayName sql.NullString `json:"display_name"`
+	CreatedAt   sql.NullTime   `json:"created_at"`
+}
+
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersRow{}
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IdentityID,
+			&i.DisplayName,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listWrongAnswers = `-- name: ListWrongAnswers :many

@@ -51,6 +51,47 @@ final class RemoteLearningRepository: LearningRepository {
         return try await postJSON(url: url, body: body, authenticated: true)
     }
 
+    func anonymousSignIn() async throws -> String {
+        let url = apiBaseURL.appendingPathComponent("auth/anonymous/sign-in")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+
+        struct SignInResponse: Decodable { let identityId: String }
+        let result = try decoder.decode(SignInResponse.self, from: data)
+        return result.identityId
+    }
+
+    func fetchUserProfile(appSlug: String) async throws -> UserProfile {
+        let url = apiBaseURL.appendingPathComponent("users/me")
+        var request = URLRequest(url: url)
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        request.setValue(appSlug, forHTTPHeaderField: "X-App-Slug")
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+        return try decoder.decode(UserProfile.self, from: data)
+    }
+
+    func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile {
+        let url = apiBaseURL.appendingPathComponent("users/me")
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "PUT"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        urlRequest.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+        urlRequest.setValue(appSlug, forHTTPHeaderField: "X-App-Slug")
+        urlRequest.httpBody = try encoder.encode(request)
+
+        let (data, response) = try await httpClient.data(for: urlRequest)
+        try validateResponse(response)
+        return try decoder.decode(UserProfile.self, from: data)
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/wrong-answers"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

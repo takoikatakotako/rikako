@@ -17,6 +17,8 @@ final class AppState {
     var hasCompletedOnboarding: Bool
     var isLoggedIn: Bool
     var anonymousUserId: String?
+    var userId: Int64?
+    var displayName: String?
     var selectedWorkbookID: Int64?
     private(set) var totalAnswered: Int
     private(set) var totalCorrect: Int
@@ -29,6 +31,8 @@ final class AppState {
         self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
         self.isLoggedIn = false
         self.anonymousUserId = userDefaults.string(forKey: DefaultsKey.anonymousUserId)
+        self.userId = nil
+        self.displayName = nil
         self.selectedWorkbookID = nil
         self.totalAnswered = 0
         self.totalCorrect = 0
@@ -53,8 +57,29 @@ final class AppState {
         isLoggedIn = value
     }
 
+    func resetToInitialState() {
+        hasCompletedOnboarding = false
+        isLoggedIn = false
+        anonymousUserId = nil
+        userId = nil
+        displayName = nil
+        selectedWorkbookID = nil
+        totalAnswered = 0
+        totalCorrect = 0
+        completedWorkbookIDs = []
+        wrongQuestions = []
+        userDefaults.removeObject(forKey: DefaultsKey.hasCompletedOnboarding)
+        userDefaults.removeObject(forKey: DefaultsKey.anonymousUserId)
+    }
+
     func selectWorkbook(_ workbookID: Int64) {
         selectedWorkbookID = workbookID
+        Task {
+            try? await AppContainer.shared.learningUseCases.updateUserProfile.execute(
+                appSlug: "chemistry",
+                request: UpdateUserProfileRequest(selectedWorkbookId: workbookID)
+            )
+        }
     }
 
     func recordSession(workbookId: Int64, questions: [Question], answers: [Int?]) {

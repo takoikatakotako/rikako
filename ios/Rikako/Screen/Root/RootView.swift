@@ -55,9 +55,25 @@ struct RootView: View {
         do {
             try await checkForceUpdate()
             try await checkVersion()
+            if appState.hasCompletedOnboarding {
+                await syncProfile()
+            }
             isReady = true
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func syncProfile() async {
+        do {
+            let profile = try await AppContainer.shared.learningUseCases.fetchUserProfile.execute(appSlug: "chemistry")
+            appState.userId = profile.userId
+            appState.displayName = profile.displayName
+            if let workbookId = profile.selectedWorkbookId {
+                appState.selectWorkbook(workbookId)
+            }
+        } catch {
+            // Profile sync failure is non-fatal
         }
     }
 
