@@ -34,6 +34,17 @@ func (q *Queries) CheckAnswerCorrect(ctx context.Context, arg CheckAnswerCorrect
 	return exists, err
 }
 
+const countUserAnswerLogs = `-- name: CountUserAnswerLogs :one
+SELECT COUNT(*) FROM user_answers WHERE user_id = $1
+`
+
+func (q *Queries) CountUserAnswerLogs(ctx context.Context, userID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserAnswerLogs, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
 `
@@ -130,6 +141,68 @@ func (q *Queries) GetUserByIdentityID(ctx context.Context, identityID string) (i
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listUserAnswerLogs = `-- name: ListUserAnswerLogs :many
+SELECT ua.id, ua.question_id, qsc.text AS question_text,
+       ua.workbook_id, w.title AS workbook_title,
+       ua.selected_choice, ua.is_correct, ua.answered_at
+FROM user_answers ua
+JOIN questions q ON q.id = ua.question_id
+JOIN questions_single_choice qsc ON q.id = qsc.question_id
+JOIN workbooks w ON w.id = ua.workbook_id
+WHERE ua.user_id = $1
+ORDER BY ua.answered_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListUserAnswerLogsParams struct {
+	UserID int64 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListUserAnswerLogsRow struct {
+	ID             int64        `json:"id"`
+	QuestionID     int64        `json:"question_id"`
+	QuestionText   string       `json:"question_text"`
+	WorkbookID     int64        `json:"workbook_id"`
+	WorkbookTitle  string       `json:"workbook_title"`
+	SelectedChoice int32        `json:"selected_choice"`
+	IsCorrect      bool         `json:"is_correct"`
+	AnsweredAt     sql.NullTime `json:"answered_at"`
+}
+
+func (q *Queries) ListUserAnswerLogs(ctx context.Context, arg ListUserAnswerLogsParams) ([]ListUserAnswerLogsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUserAnswerLogs, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserAnswerLogsRow{}
+	for rows.Next() {
+		var i ListUserAnswerLogsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.QuestionID,
+			&i.QuestionText,
+			&i.WorkbookID,
+			&i.WorkbookTitle,
+			&i.SelectedChoice,
+			&i.IsCorrect,
+			&i.AnsweredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many

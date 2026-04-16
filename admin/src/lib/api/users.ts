@@ -1,5 +1,5 @@
 import { apiGet } from "@/lib/api/client";
-import type { UsersResponse, UserDetail } from "@/lib/api/types";
+import type { UsersResponse, UserDetail, UserAnswersResponse } from "@/lib/api/types";
 
 export async function fetchUsers(
   limit: number,
@@ -10,4 +10,14 @@ export async function fetchUsers(
 
 export async function fetchUser(id: number): Promise<UserDetail> {
   return apiGet<UserDetail>(`/users/${id}`);
+}
+
+export async function fetchUserAnswers(
+  id: number,
+  limit: number,
+  offset: number,
+): Promise<UserAnswersResponse> {
+  return apiGet<UserAnswersResponse>(
+    `/users/${id}/answers?limit=${limit}&offset=${offset}`,
+  );
 }
