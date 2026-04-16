@@ -1,7 +1,10 @@
 "use client";
 
-import { useUser } from "@/hooks/use-users";
+import { useState } from "react";
+import { useUser, useUserAnswers } from "@/hooks/use-users";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,10 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface UserDetailProps {
   id: number;
 }
+
+const PAGE_SIZE = 20;
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -27,11 +33,21 @@ function formatDate(dateString: string): string {
 }
 
 export function UserDetail({ id }: UserDetailProps) {
+  const [answersPage, setAnswersPage] = useState(0);
   const { data, error, isLoading } = useUser(id);
+  const {
+    data: answersData,
+    error: answersError,
+    isLoading: answersLoading,
+  } = useUserAnswers(id, PAGE_SIZE, answersPage * PAGE_SIZE);
 
   if (isLoading) return <p className="text-muted-foreground">読み込み中...</p>;
   if (error) return <p className="text-destructive">エラーが発生しました</p>;
   if (!data) return null;
+
+  const totalAnswersPages = answersData
+    ? Math.ceil(answersData.total / PAGE_SIZE)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -87,6 +103,94 @@ export function UserDetail({ id }: UserDetailProps) {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>回答ログ</CardTitle>
+          {answersData && (
+            <span className="text-sm text-muted-foreground font-normal">
+              全 {answersData.total} 件
+            </span>
+          )}
+        </CardHeader>
+        <CardContent>
+          {answersLoading && (
+            <p className="text-sm text-muted-foreground">読み込み中...</p>
+          )}
+          {answersError && (
+            <p className="text-sm text-destructive">エラーが発生しました</p>
+          )}
+          {answersData && answersData.answers.length === 0 && (
+            <p className="text-sm text-muted-foreground">回答ログがありません</p>
+          )}
+          {answersData && answersData.answers.length > 0 && (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>結果</TableHead>
+                    <TableHead>問題</TableHead>
+                    <TableHead>問題集</TableHead>
+                    <TableHead>選択肢</TableHead>
+                    <TableHead>回答日時</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {answersData.answers.map((answer) => (
+                    <TableRow key={answer.id}>
+                      <TableCell>
+                        <Badge variant={answer.isCorrect ? "default" : "destructive"}>
+                          {answer.isCorrect ? "正解" : "不正解"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {answer.questionText}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {answer.workbookTitle}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {answer.selectedChoice + 1}番
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatDate(answer.answeredAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {totalAnswersPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAnswersPage((p) => Math.max(0, p - 1))}
+                    disabled={answersPage === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {answersPage + 1} / {totalAnswersPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setAnswersPage((p) =>
+                        Math.min(totalAnswersPages - 1, p + 1),
+                      )
+                    }
+                    disabled={answersPage >= totalAnswersPages - 1}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

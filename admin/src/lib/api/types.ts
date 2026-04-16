@@ -141,6 +141,22 @@ export interface UsersResponse {
   total: number;
 }
 
+export interface UserAnswerLog {
+  id: number;
+  questionId: number;
+  questionText: string;
+  workbookId: number;
+  workbookTitle: string;
+  selectedChoice: number;
+  isCorrect: boolean;
+  answeredAt: string;
+}
+
+export interface UserAnswersResponse {
+  answers: UserAnswerLog[];
+  total: number;
+}
+
 export interface App {
   id: number;
   slug: string;

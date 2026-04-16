@@ -637,6 +637,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /users/{userId}/answers:
+    get:
+      summary: ユーザーの回答ログ一覧取得
+      operationId: getUserAnswers
+      tags:
+        - Users
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: 回答ログ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAnswersResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: ユーザーが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /users/{userId}:
     get:
       summary: ユーザー詳細取得
@@ -1125,6 +1171,52 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/User'
+        total:
+          type: integer
+
+    UserAnswerLog:
+      type: object
+      required:
+        - id
+        - questionId
+        - questionText
+        - workbookId
+        - workbookTitle
+        - selectedChoice
+        - isCorrect
+        - answeredAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        questionId:
+          type: integer
+          format: int64
+        questionText:
+          type: string
+        workbookId:
+          type: integer
+          format: int64
+        workbookTitle:
+          type: string
+        selectedChoice:
+          type: integer
+        isCorrect:
+          type: boolean
+        answeredAt:
+          type: string
+          format: date-time
+
+    UserAnswersResponse:
+      type: object
+      required:
+        - answers
+        - total
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserAnswerLog'
         total:
           type: integer
 

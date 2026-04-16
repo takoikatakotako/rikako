@@ -1065,6 +1065,59 @@ func (h *Handler) DeleteApp(ctx context.Context, request adminapi.DeleteAppReque
 	return adminapi.DeleteApp204Response{}, nil
 }
 
+// --- User Answers ---
+
+func (h *Handler) GetUserAnswers(ctx context.Context, request adminapi.GetUserAnswersRequestObject) (adminapi.GetUserAnswersResponseObject, error) {
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return adminapi.GetUserAnswers400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	_, err = h.queries.GetUserProfile(ctx, request.UserId)
+	if err == sql.ErrNoRows {
+		return adminapi.GetUserAnswers404JSONResponse{Code: "NOT_FOUND", Message: "user not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "user_id", request.UserId)
+		return nil, err
+	}
+
+	total, err := h.queries.CountUserAnswerLogs(ctx, request.UserId)
+	if err != nil {
+		h.logger.Error("failed to count user answer logs", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUserAnswerLogs(ctx, db.ListUserAnswerLogsParams{
+		UserID: request.UserId,
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query user answer logs", "error", err)
+		return nil, err
+	}
+
+	answers := []adminapi.UserAnswerLog{}
+	for _, row := range rows {
+		a := adminapi.UserAnswerLog{
+			Id:             row.ID,
+			QuestionId:     row.QuestionID,
+			QuestionText:   row.QuestionText,
+			WorkbookId:     row.WorkbookID,
+			WorkbookTitle:  row.WorkbookTitle,
+			SelectedChoice: int(row.SelectedChoice),
+			IsCorrect:      row.IsCorrect,
+		}
+		if row.AnsweredAt.Valid {
+			a.AnsweredAt = row.AnsweredAt.Time
+		}
+		answers = append(answers, a)
+	}
+
+	return adminapi.GetUserAnswers200JSONResponse{Answers: answers, Total: int(total)}, nil
+}
+
 // --- User Detail ---
 
 func (h *Handler) GetUser(ctx context.Context, request adminapi.GetUserRequestObject) (adminapi.GetUserResponseObject, error) {

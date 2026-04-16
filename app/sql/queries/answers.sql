@@ -66,6 +66,21 @@ SELECT id, identity_id, display_name, created_at FROM users ORDER BY created_at 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
 
+-- name: ListUserAnswerLogs :many
+SELECT ua.id, ua.question_id, qsc.text AS question_text,
+       ua.workbook_id, w.title AS workbook_title,
+       ua.selected_choice, ua.is_correct, ua.answered_at
+FROM user_answers ua
+JOIN questions q ON q.id = ua.question_id
+JOIN questions_single_choice qsc ON q.id = qsc.question_id
+JOIN workbooks w ON w.id = ua.workbook_id
+WHERE ua.user_id = $1
+ORDER BY ua.answered_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountUserAnswerLogs :one
+SELECT COUNT(*) FROM user_answers WHERE user_id = $1;
+
 -- name: GetCorrectChoicesByQuestionIDs :many
 SELECT qsc.question_id, c.choice_index
 FROM questions_single_choice qsc
