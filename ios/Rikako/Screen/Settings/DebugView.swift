@@ -6,7 +6,8 @@ struct DebugView: View {
     var body: some View {
         List {
             Section("ユーザー情報") {
-                row(title: "User ID", value: appState.anonymousUserId ?? "未設定")
+                row(title: "User ID", value: appState.userId.map { String($0) } ?? "未設定")
+                row(title: "Identity ID", value: appState.anonymousUserId ?? "未設定")
                 row(title: "表示名", value: appState.displayName ?? "未設定")
             }
 

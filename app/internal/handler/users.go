@@ -34,6 +34,7 @@ func (h *Handler) GetUserProfile(ctx context.Context, request api.GetUserProfile
 	}
 
 	resp := api.UserProfile{
+		UserId:     &profile.ID,
 		IdentityId: profile.IdentityID,
 	}
 	if profile.DisplayName.Valid {
@@ -131,6 +132,7 @@ func (h *Handler) UpdateUserProfile(ctx context.Context, request api.UpdateUserP
 	}
 
 	resp := api.UserProfile{
+		UserId:     &profile.ID,
 		IdentityId: profile.IdentityID,
 	}
 	if profile.DisplayName.Valid {

@@ -1,6 +1,7 @@
 import Foundation
 
 struct UserProfile: Codable {
+    var userId: Int64?
     let identityId: String
     var displayName: String?
     var selectedWorkbookId: Int64?

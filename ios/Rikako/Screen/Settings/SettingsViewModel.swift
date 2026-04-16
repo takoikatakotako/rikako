@@ -4,5 +4,9 @@ import Observation
 @Observable
 @MainActor
 final class SettingsViewModel {
-    let versionText = "1.0.0"
+    var versionText: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
+    }
 }

@@ -17,6 +17,7 @@ final class AppState {
     var hasCompletedOnboarding: Bool
     var isLoggedIn: Bool
     var anonymousUserId: String?
+    var userId: Int64?
     var displayName: String?
     var selectedWorkbookID: Int64?
     private(set) var totalAnswered: Int
@@ -30,6 +31,7 @@ final class AppState {
         self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
         self.isLoggedIn = false
         self.anonymousUserId = userDefaults.string(forKey: DefaultsKey.anonymousUserId)
+        self.userId = nil
         self.displayName = nil
         self.selectedWorkbookID = nil
         self.totalAnswered = 0
@@ -59,6 +61,7 @@ final class AppState {
         hasCompletedOnboarding = false
         isLoggedIn = false
         anonymousUserId = nil
+        userId = nil
         displayName = nil
         selectedWorkbookID = nil
         totalAnswered = 0

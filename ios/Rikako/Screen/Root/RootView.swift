@@ -67,6 +67,7 @@ struct RootView: View {
     private func syncProfile() async {
         do {
             let profile = try await AppContainer.shared.learningUseCases.fetchUserProfile.execute(appSlug: "chemistry")
+            appState.userId = profile.userId
             appState.displayName = profile.displayName
             if let workbookId = profile.selectedWorkbookId {
                 appState.selectWorkbook(workbookId)

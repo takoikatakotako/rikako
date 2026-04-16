@@ -137,6 +137,7 @@ type UserProfile struct {
 	DisplayName        *string `json:"displayName,omitempty"`
 	IdentityId         string  `json:"identityId"`
 	SelectedWorkbookId *int64  `json:"selectedWorkbookId,omitempty"`
+	UserId             *int64  `json:"userId,omitempty"`
 }
 
 // Workbook defines model for Workbook.

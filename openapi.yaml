@@ -641,6 +641,9 @@ components:
       required:
         - identityId
       properties:
+        userId:
+          type: integer
+          format: int64
         identityId:
           type: string
         displayName:
