@@ -14,6 +14,11 @@ final class RemoteLearningRepository: LearningRepository {
         self.deviceIdentityProvider = deviceIdentityProvider
     }
 
+    func fetchAppStatus() async throws -> AppStatusResponse {
+        let url = apiBaseURL.appendingPathComponent("status")
+        return try await getJSON(url: url, authenticated: false)
+    }
+
     func fetchWorkbooks() async throws -> [Workbook] {
         let url = contentBaseURL.appendingPathComponent("workbooks.json")
         let (data, response) = try await httpClient.data(from: url)

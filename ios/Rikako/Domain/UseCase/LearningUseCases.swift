@@ -1,6 +1,7 @@
 import Foundation
 
 struct LearningUseCases {
+    let fetchAppStatus: FetchAppStatusUseCase
     let fetchWorkbooks: FetchWorkbooksUseCase
     let fetchWorkbookDetail: FetchWorkbookDetailUseCase
     let fetchCategories: FetchCategoriesUseCase
@@ -11,6 +12,7 @@ struct LearningUseCases {
     let updateUserProfile: UpdateUserProfileUseCase
 
     init(repository: LearningRepository) {
+        self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
         self.fetchWorkbooks = FetchWorkbooksUseCase(repository: repository)
         self.fetchWorkbookDetail = FetchWorkbookDetailUseCase(repository: repository)
         self.fetchCategories = FetchCategoriesUseCase(repository: repository)
@@ -19,6 +21,18 @@ struct LearningUseCases {
         self.fetchWrongAnswers = FetchWrongAnswersUseCase(repository: repository)
         self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
         self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
+    }
+}
+
+struct FetchAppStatusUseCase {
+    private let repository: LearningRepository
+
+    init(repository: LearningRepository) {
+        self.repository = repository
+    }
+
+    func execute() async throws -> AppStatusResponse {
+        try await repository.fetchAppStatus()
     }
 }
 

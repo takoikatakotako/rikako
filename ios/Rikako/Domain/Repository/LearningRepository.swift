@@ -13,6 +13,7 @@ struct UpdateUserProfileRequest: Encodable {
 }
 
 protocol LearningRepository {
+    func fetchAppStatus() async throws -> AppStatusResponse
     func fetchWorkbooks() async throws -> [Workbook]
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail
     func fetchCategories(limit: Int, offset: Int) async throws -> [Category]
