@@ -92,7 +92,7 @@ final class ResultViewModel {
 
         Task {
             do {
-                try await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                _ = try await AppContainer.shared.learningUseCases.submitAnswers.execute(
                     workbookId: workbookId,
                     answers: answerItems
                 )
