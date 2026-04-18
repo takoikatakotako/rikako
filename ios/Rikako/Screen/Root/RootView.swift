@@ -1,8 +1,15 @@
 import SwiftUI
 
+private enum AppReadyState {
+    case loading
+    case updateRequired
+    case maintenance(message: String)
+    case ready
+}
+
 struct RootView: View {
     @Environment(AppState.self) private var appState
-    @State private var isReady = false
+    @State private var state: AppReadyState = .loading
     @State private var errorMessage: String?
     private let skipInitialize: Bool
 
@@ -14,12 +21,21 @@ struct RootView: View {
         Group {
             if let errorMessage {
                 errorView(errorMessage)
-            } else if !isReady {
-                splashView
-            } else if !appState.hasCompletedOnboarding {
-                OnboardingView()
             } else {
-                MainView()
+                switch state {
+                case .loading:
+                    splashView
+                case .updateRequired:
+                    UpdateRequiredView()
+                case .maintenance(let message):
+                    MaintenanceView(message: message)
+                case .ready:
+                    if !appState.hasCompletedOnboarding {
+                        OnboardingView()
+                    } else {
+                        MainView()
+                    }
+                }
             }
         }
         .task {
@@ -40,18 +56,18 @@ struct RootView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 280, height: 180)
-                
+
                 ProgressView()
                     .tint(.white)
                     .scaleEffect(1.8)
-                
+
                 Spacer()
-                
+
                 Image(.topRikakoStanding)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: 260)
-                
+
             }
         }
     }
@@ -73,15 +89,30 @@ struct RootView: View {
 
     private func initialize() async {
         do {
-            try await checkForceUpdate()
-            try await checkVersion()
+            let appStatus = try await AppContainer.shared.learningUseCases.fetchAppStatus.execute()
+
+            if appStatus.isMaintenance {
+                state = .maintenance(message: appStatus.maintenanceMessage)
+                return
+            }
+
+            if isUpdateRequired(minimumVersion: appStatus.minimumVersion) {
+                state = .updateRequired
+                return
+            }
+
             if appState.hasCompletedOnboarding {
                 await syncProfile()
             }
-            isReady = true
+            state = .ready
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func isUpdateRequired(minimumVersion: String) -> Bool {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+        return currentVersion.compare(minimumVersion, options: .numeric) == .orderedAscending
     }
 
     private func syncProfile() async {
@@ -96,16 +127,6 @@ struct RootView: View {
             // Profile sync failure is non-fatal
         }
     }
-
-    // MARK: - チェック処理（将来実装）
-
-    private func checkForceUpdate() async throws {
-        // TODO: 強制アップデートチェック
-    }
-
-    private func checkVersion() async throws {
-        // TODO: バージョンチェック
-    }
 }
 
 #Preview {
@@ -116,4 +137,12 @@ struct RootView: View {
 #Preview("Splash") {
     RootView(skipInitialize: true)
         .environment(AppState.preview())
+}
+
+#Preview("UpdateRequired") {
+    UpdateRequiredView()
+}
+
+#Preview("Maintenance") {
+    MaintenanceView(message: "システムの改善のため、メンテナンスを実施中です。")
 }

@@ -53,6 +53,10 @@ final class PreviewLearningRepository: LearningRepository {
         )
     ]
 
+    func fetchAppStatus() async throws -> AppStatusResponse {
+        AppStatusResponse(minimumVersion: "1.0.0", latestVersion: "1.0.0", isMaintenance: false, maintenanceMessage: "")
+    }
+
     func fetchWorkbooks() async throws -> [Workbook] {
         workbooks
     }
