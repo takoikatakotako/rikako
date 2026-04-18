@@ -38,6 +38,7 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 infoRow(symbol: "info.circle.fill", title: "バージョン", trailing: viewModel.versionText, accentColor: .blue)
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         versionTapCount += 1
                         if versionTapCount >= 3 {
