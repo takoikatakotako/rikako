@@ -91,14 +91,14 @@ final class StudyHomeViewModel {
     }
 
     // セクションの正解数と回答済み数を返す
-    func sectionProgress(for section: Section, questionResults: [String: Bool]) -> (correct: Int, answered: Int) {
+    func sectionProgress(for section: Section, questionResults: [String: AppState.QuestionResult]) -> (correct: Int, answered: Int) {
         let qs = questions(for: section)
         var correct = 0
         var answered = 0
         for q in qs {
-            if let isCorrect = questionResults[String(q.id)] {
+            if let result = questionResults[String(q.id)] {
                 answered += 1
-                if isCorrect { correct += 1 }
+                if result.isCorrect { correct += 1 }
             }
         }
         return (correct, answered)

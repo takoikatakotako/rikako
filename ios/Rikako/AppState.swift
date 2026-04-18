@@ -18,6 +18,11 @@ final class AppState {
         AppState(userDefaults: UserDefaults(suiteName: "jp.conol.rikako.preview.\(UUID().uuidString)")!)
     }
 
+    struct QuestionResult: Codable {
+        let isCorrect: Bool
+        let date: Date
+    }
+
     private enum DefaultsKey {
         static let hasCompletedOnboarding = "jp.conol.rikako.hasCompletedOnboarding"
         static let anonymousUserId = "jp.conol.rikako.anonymousUserId"
@@ -27,6 +32,7 @@ final class AppState {
         static let weeklyCompletedWorkbookIDs = "jp.conol.rikako.weeklyCompletedWorkbookIDs"
         static let currentWeekKey = "jp.conol.rikako.currentWeekKey"
         static let questionResults = "jp.conol.rikako.questionResults"
+        static let questionResultsV2 = "jp.conol.rikako.questionResultsV2"
     }
 
     var hasCompletedOnboarding: Bool
@@ -43,8 +49,8 @@ final class AppState {
     private(set) var weeklyAnswered: Int
     private(set) var weeklyCorrect: Int
     private(set) var weeklyCompletedWorkbookIDs: Set<Int64>
-    // 問題IDごとの最新の正解/不正解 [questionId(String): isCorrect]
-    private(set) var questionResults: [String: Bool]
+    // 問題IDごとの最新の正解/不正解と日時
+    private(set) var questionResults: [String: QuestionResult]
     private let userDefaults: UserDefaults
 
     private init(userDefaults: UserDefaults = .standard) {
@@ -60,7 +66,16 @@ final class AppState {
         self.completedWorkbookIDs = []
         self.wrongQuestions = []
         self.studyDates = Set(userDefaults.stringArray(forKey: DefaultsKey.studyDates) ?? [])
-        self.questionResults = (userDefaults.dictionary(forKey: DefaultsKey.questionResults) as? [String: Bool]) ?? [:]
+
+        // v2形式をロード。なければ旧[String:Bool]からマイグレーション
+        if let data = userDefaults.data(forKey: DefaultsKey.questionResultsV2),
+           let decoded = try? JSONDecoder().decode([String: QuestionResult].self, from: data) {
+            self.questionResults = decoded
+        } else if let legacy = userDefaults.dictionary(forKey: DefaultsKey.questionResults) as? [String: Bool] {
+            self.questionResults = legacy.mapValues { QuestionResult(isCorrect: $0, date: Date(timeIntervalSince1970: 0)) }
+        } else {
+            self.questionResults = [:]
+        }
 
         let savedWeek = userDefaults.string(forKey: DefaultsKey.currentWeekKey) ?? ""
         let currentWeek = AppState.isoWeekKey(for: Date())
@@ -131,6 +146,7 @@ final class AppState {
         userDefaults.removeObject(forKey: DefaultsKey.currentWeekKey)
         questionResults = [:]
         userDefaults.removeObject(forKey: DefaultsKey.questionResults)
+        userDefaults.removeObject(forKey: DefaultsKey.questionResultsV2)
     }
 
     func selectWorkbook(_ workbookID: Int64) {
@@ -174,11 +190,14 @@ final class AppState {
         userDefaults.set(weeklyCorrect, forKey: DefaultsKey.weeklyCorrect)
         userDefaults.set(Array(weeklyCompletedWorkbookIDs), forKey: DefaultsKey.weeklyCompletedWorkbookIDs)
 
-        // 問題ごとの正解/不正解を更新
+        // 問題ごとの正解/不正解と日時を更新
+        let now = Date()
         for (question, answer) in answeredPairs {
-            questionResults[String(question.id)] = (answer == question.correctIndex)
+            questionResults[String(question.id)] = QuestionResult(isCorrect: answer == question.correctIndex, date: now)
         }
-        userDefaults.set(questionResults, forKey: DefaultsKey.questionResults)
+        if let data = try? JSONEncoder().encode(questionResults) {
+            userDefaults.set(data, forKey: DefaultsKey.questionResultsV2)
+        }
 
         var latestWrongQuestions = wrongQuestions
         for (question, answer) in answeredPairs {
