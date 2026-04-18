@@ -27,6 +27,7 @@ var publicOperations = map[string]bool{
 	"GetWorkbook":     true,
 	"SubmitAnswers":    true,
 	"GetWrongAnswers":  true,
+	"GetAnswerLogs":    true,
 	"AnonymousSignIn":    true,
 	"AnonymousSignOut":   true,
 	"GetUserProfile":     true,
