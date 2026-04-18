@@ -18,6 +18,7 @@ const UserSubContextKey contextKey = "user_sub"
 var publicOperations = map[string]bool{
 	"Root":            true,
 	"HealthCheck":     true,
+	"GetAppStatus":    true,
 	"GetQuestions":    true,
 	"GetQuestion":     true,
 	"GetCategories":   true,
