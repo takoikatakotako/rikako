@@ -140,6 +140,12 @@ type Question struct {
 // QuestionType defines model for Question.Type.
 type QuestionType string
 
+// QuestionProgressItem defines model for QuestionProgressItem.
+type QuestionProgressItem struct {
+	IsCorrect  bool  `json:"isCorrect"`
+	QuestionId int64 `json:"questionId"`
+}
+
 // QuestionsResponse defines model for QuestionsResponse.
 type QuestionsResponse struct {
 	Questions []Question `json:"questions"`
@@ -174,6 +180,16 @@ type UserProfile struct {
 	UserId             *int64  `json:"userId,omitempty"`
 }
 
+// UserSummaryResponse defines model for UserSummaryResponse.
+type UserSummaryResponse struct {
+	StudyDates        []string `json:"studyDates"`
+	TotalAnswered     int      `json:"totalAnswered"`
+	TotalCorrect      int      `json:"totalCorrect"`
+	WeeklyAnswered    int      `json:"weeklyAnswered"`
+	WeeklyCorrect     int      `json:"weeklyCorrect"`
+	WeeklyWorkbookIds []int64  `json:"weeklyWorkbookIds"`
+}
+
 // Workbook defines model for Workbook.
 type Workbook struct {
 	// CategoryId カテゴリID
@@ -194,6 +210,11 @@ type WorkbookDetail struct {
 	Id          int64      `json:"id"`
 	Questions   []Question `json:"questions"`
 	Title       string     `json:"title"`
+}
+
+// WorkbookProgressResponse defines model for WorkbookProgressResponse.
+type WorkbookProgressResponse struct {
+	Results []QuestionProgressItem `json:"results"`
 }
 
 // WorkbooksResponse defines model for WorkbooksResponse.
@@ -254,6 +275,20 @@ type UpdateUserProfileParams struct {
 type GetAnswerLogsParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
+// GetUserSummaryParams defines parameters for GetUserSummary.
+type GetUserSummaryParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
+// GetWorkbookProgressParams defines parameters for GetWorkbookProgress.
+type GetWorkbookProgressParams struct {
+	WorkbookId int64 `form:"workbook_id" json:"workbook_id"`
 
 	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
 	XDeviceID DeviceID `json:"X-Device-ID"`
@@ -321,6 +356,12 @@ type ServerInterface interface {
 	// 解答ログ一覧
 	// (GET /users/me/answer-logs)
 	GetAnswerLogs(ctx echo.Context, params GetAnswerLogsParams) error
+	// 学習サマリー（週次・累計統計）
+	// (GET /users/me/summary)
+	GetUserSummary(ctx echo.Context, params GetUserSummaryParams) error
+	// 問題集の進捗（問題IDごとの最新正解/不正解）
+	// (GET /users/me/workbook-progress)
+	GetWorkbookProgress(ctx echo.Context, params GetWorkbookProgressParams) error
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx echo.Context, params GetWrongAnswersParams) error
@@ -657,6 +698,74 @@ func (w *ServerInterfaceWrapper) GetAnswerLogs(ctx echo.Context) error {
 	return err
 }
 
+// GetUserSummary converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserSummary(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserSummaryParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserSummary(ctx, params)
+	return err
+}
+
+// GetWorkbookProgress converts echo context to params.
+func (w *ServerInterfaceWrapper) GetWorkbookProgress(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWorkbookProgressParams
+	// ------------- Required query parameter "workbook_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "workbook_id", ctx.QueryParams(), &params.WorkbookId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter workbook_id: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetWorkbookProgress(ctx, params)
+	return err
+}
+
 // GetWrongAnswers converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWrongAnswers(ctx echo.Context) error {
 	var err error
@@ -783,6 +892,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/users/me", wrapper.GetUserProfile)
 	router.PUT(baseURL+"/users/me", wrapper.UpdateUserProfile)
 	router.GET(baseURL+"/users/me/answer-logs", wrapper.GetAnswerLogs)
+	router.GET(baseURL+"/users/me/summary", wrapper.GetUserSummary)
+	router.GET(baseURL+"/users/me/workbook-progress", wrapper.GetWorkbookProgress)
 	router.GET(baseURL+"/users/me/wrong-answers", wrapper.GetWrongAnswers)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.GET(baseURL+"/workbooks/:workbookId", wrapper.GetWorkbook)
@@ -1097,6 +1208,58 @@ func (response GetAnswerLogs400JSONResponse) VisitGetAnswerLogsResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetUserSummaryRequestObject struct {
+	Params GetUserSummaryParams
+}
+
+type GetUserSummaryResponseObject interface {
+	VisitGetUserSummaryResponse(w http.ResponseWriter) error
+}
+
+type GetUserSummary200JSONResponse UserSummaryResponse
+
+func (response GetUserSummary200JSONResponse) VisitGetUserSummaryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetUserSummary400JSONResponse Error
+
+func (response GetUserSummary400JSONResponse) VisitGetUserSummaryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkbookProgressRequestObject struct {
+	Params GetWorkbookProgressParams
+}
+
+type GetWorkbookProgressResponseObject interface {
+	VisitGetWorkbookProgressResponse(w http.ResponseWriter) error
+}
+
+type GetWorkbookProgress200JSONResponse WorkbookProgressResponse
+
+func (response GetWorkbookProgress200JSONResponse) VisitGetWorkbookProgressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkbookProgress400JSONResponse Error
+
+func (response GetWorkbookProgress400JSONResponse) VisitGetWorkbookProgressResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWrongAnswersRequestObject struct {
 	Params GetWrongAnswersParams
 }
@@ -1216,6 +1379,12 @@ type StrictServerInterface interface {
 	// 解答ログ一覧
 	// (GET /users/me/answer-logs)
 	GetAnswerLogs(ctx context.Context, request GetAnswerLogsRequestObject) (GetAnswerLogsResponseObject, error)
+	// 学習サマリー（週次・累計統計）
+	// (GET /users/me/summary)
+	GetUserSummary(ctx context.Context, request GetUserSummaryRequestObject) (GetUserSummaryResponseObject, error)
+	// 問題集の進捗（問題IDごとの最新正解/不正解）
+	// (GET /users/me/workbook-progress)
+	GetWorkbookProgress(ctx context.Context, request GetWorkbookProgressRequestObject) (GetWorkbookProgressResponseObject, error)
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx context.Context, request GetWrongAnswersRequestObject) (GetWrongAnswersResponseObject, error)
@@ -1562,6 +1731,56 @@ func (sh *strictHandler) GetAnswerLogs(ctx echo.Context, params GetAnswerLogsPar
 		return err
 	} else if validResponse, ok := response.(GetAnswerLogsResponseObject); ok {
 		return validResponse.VisitGetAnswerLogsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetUserSummary operation middleware
+func (sh *strictHandler) GetUserSummary(ctx echo.Context, params GetUserSummaryParams) error {
+	var request GetUserSummaryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetUserSummary(ctx.Request().Context(), request.(GetUserSummaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetUserSummary")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetUserSummaryResponseObject); ok {
+		return validResponse.VisitGetUserSummaryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetWorkbookProgress operation middleware
+func (sh *strictHandler) GetWorkbookProgress(ctx echo.Context, params GetWorkbookProgressParams) error {
+	var request GetWorkbookProgressRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWorkbookProgress(ctx.Request().Context(), request.(GetWorkbookProgressRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWorkbookProgress")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetWorkbookProgressResponseObject); ok {
+		return validResponse.VisitGetWorkbookProgressResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

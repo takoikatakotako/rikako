@@ -375,6 +375,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /users/me/workbook-progress:
+    get:
+      summary: 問題集の進捗（問題IDごとの最新正解/不正解）
+      operationId: getWorkbookProgress
+      tags:
+        - Answers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+        - name: workbook_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 問題集の進捗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkbookProgressResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/me/summary:
+    get:
+      summary: 学習サマリー（週次・累計統計）
+      operationId: getUserSummary
+      tags:
+        - Answers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '200':
+          description: 学習サマリー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummaryResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /users/me/answer-logs:
     get:
       summary: 解答ログ一覧
@@ -673,6 +725,57 @@ components:
           type: integer
         totalCount:
           type: integer
+
+    QuestionProgressItem:
+      type: object
+      required:
+        - questionId
+        - isCorrect
+      properties:
+        questionId:
+          type: integer
+          format: int64
+        isCorrect:
+          type: boolean
+
+    WorkbookProgressResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionProgressItem'
+
+    UserSummaryResponse:
+      type: object
+      required:
+        - totalAnswered
+        - totalCorrect
+        - weeklyAnswered
+        - weeklyCorrect
+        - studyDates
+        - weeklyWorkbookIds
+      properties:
+        totalAnswered:
+          type: integer
+        totalCorrect:
+          type: integer
+        weeklyAnswered:
+          type: integer
+        weeklyCorrect:
+          type: integer
+        studyDates:
+          type: array
+          items:
+            type: string
+            description: "yyyy-MM-dd 形式"
+        weeklyWorkbookIds:
+          type: array
+          items:
+            type: integer
+            format: int64
 
     AnswerLogItem:
       type: object
