@@ -6,7 +6,11 @@ final class RemoteLearningRepository: LearningRepository {
 
     private let httpClient: HTTPClient
     private let deviceIdentityProvider: DeviceIdentityProviding
-    private let decoder = JSONDecoder()
+    private let decoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
     private let encoder = JSONEncoder()
 
     init(httpClient: HTTPClient, deviceIdentityProvider: DeviceIdentityProviding) {
@@ -95,6 +99,16 @@ final class RemoteLearningRepository: LearningRepository {
         let (data, response) = try await httpClient.data(for: urlRequest)
         try validateResponse(response)
         return try decoder.decode(UserProfile.self, from: data)
+    }
+
+    func fetchAnswerLogs(limit: Int, offset: Int) async throws -> AnswerLogsResponse {
+        var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/answer-logs"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        let url = components.url!
+        return try await getJSON(url: url, authenticated: true)
     }
 
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {

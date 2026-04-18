@@ -112,6 +112,10 @@ final class PreviewLearningRepository: LearningRepository {
         UserProfile(identityId: "preview-identity", displayName: request.displayName, selectedWorkbookId: request.selectedWorkbookId)
     }
 
+    func fetchAnswerLogs(limit: Int, offset: Int) async throws -> AnswerLogsResponse {
+        AnswerLogsResponse(logs: [], total: 0)
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         WrongAnswerListResponse(
             questions: Array(MockData.questions.prefix(limit)),

@@ -8,6 +8,7 @@ struct LearningUseCases {
     let fetchCategoryDetail: FetchCategoryDetailUseCase
     let submitAnswers: SubmitAnswersUseCase
     let fetchWrongAnswers: FetchWrongAnswersUseCase
+    let fetchAnswerLogs: FetchAnswerLogsUseCase
     let fetchUserProfile: FetchUserProfileUseCase
     let updateUserProfile: UpdateUserProfileUseCase
 
@@ -19,6 +20,7 @@ struct LearningUseCases {
         self.fetchCategoryDetail = FetchCategoryDetailUseCase(repository: repository)
         self.submitAnswers = SubmitAnswersUseCase(repository: repository)
         self.fetchWrongAnswers = FetchWrongAnswersUseCase(repository: repository)
+        self.fetchAnswerLogs = FetchAnswerLogsUseCase(repository: repository)
         self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
         self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
     }
@@ -105,6 +107,18 @@ struct FetchWrongAnswersUseCase {
 
     func execute(limit: Int = 50, offset: Int = 0) async throws -> WrongAnswerListResponse {
         try await repository.fetchWrongAnswers(limit: limit, offset: offset)
+    }
+}
+
+struct FetchAnswerLogsUseCase {
+    private let repository: LearningRepository
+
+    init(repository: LearningRepository) {
+        self.repository = repository
+    }
+
+    func execute(limit: Int = 50, offset: Int = 0) async throws -> AnswerLogsResponse {
+        try await repository.fetchAnswerLogs(limit: limit, offset: offset)
     }
 }
 

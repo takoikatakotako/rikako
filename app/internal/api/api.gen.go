@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
@@ -39,6 +40,24 @@ type AnonymousSignInResponse struct {
 type AnswerItem struct {
 	QuestionId     int64 `json:"questionId"`
 	SelectedChoice int   `json:"selectedChoice"`
+}
+
+// AnswerLogItem defines model for AnswerLogItem.
+type AnswerLogItem struct {
+	AnsweredAt     time.Time `json:"answeredAt"`
+	Id             int64     `json:"id"`
+	IsCorrect      bool      `json:"isCorrect"`
+	QuestionId     int64     `json:"questionId"`
+	QuestionText   string    `json:"questionText"`
+	SelectedChoice int       `json:"selectedChoice"`
+	WorkbookId     int64     `json:"workbookId"`
+	WorkbookTitle  string    `json:"workbookTitle"`
+}
+
+// AnswerLogsResponse defines model for AnswerLogsResponse.
+type AnswerLogsResponse struct {
+	Logs  []AnswerLogItem `json:"logs"`
+	Total int             `json:"total"`
 }
 
 // AppStatusResponse defines model for AppStatusResponse.
@@ -231,6 +250,15 @@ type UpdateUserProfileParams struct {
 	XAppSlug  string   `json:"X-App-Slug"`
 }
 
+// GetAnswerLogsParams defines parameters for GetAnswerLogs.
+type GetAnswerLogsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // GetWrongAnswersParams defines parameters for GetWrongAnswers.
 type GetWrongAnswersParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -290,6 +318,9 @@ type ServerInterface interface {
 	// ユーザープロフィール更新
 	// (PUT /users/me)
 	UpdateUserProfile(ctx echo.Context, params UpdateUserProfileParams) error
+	// 解答ログ一覧
+	// (GET /users/me/answer-logs)
+	GetAnswerLogs(ctx echo.Context, params GetAnswerLogsParams) error
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx echo.Context, params GetWrongAnswersParams) error
@@ -582,6 +613,50 @@ func (w *ServerInterfaceWrapper) UpdateUserProfile(ctx echo.Context) error {
 	return err
 }
 
+// GetAnswerLogs converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnswerLogs(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnswerLogsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnswerLogs(ctx, params)
+	return err
+}
+
 // GetWrongAnswers converts echo context to params.
 func (w *ServerInterfaceWrapper) GetWrongAnswers(ctx echo.Context) error {
 	var err error
@@ -707,6 +782,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/status", wrapper.GetAppStatus)
 	router.GET(baseURL+"/users/me", wrapper.GetUserProfile)
 	router.PUT(baseURL+"/users/me", wrapper.UpdateUserProfile)
+	router.GET(baseURL+"/users/me/answer-logs", wrapper.GetAnswerLogs)
 	router.GET(baseURL+"/users/me/wrong-answers", wrapper.GetWrongAnswers)
 	router.GET(baseURL+"/workbooks", wrapper.GetWorkbooks)
 	router.GET(baseURL+"/workbooks/:workbookId", wrapper.GetWorkbook)
@@ -995,6 +1071,32 @@ func (response UpdateUserProfile400JSONResponse) VisitUpdateUserProfileResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetAnswerLogsRequestObject struct {
+	Params GetAnswerLogsParams
+}
+
+type GetAnswerLogsResponseObject interface {
+	VisitGetAnswerLogsResponse(w http.ResponseWriter) error
+}
+
+type GetAnswerLogs200JSONResponse AnswerLogsResponse
+
+func (response GetAnswerLogs200JSONResponse) VisitGetAnswerLogsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswerLogs400JSONResponse Error
+
+func (response GetAnswerLogs400JSONResponse) VisitGetAnswerLogsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWrongAnswersRequestObject struct {
 	Params GetWrongAnswersParams
 }
@@ -1111,6 +1213,9 @@ type StrictServerInterface interface {
 	// ユーザープロフィール更新
 	// (PUT /users/me)
 	UpdateUserProfile(ctx context.Context, request UpdateUserProfileRequestObject) (UpdateUserProfileResponseObject, error)
+	// 解答ログ一覧
+	// (GET /users/me/answer-logs)
+	GetAnswerLogs(ctx context.Context, request GetAnswerLogsRequestObject) (GetAnswerLogsResponseObject, error)
 	// 間違えた問題一覧
 	// (GET /users/me/wrong-answers)
 	GetWrongAnswers(ctx context.Context, request GetWrongAnswersRequestObject) (GetWrongAnswersResponseObject, error)
@@ -1432,6 +1537,31 @@ func (sh *strictHandler) UpdateUserProfile(ctx echo.Context, params UpdateUserPr
 		return err
 	} else if validResponse, ok := response.(UpdateUserProfileResponseObject); ok {
 		return validResponse.VisitUpdateUserProfileResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAnswerLogs operation middleware
+func (sh *strictHandler) GetAnswerLogs(ctx echo.Context, params GetAnswerLogsParams) error {
+	var request GetAnswerLogsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnswerLogs(ctx.Request().Context(), request.(GetAnswerLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnswerLogs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnswerLogsResponseObject); ok {
+		return validResponse.VisitGetAnswerLogsResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

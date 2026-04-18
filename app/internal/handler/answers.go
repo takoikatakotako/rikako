@@ -76,6 +76,59 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 	}, nil
 }
 
+func (h *Handler) GetAnswerLogs(ctx context.Context, request api.GetAnswerLogsRequestObject) (api.GetAnswerLogsResponseObject, error) {
+	deviceID := request.Params.XDeviceID
+	if deviceID == "" {
+		return api.GetAnswerLogs400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetAnswerLogs400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
+	if err == sql.ErrNoRows {
+		return api.GetAnswerLogs200JSONResponse{Logs: []api.AnswerLogItem{}, Total: 0}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+
+	total, err := h.queries.CountUserAnswerLogs(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to count answer logs", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUserAnswerLogs(ctx, db.ListUserAnswerLogsParams{
+		UserID: userID,
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query answer logs", "error", err)
+		return nil, err
+	}
+
+	logs := make([]api.AnswerLogItem, len(rows))
+	for i, r := range rows {
+		logs[i] = api.AnswerLogItem{
+			Id:             r.ID,
+			QuestionId:     r.QuestionID,
+			QuestionText:   r.QuestionText,
+			WorkbookId:     r.WorkbookID,
+			WorkbookTitle:  r.WorkbookTitle,
+			SelectedChoice: int(r.SelectedChoice),
+			IsCorrect:      r.IsCorrect,
+			AnsweredAt:     r.AnsweredAt.Time,
+		}
+	}
+
+	return api.GetAnswerLogs200JSONResponse{Logs: logs, Total: int(total)}, nil
+}
+
 func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswersRequestObject) (api.GetWrongAnswersResponseObject, error) {
 	deviceID := request.Params.XDeviceID
 	if deviceID == "" {
