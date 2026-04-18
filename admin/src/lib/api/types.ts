@@ -178,3 +178,14 @@ export interface ApiError {
   code: string;
   message: string;
 }
+
+export interface AppStatus {
+  isMaintenance: boolean;
+  maintenanceMessage: string;
+  updatedAt: string;
+}
+
+export interface UpdateAppStatusRequest {
+  isMaintenance: boolean;
+  maintenanceMessage: string;
+}

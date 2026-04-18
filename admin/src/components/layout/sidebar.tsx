@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileQuestion, FolderOpen, Upload, Loader2, Users, AppWindow } from "lucide-react";
+import { BookOpen, FileQuestion, FolderOpen, Upload, Loader2, Users, AppWindow, WrenchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { apiPost } from "@/lib/api/client";
@@ -15,6 +15,7 @@ const navigation = [
   { name: "問題", href: "/questions", icon: FileQuestion },
   { name: "ユーザー", href: "/users", icon: Users },
   { name: "アプリ", href: "/apps", icon: AppWindow },
+  { name: "ステータス", href: "/app-status", icon: WrenchIcon },
 ];
 
 export function Sidebar() {
