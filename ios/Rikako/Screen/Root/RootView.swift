@@ -112,13 +112,18 @@ struct RootView: View {
 
     private func isUpdateRequired(minimumVersion: String) -> Bool {
         let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-        return versionComponents(currentVersion) < versionComponents(minimumVersion)
+        let current = versionComponents(currentVersion)
+        let minimum = versionComponents(minimumVersion)
+        for i in 0..<current.count {
+            if current[i] < minimum[i] { return true }
+            if current[i] > minimum[i] { return false }
+        }
+        return false
     }
 
     private func versionComponents(_ version: String) -> [Int] {
         let parts = version.split(separator: ".").compactMap { Int($0) }
-        let padded = parts + Array(repeating: 0, count: max(0, 3 - parts.count))
-        return padded
+        return parts + Array(repeating: 0, count: max(0, 3 - parts.count))
     }
 
     private func syncProfile() async {
