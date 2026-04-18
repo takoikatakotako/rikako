@@ -14,14 +14,18 @@ import (
 type Handler struct {
 	queries          *db.Queries
 	imageBaseURL     string
+	minimumVersion   string
+	latestVersion    string
 	logger           *slog.Logger
 	identityProvider identity.Provider
 }
 
-func New(d *sql.DB, imageBaseURL string, logger *slog.Logger, identityProvider identity.Provider) *Handler {
+func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider) *Handler {
 	return &Handler{
 		queries:          db.New(d),
 		imageBaseURL:     imageBaseURL,
+		minimumVersion:   minimumVersion,
+		latestVersion:    latestVersion,
 		logger:           logger,
 		identityProvider: identityProvider,
 	}

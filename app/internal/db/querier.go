@@ -46,6 +46,7 @@ type Querier interface {
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
 	GetAppByID(ctx context.Context, id int64) (App, error)
 	GetAppBySlug(ctx context.Context, slug string) (GetAppBySlugRow, error)
+	GetAppStatus(ctx context.Context) (GetAppStatusRow, error)
 	GetCategoryByID(ctx context.Context, id int64) (GetCategoryByIDRow, error)
 	GetCategoryTitle(ctx context.Context, id int64) (GetCategoryTitleRow, error)
 	GetChoicesByQuestionID(ctx context.Context, questionID int64) ([]GetChoicesByQuestionIDRow, error)
@@ -85,6 +86,7 @@ type Querier interface {
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	SetWorkbookCategory(ctx context.Context, arg SetWorkbookCategoryParams) error
 	UpdateApp(ctx context.Context, arg UpdateAppParams) error
+	UpdateAppStatus(ctx context.Context, arg UpdateAppStatusParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error
 	UpdateQuestionTimestamp(ctx context.Context, arg UpdateQuestionTimestampParams) error
 	UpdateSingleChoice(ctx context.Context, arg UpdateSingleChoiceParams) error

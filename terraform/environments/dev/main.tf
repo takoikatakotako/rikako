@@ -21,6 +21,8 @@ module "lambda" {
     COGNITO_USER_POOL_ID             = module.cognito.user_pool_id
     COGNITO_REGION                   = "ap-northeast-1"
     COGNITO_IDENTITY_POOL_ID         = module.cognito_identity.identity_pool_id
+    MINIMUM_VERSION                  = "1.0.0"
+    LATEST_VERSION                   = "1.0.0"
   }
 
   create_function_url = false

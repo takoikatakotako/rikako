@@ -42,6 +42,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
+  /status:
+    get:
+      summary: アプリステータス取得
+      operationId: getAppStatus
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: アプリステータス
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppStatusResponse'
+
   /questions:
     get:
       summary: 問題一覧取得
@@ -670,6 +685,29 @@ components:
           type: string
           description: Cognito Identity ID
           example: "ap-northeast-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+    AppStatusResponse:
+      type: object
+      required:
+        - minimumVersion
+        - latestVersion
+        - isMaintenance
+        - maintenanceMessage
+      properties:
+        minimumVersion:
+          type: string
+          description: 最低限必要なアプリバージョン
+          example: "1.0.0"
+        latestVersion:
+          type: string
+          description: 最新アプリバージョン
+          example: "1.2.0"
+        isMaintenance:
+          type: boolean
+          description: メンテナンス中かどうか
+        maintenanceMessage:
+          type: string
+          description: メンテナンス中のメッセージ
 
     Error:
       type: object
