@@ -4,6 +4,11 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     @State private var isReady = false
     @State private var errorMessage: String?
+    private let skipInitialize: Bool
+
+    init(skipInitialize: Bool = false) {
+        self.skipInitialize = skipInitialize
+    }
 
     var body: some View {
         Group {
@@ -18,22 +23,37 @@ struct RootView: View {
             }
         }
         .task {
+            guard !skipInitialize else { return }
             await initialize()
         }
     }
 
     private var splashView: some View {
-        VStack(spacing: 24) {
-            Image(.topAppLogo)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 120)
+        ZStack {
+            Color(.main)
+                .ignoresSafeArea()
 
-            ProgressView()
-                .tint(Color(.main))
+            VStack(spacing: 0) {
+                Spacer()
+
+                Image(.topAppLogo)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 280, height: 180)
+                
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.8)
+                
+                Spacer()
+                
+                Image(.topRikakoStanding)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 260)
+                
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
     }
 
     private func errorView(_ message: String) -> some View {
@@ -91,4 +111,9 @@ struct RootView: View {
 #Preview {
     RootView()
         .environment(AppState.shared)
+}
+
+#Preview("Splash") {
+    RootView(skipInitialize: true)
+        .environment(AppState.preview())
 }
