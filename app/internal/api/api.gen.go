@@ -41,6 +41,21 @@ type AnswerItem struct {
 	SelectedChoice int   `json:"selectedChoice"`
 }
 
+// AppStatusResponse defines model for AppStatusResponse.
+type AppStatusResponse struct {
+	// IsMaintenance メンテナンス中かどうか
+	IsMaintenance bool `json:"isMaintenance"`
+
+	// LatestVersion 最新アプリバージョン
+	LatestVersion string `json:"latestVersion"`
+
+	// MaintenanceMessage メンテナンス中のメッセージ
+	MaintenanceMessage string `json:"maintenanceMessage"`
+
+	// MinimumVersion 最低限必要なアプリバージョン
+	MinimumVersion string `json:"minimumVersion"`
+}
+
 // CategoriesResponse defines model for CategoriesResponse.
 type CategoriesResponse struct {
 	Categories []Category `json:"categories"`
@@ -266,6 +281,9 @@ type ServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx echo.Context, questionId int64) error
+	// アプリステータス取得
+	// (GET /status)
+	GetAppStatus(ctx echo.Context) error
 	// ユーザープロフィール取得
 	// (GET /users/me)
 	GetUserProfile(ctx echo.Context, params GetUserProfileParams) error
@@ -456,6 +474,15 @@ func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetQuestion(ctx, questionId)
+	return err
+}
+
+// GetAppStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAppStatus(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAppStatus(ctx)
 	return err
 }
 
@@ -677,6 +704,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/health", wrapper.HealthCheck)
 	router.GET(baseURL+"/questions", wrapper.GetQuestions)
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
+	router.GET(baseURL+"/status", wrapper.GetAppStatus)
 	router.GET(baseURL+"/users/me", wrapper.GetUserProfile)
 	router.PUT(baseURL+"/users/me", wrapper.UpdateUserProfile)
 	router.GET(baseURL+"/users/me/wrong-answers", wrapper.GetWrongAnswers)
@@ -898,6 +926,22 @@ func (response GetQuestion404JSONResponse) VisitGetQuestionResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetAppStatusRequestObject struct {
+}
+
+type GetAppStatusResponseObject interface {
+	VisitGetAppStatusResponse(w http.ResponseWriter) error
+}
+
+type GetAppStatus200JSONResponse AppStatusResponse
+
+func (response GetAppStatus200JSONResponse) VisitGetAppStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetUserProfileRequestObject struct {
 	Params GetUserProfileParams
 }
@@ -1058,6 +1102,9 @@ type StrictServerInterface interface {
 	// 問題詳細取得
 	// (GET /questions/{questionId})
 	GetQuestion(ctx context.Context, request GetQuestionRequestObject) (GetQuestionResponseObject, error)
+	// アプリステータス取得
+	// (GET /status)
+	GetAppStatus(ctx context.Context, request GetAppStatusRequestObject) (GetAppStatusResponseObject, error)
 	// ユーザープロフィール取得
 	// (GET /users/me)
 	GetUserProfile(ctx context.Context, request GetUserProfileRequestObject) (GetUserProfileResponseObject, error)
@@ -1306,6 +1353,29 @@ func (sh *strictHandler) GetQuestion(ctx echo.Context, questionId int64) error {
 		return err
 	} else if validResponse, ok := response.(GetQuestionResponseObject); ok {
 		return validResponse.VisitGetQuestionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAppStatus operation middleware
+func (sh *strictHandler) GetAppStatus(ctx echo.Context) error {
+	var request GetAppStatusRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAppStatus(ctx.Request().Context(), request.(GetAppStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAppStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAppStatusResponseObject); ok {
+		return validResponse.VisitGetAppStatusResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

@@ -51,6 +51,15 @@ func main() {
 		imageBaseURL = "https://example.com"
 	}
 
+	minimumVersion := os.Getenv("MINIMUM_VERSION")
+	if minimumVersion == "" {
+		minimumVersion = "1.0.0"
+	}
+	latestVersion := os.Getenv("LATEST_VERSION")
+	if latestVersion == "" {
+		latestVersion = "1.0.0"
+	}
+
 	// Echo初期化
 	e := echo.New()
 	e.Use(logging.RequestLogger(logger))
@@ -86,7 +95,7 @@ func main() {
 	}
 
 	// ハンドラー登録
-	h := handler.New(db, imageBaseURL, logger, idProvider)
+	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider)
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 

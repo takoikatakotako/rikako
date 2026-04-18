@@ -710,6 +710,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /app-status:
+    get:
+      summary: アプリステータス取得
+      operationId: getAppStatus
+      tags:
+        - AppStatus
+      responses:
+        '200':
+          description: アプリステータス
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppStatus'
+    put:
+      summary: アプリステータス更新
+      operationId: updateAppStatus
+      tags:
+        - AppStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAppStatusRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppStatus'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /images/presigned-url:
     post:
       summary: 画像アップロード用Presigned URL発行
@@ -1219,6 +1257,32 @@ components:
             $ref: '#/components/schemas/UserAnswerLog'
         total:
           type: integer
+
+    AppStatus:
+      type: object
+      required:
+        - isMaintenance
+        - maintenanceMessage
+        - updatedAt
+      properties:
+        isMaintenance:
+          type: boolean
+        maintenanceMessage:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateAppStatusRequest:
+      type: object
+      required:
+        - isMaintenance
+        - maintenanceMessage
+      properties:
+        isMaintenance:
+          type: boolean
+        maintenanceMessage:
+          type: string
 
     Error:
       type: object

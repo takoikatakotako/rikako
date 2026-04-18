@@ -6,6 +6,7 @@ package db
 
 import (
 	"database/sql"
+	"time"
 )
 
 type App struct {
@@ -13,6 +14,13 @@ type App struct {
 	Slug      string       `json:"slug"`
 	Title     string       `json:"title"`
 	CreatedAt sql.NullTime `json:"created_at"`
+}
+
+type AppStatus struct {
+	ID                 bool      `json:"id"`
+	IsMaintenance      bool      `json:"is_maintenance"`
+	MaintenanceMessage string    `json:"maintenance_message"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type Category struct {
