@@ -16,7 +16,7 @@ struct DebugView: View {
                     Label("問題集", systemImage: "books.vertical")
                 }
                 NavigationLink(destination: DebugLearningLogView()) {
-                    Label("学習ログ (\(appState.questionResults.count)問)", systemImage: "square.and.pencil")
+                    Label("学習ログ", systemImage: "square.and.pencil")
                 }
             }
         }
