@@ -45,4 +45,18 @@ final class QuizViewModel {
             showExplanation = false
         }
     }
+
+    func submitAnswers() {
+        let answerItems = zip(questions, answers).compactMap { question, answer -> AnswerItem? in
+            guard let choice = answer else { return nil }
+            return AnswerItem(questionId: question.id, selectedChoice: choice)
+        }
+        guard !answerItems.isEmpty else { return }
+        Task {
+            _ = try? await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                workbookId: workbookId,
+                answers: answerItems
+            )
+        }
+    }
 }

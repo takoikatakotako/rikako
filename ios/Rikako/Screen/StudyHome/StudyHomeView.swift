@@ -3,6 +3,7 @@ import SwiftUI
 struct StudyHomeView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: StudyHomeViewModel
+    @State private var workbookProgress: [String: Bool] = [:]
     private let isPreview: Bool
 
     init() {
@@ -76,7 +77,14 @@ struct StudyHomeView: View {
         .task(id: appState.selectedWorkbookID) {
             guard !isPreview else { return }
             await viewModel.loadSelectedWorkbookDetail(selectedWorkbookID: appState.selectedWorkbookID)
+            await loadWorkbookProgress()
         }
+    }
+
+    private func loadWorkbookProgress() async {
+        guard let workbookId = appState.selectedWorkbookID else { return }
+        let response = try? await AppContainer.shared.learningUseCases.fetchWorkbookProgress.execute(workbookId: workbookId)
+        workbookProgress = Dictionary(uniqueKeysWithValues: (response?.results ?? []).map { (String($0.questionId), $0.isCorrect) })
     }
 
     private func loadInitialState() async {
@@ -87,19 +95,6 @@ struct StudyHomeView: View {
             }
         } catch {
         }
-    }
-
-    private func completionText() -> String {
-        guard !viewModel.workbooks.isEmpty else { return "0%" }
-        let rate = Int((Double(appState.completedWorkbookIDs.count) / Double(viewModel.workbooks.count)) * 100)
-        return "\(rate)%"
-    }
-
-    private func selectedWorkbookStatusText(_ workbook: Workbook) -> String {
-        if appState.completedWorkbookIDs.contains(workbook.id) {
-            return "完了済み"
-        }
-        return "学習中"
     }
 
     private func workbookHero(_ workbook: Workbook) -> some View {
@@ -229,7 +224,7 @@ struct StudyHomeView: View {
     private func sectionRow(_ section: StudyHomeViewModel.Section) -> some View {
         let questions = viewModel.questions(for: section)
         let workbookDetail = viewModel.workbookDetail
-        let progress = viewModel.sectionProgress(for: section, questionResults: appState.questionResults)
+        let progress = viewModel.sectionProgress(for: section, questionResults: workbookProgress)
 
         return NavigationLink(destination: Group {
             if let workbookDetail {

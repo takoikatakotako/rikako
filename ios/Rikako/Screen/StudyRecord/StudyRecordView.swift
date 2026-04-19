@@ -3,23 +3,33 @@ import SwiftUI
 struct StudyRecordView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = StudyRecordViewModel()
+    @State private var summary: UserSummary?
+    @State private var wrongAnswersTotal = 0
+    @State private var isLoading = true
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    greetingSection
-                    streakCard
-                    reminderBanner
-                    statsSection
+            Group {
+                if isLoading {
+                    ProgressView("読み込み中...")
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            greetingSection
+                            streakCard
+                            reminderBanner
+                            statsSection
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
+                    .background(Color(.systemGroupedBackground))
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("学習記録")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .task { await load() }
     }
 
     private var greetingSection: some View {
@@ -45,10 +55,10 @@ struct StudyRecordView: View {
     }
 
     private var streakCard: some View {
-        let weekly = viewModel.weeklyStudied(studyDates: appState.studyDates)
-        let weeklyCount = viewModel.weeklyStudyCount(studyDates: appState.studyDates)
-        let streak = viewModel.streak(studyDates: appState.studyDates)
-
+        let studyDates = Set(summary?.studyDates ?? [])
+        let weekly = viewModel.weeklyStudied(studyDates: studyDates)
+        let weeklyCount = viewModel.weeklyStudyCount(studyDates: studyDates)
+        let streak = viewModel.streak(studyDates: studyDates)
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -87,7 +97,6 @@ struct StudyRecordView: View {
                 }
             }
 
-            chartRow(label: "問題数", value: min(appState.totalAnswered, 30))
         }
         .padding(20)
         .background(
@@ -105,7 +114,8 @@ struct StudyRecordView: View {
     }
 
     private var reminderBanner: some View {
-        HStack(spacing: 10) {
+        let totalAnswered = summary?.totalAnswered ?? 0
+        return HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 18)
                 .fill(Color(.main).opacity(0.18))
                 .frame(height: 88)
@@ -126,7 +136,7 @@ struct StudyRecordView: View {
                 .frame(width: 110, height: 88)
                 .overlay(
                     VStack(spacing: 8) {
-                        Text("\(appState.totalAnswered)")
+                        Text("\(totalAnswered)")
                             .font(.title.bold())
                             .foregroundStyle(Color(.main))
                         Text("今までの解答数")
@@ -139,38 +149,22 @@ struct StudyRecordView: View {
     }
 
     private var statsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let weeklyAnswered = summary?.weeklyAnswered ?? 0
+        let weeklyAccuracyText = summary?.weeklyAccuracyText ?? "---%"
+        let weeklyWorkbookCount = summary?.weeklyWorkbookIds.count ?? 0
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text("今週の学習時間・日数")
                 .font(.headline.bold())
 
             HStack(spacing: 12) {
-                statTile(
-                    title: "解答した問題",
-                    value: "\(appState.weeklyAnswered)問",
-                    icon: "square.and.pencil",
-                    accentColor: Color(.main)
-                )
-                statTile(
-                    title: "正答率",
-                    value: appState.weeklyAccuracyText,
-                    icon: "chart.line.uptrend.xyaxis",
-                    accentColor: Color.green
-                )
+                statTile(title: "解答した問題", value: "\(weeklyAnswered)問", icon: "square.and.pencil", accentColor: Color(.main))
+                statTile(title: "正答率", value: weeklyAccuracyText, icon: "chart.line.uptrend.xyaxis", accentColor: Color.green)
             }
 
             HStack(spacing: 12) {
-                statTile(
-                    title: "完了した問題集",
-                    value: "\(appState.weeklyCompletedWorkbookIDs.count)冊",
-                    icon: "books.vertical.fill",
-                    accentColor: Color.blue
-                )
-                statTile(
-                    title: "間違えた問題",
-                    value: "\(appState.wrongQuestions.count)問",
-                    icon: "arrow.counterclockwise.circle.fill",
-                    accentColor: Color.orange
-                )
+                statTile(title: "勉強した問題集", value: "\(weeklyWorkbookCount)冊", icon: "books.vertical.fill", accentColor: Color.blue)
+                statTile(title: "間違えた問題", value: "\(wrongAnswersTotal)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
             }
 
             NavigationLink(destination: WrongAnswersView()) {
@@ -185,7 +179,7 @@ struct StudyRecordView: View {
                     }
                     Spacer()
                     VStack(spacing: 6) {
-                        Text("\(appState.wrongQuestions.count)問")
+                        Text("\(wrongAnswersTotal)問")
                             .font(.headline.bold())
                             .foregroundStyle(Color(.main))
                         Image(.resultNext)
@@ -209,25 +203,6 @@ struct StudyRecordView: View {
                 )
             }
             .buttonStyle(.plain)
-        }
-    }
-
-    private func chartRow(label: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.main).opacity(0.85))
-                        .frame(width: max(proxy.size.width * CGFloat(value) / 30.0, 12), height: 8)
-                }
-            }
-            .frame(height: 8)
         }
     }
 
@@ -257,6 +232,15 @@ struct StudyRecordView: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func load() async {
+        isLoading = true
+        async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
+        async let wrongResult = try? AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 1, offset: 0)
+        summary = await summaryResult
+        wrongAnswersTotal = await wrongResult?.total ?? 0
+        isLoading = false
     }
 }
 

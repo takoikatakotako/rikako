@@ -143,6 +143,82 @@ func (q *Queries) GetUserByIdentityID(ctx context.Context, identityID string) (i
 	return id, err
 }
 
+const getUserTotalStats = `-- name: GetUserTotalStats :one
+SELECT
+    COUNT(*)::int AS total_answered,
+    COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0)::int AS total_correct
+FROM user_answers
+WHERE user_id = $1
+`
+
+type GetUserTotalStatsRow struct {
+	TotalAnswered int32 `json:"total_answered"`
+	TotalCorrect  int32 `json:"total_correct"`
+}
+
+func (q *Queries) GetUserTotalStats(ctx context.Context, userID int64) (GetUserTotalStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserTotalStats, userID)
+	var i GetUserTotalStatsRow
+	err := row.Scan(&i.TotalAnswered, &i.TotalCorrect)
+	return i, err
+}
+
+const getUserWeeklyStats = `-- name: GetUserWeeklyStats :one
+SELECT
+    COUNT(*)::int AS weekly_answered,
+    COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0)::int AS weekly_correct
+FROM user_answers
+WHERE user_id = $1 AND answered_at >= $2
+`
+
+type GetUserWeeklyStatsParams struct {
+	UserID     int64        `json:"user_id"`
+	AnsweredAt sql.NullTime `json:"answered_at"`
+}
+
+type GetUserWeeklyStatsRow struct {
+	WeeklyAnswered int32 `json:"weekly_answered"`
+	WeeklyCorrect  int32 `json:"weekly_correct"`
+}
+
+func (q *Queries) GetUserWeeklyStats(ctx context.Context, arg GetUserWeeklyStatsParams) (GetUserWeeklyStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserWeeklyStats, arg.UserID, arg.AnsweredAt)
+	var i GetUserWeeklyStatsRow
+	err := row.Scan(&i.WeeklyAnswered, &i.WeeklyCorrect)
+	return i, err
+}
+
+const listStudyDates = `-- name: ListStudyDates :many
+SELECT DISTINCT DATE(answered_at AT TIME ZONE 'Asia/Tokyo')::text AS study_date
+FROM user_answers
+WHERE user_id = $1
+ORDER BY study_date DESC
+LIMIT 365
+`
+
+func (q *Queries) ListStudyDates(ctx context.Context, userID int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listStudyDates, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var study_date string
+		if err := rows.Scan(&study_date); err != nil {
+			return nil, err
+		}
+		items = append(items, study_date)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserAnswerLogs = `-- name: ListUserAnswerLogs :many
 SELECT ua.id, ua.question_id, qsc.text AS question_text,
        ua.workbook_id, w.title AS workbook_title,
@@ -236,6 +312,80 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.DisplayName,
 			&i.CreatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWeeklyWorkbookIDs = `-- name: ListWeeklyWorkbookIDs :many
+SELECT DISTINCT workbook_id
+FROM user_answers
+WHERE user_id = $1 AND answered_at >= $2
+`
+
+type ListWeeklyWorkbookIDsParams struct {
+	UserID     int64        `json:"user_id"`
+	AnsweredAt sql.NullTime `json:"answered_at"`
+}
+
+func (q *Queries) ListWeeklyWorkbookIDs(ctx context.Context, arg ListWeeklyWorkbookIDsParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listWeeklyWorkbookIDs, arg.UserID, arg.AnsweredAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var workbook_id int64
+		if err := rows.Scan(&workbook_id); err != nil {
+			return nil, err
+		}
+		items = append(items, workbook_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkbookProgress = `-- name: ListWorkbookProgress :many
+SELECT DISTINCT ON (question_id) question_id, is_correct
+FROM user_answers
+WHERE user_id = $1 AND workbook_id = $2
+ORDER BY question_id, answered_at DESC
+`
+
+type ListWorkbookProgressParams struct {
+	UserID     int64 `json:"user_id"`
+	WorkbookID int64 `json:"workbook_id"`
+}
+
+type ListWorkbookProgressRow struct {
+	QuestionID int64 `json:"question_id"`
+	IsCorrect  bool  `json:"is_correct"`
+}
+
+func (q *Queries) ListWorkbookProgress(ctx context.Context, arg ListWorkbookProgressParams) ([]ListWorkbookProgressRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWorkbookProgress, arg.UserID, arg.WorkbookID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkbookProgressRow{}
+	for rows.Next() {
+		var i ListWorkbookProgressRow
+		if err := rows.Scan(&i.QuestionID, &i.IsCorrect); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

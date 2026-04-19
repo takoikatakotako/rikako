@@ -87,3 +87,35 @@ FROM questions_single_choice qsc
 JOIN questions_single_choice_choices c ON c.single_choice_id = qsc.id
 WHERE qsc.question_id = ANY($1::bigint[])
   AND c.is_correct = true;
+
+-- name: ListWorkbookProgress :many
+SELECT DISTINCT ON (question_id) question_id, is_correct
+FROM user_answers
+WHERE user_id = $1 AND workbook_id = $2
+ORDER BY question_id, answered_at DESC;
+
+-- name: GetUserTotalStats :one
+SELECT
+    COUNT(*)::int AS total_answered,
+    COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0)::int AS total_correct
+FROM user_answers
+WHERE user_id = $1;
+
+-- name: GetUserWeeklyStats :one
+SELECT
+    COUNT(*)::int AS weekly_answered,
+    COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0)::int AS weekly_correct
+FROM user_answers
+WHERE user_id = $1 AND answered_at >= $2;
+
+-- name: ListStudyDates :many
+SELECT DISTINCT DATE(answered_at AT TIME ZONE 'Asia/Tokyo')::text AS study_date
+FROM user_answers
+WHERE user_id = $1
+ORDER BY study_date DESC
+LIMIT 365;
+
+-- name: ListWeeklyWorkbookIDs :many
+SELECT DISTINCT workbook_id
+FROM user_answers
+WHERE user_id = $1 AND answered_at >= $2;

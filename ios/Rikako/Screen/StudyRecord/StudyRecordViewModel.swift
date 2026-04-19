@@ -1,10 +1,19 @@
 import Foundation
 import Observation
 
+extension DateFormatter {
+    static let yyyyMMdd: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+}
+
 @Observable
 @MainActor
 final class StudyRecordViewModel {
-    private let calendar = Calendar.current
+    private let calendar = Calendar(identifier: .iso8601)
 
     // 連続学習日数（今日または昨日を含む連続した日数）
     func streak(studyDates: Set<String>) -> Int {

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/db"
@@ -74,6 +75,180 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 		CorrectCount: correctCount,
 		TotalCount:   len(request.Body.Answers),
 	}, nil
+}
+
+func (h *Handler) GetWorkbookProgress(ctx context.Context, request api.GetWorkbookProgressRequestObject) (api.GetWorkbookProgressResponseObject, error) {
+	deviceID := request.Params.XDeviceID
+	if deviceID == "" {
+		return api.GetWorkbookProgress400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+	if request.Params.WorkbookId == 0 {
+		return api.GetWorkbookProgress400JSONResponse{Code: "INVALID_PARAMETER", Message: "workbook_id is required"}, nil
+	}
+
+	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
+	if err == sql.ErrNoRows {
+		return api.GetWorkbookProgress200JSONResponse{Results: []api.QuestionProgressItem{}}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListWorkbookProgress(ctx, db.ListWorkbookProgressParams{
+		UserID:     userID,
+		WorkbookID: request.Params.WorkbookId,
+	})
+	if err != nil {
+		h.logger.Error("failed to query workbook progress", "error", err)
+		return nil, err
+	}
+
+	results := make([]api.QuestionProgressItem, len(rows))
+	for i, r := range rows {
+		results[i] = api.QuestionProgressItem{
+			QuestionId: r.QuestionID,
+			IsCorrect:  r.IsCorrect,
+		}
+	}
+
+	return api.GetWorkbookProgress200JSONResponse{Results: results}, nil
+}
+
+func (h *Handler) GetUserSummary(ctx context.Context, request api.GetUserSummaryRequestObject) (api.GetUserSummaryResponseObject, error) {
+	deviceID := request.Params.XDeviceID
+	if deviceID == "" {
+		return api.GetUserSummary400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+
+	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
+	if err == sql.ErrNoRows {
+		return api.GetUserSummary200JSONResponse{
+			TotalAnswered: 0, TotalCorrect: 0,
+			WeeklyAnswered: 0, WeeklyCorrect: 0,
+			StudyDates: []string{}, WeeklyWorkbookIds: []int64{},
+		}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+
+	weekStart := isoWeekStart(time.Now())
+
+	totalStats, err := h.queries.GetUserTotalStats(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to get total stats", "error", err)
+		return nil, err
+	}
+
+	weeklyStats, err := h.queries.GetUserWeeklyStats(ctx, db.GetUserWeeklyStatsParams{
+		UserID:     userID,
+		AnsweredAt: sql.NullTime{Time: weekStart, Valid: true},
+	})
+	if err != nil {
+		h.logger.Error("failed to get weekly stats", "error", err)
+		return nil, err
+	}
+
+	studyDateRows, err := h.queries.ListStudyDates(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to list study dates", "error", err)
+		return nil, err
+	}
+
+	weeklyWorkbookRows, err := h.queries.ListWeeklyWorkbookIDs(ctx, db.ListWeeklyWorkbookIDsParams{
+		UserID:     userID,
+		AnsweredAt: sql.NullTime{Time: weekStart, Valid: true},
+	})
+	if err != nil {
+		h.logger.Error("failed to list weekly workbook ids", "error", err)
+		return nil, err
+	}
+
+	studyDates := make([]string, len(studyDateRows))
+	for i, d := range studyDateRows {
+		studyDates[i] = d
+	}
+
+	weeklyWorkbookIDs := make([]int64, len(weeklyWorkbookRows))
+	for i, id := range weeklyWorkbookRows {
+		weeklyWorkbookIDs[i] = id
+	}
+
+	return api.GetUserSummary200JSONResponse{
+		TotalAnswered:     int(totalStats.TotalAnswered),
+		TotalCorrect:      int(totalStats.TotalCorrect),
+		WeeklyAnswered:    int(weeklyStats.WeeklyAnswered),
+		WeeklyCorrect:     int(weeklyStats.WeeklyCorrect),
+		StudyDates:        studyDates,
+		WeeklyWorkbookIds: weeklyWorkbookIDs,
+	}, nil
+}
+
+// isoWeekStart returns Monday 00:00:00 JST (= Sunday 15:00:00 UTC) of the ISO week containing t.
+func isoWeekStart(t time.Time) time.Time {
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+	t = t.In(jst)
+	weekday := int(t.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	monday := time.Date(t.Year(), t.Month(), t.Day()-weekday+1, 0, 0, 0, 0, jst)
+	return monday.UTC()
+}
+
+func (h *Handler) GetAnswerLogs(ctx context.Context, request api.GetAnswerLogsRequestObject) (api.GetAnswerLogsResponseObject, error) {
+	deviceID := request.Params.XDeviceID
+	if deviceID == "" {
+		return api.GetAnswerLogs400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+
+	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
+	if err != nil {
+		return api.GetAnswerLogs400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
+	}
+
+	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
+	if err == sql.ErrNoRows {
+		return api.GetAnswerLogs200JSONResponse{Logs: []api.AnswerLogItem{}, Total: 0}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+
+	total, err := h.queries.CountUserAnswerLogs(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to count answer logs", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUserAnswerLogs(ctx, db.ListUserAnswerLogsParams{
+		UserID: userID,
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		h.logger.Error("failed to query answer logs", "error", err)
+		return nil, err
+	}
+
+	logs := make([]api.AnswerLogItem, len(rows))
+	for i, r := range rows {
+		logs[i] = api.AnswerLogItem{
+			Id:             r.ID,
+			QuestionId:     r.QuestionID,
+			QuestionText:   r.QuestionText,
+			WorkbookId:     r.WorkbookID,
+			WorkbookTitle:  r.WorkbookTitle,
+			SelectedChoice: int(r.SelectedChoice),
+			IsCorrect:      r.IsCorrect,
+			AnsweredAt:     r.AnsweredAt.Time,
+		}
+	}
+
+	return api.GetAnswerLogs200JSONResponse{Logs: logs, Total: int(total)}, nil
 }
 
 func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswersRequestObject) (api.GetWrongAnswersResponseObject, error) {

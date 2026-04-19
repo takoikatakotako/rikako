@@ -76,10 +76,9 @@ final class ResultViewModel {
         }
     }
 
-    func recordSessionIfNeeded(appState: AppState) {
+    func recordSessionIfNeeded() {
         guard !didSubmit else { return }
         didSubmit = true
-        appState.recordSession(workbookId: workbookId, questions: questions, answers: answers)
         submitAnswersToServer()
     }
 
@@ -92,7 +91,7 @@ final class ResultViewModel {
 
         Task {
             do {
-                try await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                _ = try await AppContainer.shared.learningUseCases.submitAnswers.execute(
                     workbookId: workbookId,
                     answers: answerItems
                 )
