@@ -1,6 +1,15 @@
 import Foundation
 import Observation
 
+extension DateFormatter {
+    static let yyyyMMdd: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+}
+
 @Observable
 @MainActor
 final class StudyRecordViewModel {
