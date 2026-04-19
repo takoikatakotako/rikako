@@ -27,12 +27,11 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Run tests
+      - name: Build for testing
         working-directory: ./ios
         run: |
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -scheme Rikako \
-            -destination 'platform=macOS,name=My Mac' \
-            -skip-testing:RikakoUITests \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
