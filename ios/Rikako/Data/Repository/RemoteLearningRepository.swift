@@ -101,6 +101,17 @@ final class RemoteLearningRepository: LearningRepository {
         return try decoder.decode(UserProfile.self, from: data)
     }
 
+    func fetchWorkbookProgress(workbookId: Int64) async throws -> WorkbookProgressResponse {
+        var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/workbook-progress"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "workbook_id", value: "\(workbookId)")]
+        return try await getJSON(url: components.url!, authenticated: true)
+    }
+
+    func fetchUserSummary() async throws -> UserSummary {
+        let url = apiBaseURL.appendingPathComponent("users/me/summary")
+        return try await getJSON(url: url, authenticated: true)
+    }
+
     func fetchAnswerLogs(limit: Int, offset: Int) async throws -> AnswerLogsResponse {
         var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/answer-logs"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

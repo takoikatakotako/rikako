@@ -76,10 +76,9 @@ final class ResultViewModel {
         }
     }
 
-    func recordSessionIfNeeded(appState: AppState) {
+    func recordSessionIfNeeded() {
         guard !didSubmit else { return }
         didSubmit = true
-        appState.recordSession(workbookId: workbookId, questions: questions, answers: answers)
         submitAnswersToServer()
     }
 

@@ -1,11 +1,15 @@
 import SwiftUI
 
 struct WrongAnswersView: View {
-    @Environment(AppState.self) private var appState
+    @State private var questions: [Question] = []
+    @State private var total = 0
+    @State private var isLoading = true
 
     var body: some View {
         Group {
-            if appState.wrongQuestions.isEmpty {
+            if isLoading {
+                ProgressView("読み込み中...")
+            } else if questions.isEmpty {
                 ContentUnavailableView {
                     Label("間違えた問題はありません", systemImage: "checkmark.circle")
                 } description: {
@@ -14,12 +18,12 @@ struct WrongAnswersView: View {
             } else {
                 List {
                     Section {
-                        Text("\(appState.wrongQuestions.count)問の間違えた問題があります")
+                        Text("\(total)問の間違えた問題があります")
                             .foregroundStyle(.secondary)
                     }
 
                     Section("問題一覧") {
-                        ForEach(Array(appState.wrongQuestions.enumerated()), id: \.element.id) { index, question in
+                        ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Q\(index + 1)")
@@ -41,31 +45,31 @@ struct WrongAnswersView: View {
                     }
 
                     Section {
-                        NavigationLink(destination: QuizView(questions: appState.wrongQuestions, workbookTitle: "復習", workbookId: 0)) {
+                        NavigationLink(destination: QuizView(questions: questions, workbookTitle: "復習", workbookId: 0)) {
                             Label("復習する", systemImage: "arrow.counterclockwise")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 4)
                         }
                     }
-
-                    Section {
-                        Button(role: .destructive) {
-                            appState.clearWrongAnswers()
-                        } label: {
-                            Label("一覧をクリア", systemImage: "trash")
-                        }
-                    }
                 }
             }
         }
         .navigationTitle("間違えた問題")
+        .task { await load() }
+    }
+
+    private func load() async {
+        isLoading = true
+        let response = try? await AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 50, offset: 0)
+        questions = response?.questions ?? []
+        total = response?.total ?? 0
+        isLoading = false
     }
 }
 
 #Preview {
     NavigationStack {
         WrongAnswersView()
-            .environment(AppState.shared)
     }
 }

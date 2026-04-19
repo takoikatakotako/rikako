@@ -9,6 +9,8 @@ struct LearningUseCases {
     let submitAnswers: SubmitAnswersUseCase
     let fetchWrongAnswers: FetchWrongAnswersUseCase
     let fetchAnswerLogs: FetchAnswerLogsUseCase
+    let fetchWorkbookProgress: FetchWorkbookProgressUseCase
+    let fetchUserSummary: FetchUserSummaryUseCase
     let fetchUserProfile: FetchUserProfileUseCase
     let updateUserProfile: UpdateUserProfileUseCase
 
@@ -21,6 +23,8 @@ struct LearningUseCases {
         self.submitAnswers = SubmitAnswersUseCase(repository: repository)
         self.fetchWrongAnswers = FetchWrongAnswersUseCase(repository: repository)
         self.fetchAnswerLogs = FetchAnswerLogsUseCase(repository: repository)
+        self.fetchWorkbookProgress = FetchWorkbookProgressUseCase(repository: repository)
+        self.fetchUserSummary = FetchUserSummaryUseCase(repository: repository)
         self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
         self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
     }
@@ -107,6 +111,22 @@ struct FetchWrongAnswersUseCase {
 
     func execute(limit: Int = 50, offset: Int = 0) async throws -> WrongAnswerListResponse {
         try await repository.fetchWrongAnswers(limit: limit, offset: offset)
+    }
+}
+
+struct FetchWorkbookProgressUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute(workbookId: Int64) async throws -> WorkbookProgressResponse {
+        try await repository.fetchWorkbookProgress(workbookId: workbookId)
+    }
+}
+
+struct FetchUserSummaryUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute() async throws -> UserSummary {
+        try await repository.fetchUserSummary()
     }
 }
 
