@@ -45,7 +45,11 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const full = fs.readFileSync('datasync-plan.txt', 'utf8').trim();
+            const stripAnsi = (text) =>
+              text
+                .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
+                .replace(/\u001B\][^\u0007]*(?:\u0007|\u001B\\)/g, '');
+            const full = stripAnsi(fs.readFileSync('datasync-plan.txt', 'utf8')).trim();
             const maxLen = 60000;
             const result = full.length > maxLen
               ? `${full.slice(0, maxLen)}\n\n...truncated (${full.length - maxLen} chars omitted). See workflow logs for full output.`
