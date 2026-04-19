@@ -5,7 +5,6 @@ struct StudyRecordView: View {
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
     @State private var wrongAnswersTotal = 0
-    @State private var answerLogs: [AnswerLog] = []
     @State private var popoverDayIndex: Int? = nil
     @State private var isLoading = true
     private let isPreview: Bool
@@ -343,7 +342,8 @@ struct StudyRecordView: View {
 
     private func dayPopoverContent(dayIndex: Int) -> some View {
         let date = viewModel.weeklyDate(at: dayIndex)
-        let stats = date.map { dailyStats(for: $0) }
+        let studyDates = Set(summary?.studyDates ?? [])
+        let studied = date.map { studyDates.contains(DateFormatter.yyyyMMdd.string(from: $0)) } ?? false
         let dayNames = ["月", "火", "水", "木", "金", "土", "日"]
         let dateLabel: String = {
             guard let date else { return "--" }
@@ -352,32 +352,21 @@ struct StudyRecordView: View {
             return "\(f.string(from: date))（\(dayNames[dayIndex])）"
         }()
 
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 10) {
             Text(dateLabel)
                 .font(.headline.bold())
-
-            if let stats, stats.answered > 0 {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("\(stats.answered)問 解答", systemImage: "square.and.pencil")
-                    Label("\(stats.wrong)問 間違い", systemImage: "xmark.circle")
-                        .foregroundStyle(stats.wrong > 0 ? Color.red : Color.secondary)
-                }
-                .font(.subheadline)
-            } else {
-                Text("この日は学習していません")
+            if studied {
+                Label("学習しました", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Color(.main))
                     .font(.subheadline)
+            } else {
+                Label("学習していません", systemImage: "minus.circle")
                     .foregroundStyle(.secondary)
+                    .font(.subheadline)
             }
         }
         .padding(18)
         .presentationCompactAdaptation(.popover)
-    }
-
-    private func dailyStats(for date: Date) -> (answered: Int, wrong: Int) {
-        let formatter = DateFormatter.yyyyMMdd
-        let dateStr = formatter.string(from: date)
-        let dayLogs = answerLogs.filter { formatter.string(from: $0.answeredAt) == dateStr }
-        return (dayLogs.count, dayLogs.filter { !$0.isCorrect }.count)
     }
 
     private static let heatmapDateFormatter: DateFormatter = {
@@ -513,10 +502,8 @@ struct StudyRecordView: View {
         isLoading = true
         async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
         async let wrongResult = try? AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 1, offset: 0)
-        async let logsResult = try? AppContainer.shared.learningUseCases.fetchAnswerLogs.execute(limit: 500)
         summary = await summaryResult
         wrongAnswersTotal = await wrongResult?.total ?? 0
-        answerLogs = await logsResult?.logs ?? []
         isLoading = false
     }
 }
