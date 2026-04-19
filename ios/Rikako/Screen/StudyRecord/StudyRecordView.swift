@@ -250,8 +250,9 @@ struct StudyRecordView: View {
     }
 
     private var weeklyWrongCount: Int {
-        guard let monday = viewModel.weeklyDate(at: 0) else { return 0 }
-        return answerLogs.filter { $0.answeredAt >= monday && !$0.isCorrect }.count
+        let answered = summary?.weeklyAnswered ?? 0
+        let correct = summary?.weeklyCorrect ?? 0
+        return max(0, answered - correct)
     }
 
     private var statsSection: some View {
