@@ -11,7 +11,7 @@ struct StudyRecordView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("読み込み中...")
+                    skeletonView
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
@@ -29,6 +29,103 @@ struct StudyRecordView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .task { await load() }
+    }
+
+    private var skeletonView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                // greetingSection skeleton
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(Color(.systemGray5))
+                        .frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 8) {
+                        skeletonRect(width: 200, height: 16)
+                        skeletonRect(width: 160, height: 13)
+                    }
+                    .padding(.top, 6)
+                }
+                .padding(.horizontal, 4)
+
+                // streakCard skeleton
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            skeletonRect(width: 110, height: 15)
+                            skeletonRect(width: 80, height: 12)
+                        }
+                        Spacer()
+                        skeletonRect(width: 70, height: 48)
+                    }
+                    HStack(spacing: 10) {
+                        ForEach(0..<7, id: \.self) { _ in
+                            VStack(spacing: 8) {
+                                skeletonRect(width: 14, height: 11)
+                                Circle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 24, height: 24)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .padding(20)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+
+                // statsSection skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    skeletonRect(width: 140, height: 15)
+
+                    HStack(spacing: 12) {
+                        skeletonTile()
+                        skeletonTile()
+                    }
+                    HStack(spacing: 12) {
+                        skeletonTile()
+                        skeletonTile()
+                    }
+
+                    // Review list card skeleton
+                    HStack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            skeletonRect(width: 80, height: 15)
+                            skeletonRect(width: 130, height: 12)
+                        }
+                        Spacer()
+                        skeletonRect(width: 44, height: 15)
+                    }
+                    .padding(18)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func skeletonRect(width: CGFloat? = nil, height: CGFloat = 14) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color(.systemGray5))
+            .frame(width: width, height: height)
+    }
+
+    private func skeletonTile() -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 24, height: 24)
+                skeletonRect(width: 60, height: 12)
+            }
+            skeletonRect(width: 50, height: 24)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
     private var greetingSection: some View {
