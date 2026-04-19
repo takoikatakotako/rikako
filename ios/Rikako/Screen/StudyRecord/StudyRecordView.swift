@@ -347,16 +347,10 @@ struct StudyRecordView: View {
 
                 HStack(spacing: 6) {
                     Spacer()
-                    Text("なし")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 11, height: 11)
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color(.main).opacity(0.75))
                         .frame(width: 11, height: 11)
-                    Text("あり")
+                    Text("学習した日")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
