@@ -78,11 +78,7 @@ struct QuizView: View {
                 dismiss()
             }
             Button("履歴を保存して戻る") {
-                appState.recordSession(
-                    workbookId: viewModel.workbookId,
-                    questions: viewModel.questions,
-                    answers: viewModel.answers
-                )
+                viewModel.submitAnswers()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) {}
