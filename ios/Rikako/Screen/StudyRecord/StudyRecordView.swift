@@ -6,6 +6,15 @@ struct StudyRecordView: View {
     @State private var summary: UserSummary?
     @State private var wrongAnswersTotal = 0
     @State private var isLoading = true
+    private let isPreview: Bool
+
+    init() {
+        isPreview = false
+    }
+
+    fileprivate init(skeletonPreview: Bool) {
+        isPreview = skeletonPreview
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,7 +37,10 @@ struct StudyRecordView: View {
             .navigationTitle("学習記録")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .task { await load() }
+        .task {
+            guard !isPreview else { return }
+            await load()
+        }
     }
 
     private var skeletonView: some View {
@@ -305,7 +317,12 @@ struct StudyRecordView: View {
     }
 }
 
-#Preview {
+#Preview("通常") {
     StudyRecordView()
+        .environment(AppState.shared)
+}
+
+#Preview("読み込み中") {
+    StudyRecordView(skeletonPreview: true)
         .environment(AppState.shared)
 }
