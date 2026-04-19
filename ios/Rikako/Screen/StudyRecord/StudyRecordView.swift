@@ -249,6 +249,11 @@ struct StudyRecordView: View {
         )
     }
 
+    private var weeklyWrongCount: Int {
+        guard let monday = viewModel.weeklyDate(at: 0) else { return 0 }
+        return answerLogs.filter { $0.answeredAt >= monday && !$0.isCorrect }.count
+    }
+
     private var statsSection: some View {
         let weeklyAnswered = summary?.weeklyAnswered ?? 0
         let weeklyAccuracyText = summary?.weeklyAccuracyText ?? "---%"
@@ -265,7 +270,7 @@ struct StudyRecordView: View {
 
             HStack(spacing: 12) {
                 statTile(title: "勉強した問題集", value: "\(weeklyWorkbookCount)冊", icon: "books.vertical.fill", accentColor: Color.blue)
-                statTile(title: "間違えた問題", value: "\(wrongAnswersTotal)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
+                statTile(title: "間違えた問題", value: "\(weeklyWrongCount)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
             }
 
             NavigationLink(destination: WrongAnswersView()) {
