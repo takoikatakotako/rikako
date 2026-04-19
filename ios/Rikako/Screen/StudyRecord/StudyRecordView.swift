@@ -27,6 +27,7 @@ struct StudyRecordView: View {
                             greetingSection
                             streakCard
                             statsSection
+                            studyHistorySection
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -108,6 +109,19 @@ struct StudyRecordView: View {
                         skeletonRect(width: 44, height: 15)
                     }
                     .padding(18)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+
+                // studyHistorySection skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    skeletonRect(width: 130, height: 15)
+                    VStack(alignment: .leading, spacing: 10) {
+                        skeletonRect(height: 108)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        HStack { Spacer(); skeletonRect(width: 90, height: 10) }
+                    }
+                    .padding(16)
                     .background(Color(.systemGray6))
                     .clipShape(RoundedRectangle(cornerRadius: 18))
                 }
@@ -305,6 +319,141 @@ struct StudyRecordView: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private static let heatmapDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private var studyHistorySection: some View {
+        let studySet = Set(summary?.studyDates ?? [])
+        let weeks = makeWeeks()
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("今までの学習記録")
+                .font(.headline.bold())
+
+            VStack(alignment: .leading, spacing: 10) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollViewReader { proxy in
+                        heatmapGrid(weeks: weeks, studySet: studySet)
+                            .padding(.vertical, 2)
+                            .onAppear {
+                                proxy.scrollTo("week-\(weeks.count - 1)", anchor: .trailing)
+                            }
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Spacer()
+                    Text("なし")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 11, height: 11)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(.main).opacity(0.75))
+                        .frame(width: 11, height: 11)
+                    Text("あり")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color(.main).opacity(0.08), lineWidth: 1.5)
+            )
+        }
+    }
+
+    private func heatmapGrid(weeks: [[Date?]], studySet: Set<String>) -> some View {
+        let cellSize: CGFloat = 11
+        let gap: CGFloat = 3
+        let dayLabelWidth: CGFloat = 18
+        let dayLabels = ["月", "", "水", "", "金", "", ""]
+
+        return VStack(alignment: .leading, spacing: 4) {
+            // Month labels
+            HStack(alignment: .bottom, spacing: gap) {
+                Color.clear.frame(width: dayLabelWidth + gap)
+                ForEach(weeks.indices, id: \.self) { i in
+                    Text(heatmapMonthLabel(for: weeks[i]))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .frame(width: cellSize, alignment: .leading)
+                }
+            }
+
+            // Grid
+            HStack(alignment: .top, spacing: gap) {
+                // Day labels (月水金 only)
+                VStack(alignment: .leading, spacing: gap) {
+                    ForEach(0..<7, id: \.self) { i in
+                        Text(dayLabels[i])
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .frame(width: dayLabelWidth, height: cellSize, alignment: .leading)
+                    }
+                }
+
+                // Week columns
+                ForEach(weeks.indices, id: \.self) { weekIndex in
+                    VStack(spacing: gap) {
+                        ForEach(0..<7, id: \.self) { dayIndex in
+                            if let date = weeks[weekIndex][dayIndex] {
+                                let str = Self.heatmapDateFormatter.string(from: date)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(studySet.contains(str) ? Color(.main).opacity(0.75) : Color(.systemGray5))
+                                    .frame(width: cellSize, height: cellSize)
+                            } else {
+                                Color.clear.frame(width: cellSize, height: cellSize)
+                            }
+                        }
+                    }
+                    .id("week-\(weekIndex)")
+                }
+            }
+        }
+    }
+
+    private func heatmapMonthLabel(for week: [Date?]) -> String {
+        let calendar = Calendar.current
+        for date in week.compactMap({ $0 }) {
+            if calendar.component(.day, from: date) == 1 {
+                return "\(calendar.component(.month, from: date))月"
+            }
+        }
+        return ""
+    }
+
+    private func makeWeeks(count: Int = 53) -> [[Date?]] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 2
+        let today = Date()
+        let weekday = calendar.component(.weekday, from: today)
+        let daysBack = (weekday - 2 + 7) % 7
+        let monday = calendar.date(byAdding: .day, value: -daysBack, to: today)!
+        let startDate = calendar.date(byAdding: .weekOfYear, value: -(count - 1), to: monday)!
+        var weeks: [[Date?]] = []
+        var weekStart = startDate
+        for _ in 0..<count {
+            var week: [Date?] = []
+            for d in 0..<7 {
+                if let day = calendar.date(byAdding: .day, value: d, to: weekStart) {
+                    week.append(day <= today ? day : nil)
+                } else {
+                    week.append(nil)
+                }
+            }
+            weeks.append(week)
+            weekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart)!
+        }
+        return weeks
     }
 
     private func load() async {
