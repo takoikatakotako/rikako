@@ -45,6 +45,7 @@ struct ResultView: View {
         .toolbar(.hidden, for: .tabBar)
         .task {
             viewModel.recordSessionIfNeeded()
+            appState.notifyQuizCompleted()
         }
     }
 

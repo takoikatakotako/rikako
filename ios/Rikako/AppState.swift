@@ -21,6 +21,7 @@ final class AppState {
     var userId: Int64?
     var displayName: String?
     var selectedWorkbookID: Int64?
+    var lastQuizCompletionID: Int = 0
     private let userDefaults: UserDefaults
 
     private init(userDefaults: UserDefaults = .standard) {
@@ -54,6 +55,10 @@ final class AppState {
         userDefaults.removeObject(forKey: DefaultsKey.hasCompletedOnboarding)
         userDefaults.removeObject(forKey: DefaultsKey.anonymousUserId)
         userDefaults.removeObject(forKey: DefaultsKey.selectedWorkbookID)
+    }
+
+    func notifyQuizCompleted() {
+        lastQuizCompletionID += 1
     }
 
     func selectWorkbook(_ workbookID: Int64) {

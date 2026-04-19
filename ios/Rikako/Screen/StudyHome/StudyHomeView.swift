@@ -79,6 +79,10 @@ struct StudyHomeView: View {
             await viewModel.loadSelectedWorkbookDetail(selectedWorkbookID: appState.selectedWorkbookID)
             await loadWorkbookProgress()
         }
+        .task(id: appState.lastQuizCompletionID) {
+            guard !isPreview, appState.lastQuizCompletionID > 0 else { return }
+            await loadWorkbookProgress()
+        }
     }
 
     private func loadWorkbookProgress() async {
