@@ -59,5 +59,13 @@ final class StudyRecordViewModel {
     func weeklyStudyCount(studyDates: Set<String>) -> Int {
         weeklyStudied(studyDates: studyDates).filter { $0 }.count
     }
+
+    // 今週のindex番目（0=月...6=日）に対応するDate
+    func weeklyDate(at index: Int) -> Date? {
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        components.weekday = 2
+        guard let monday = calendar.date(from: components) else { return nil }
+        return calendar.date(byAdding: .day, value: index, to: monday)
+    }
 }
 

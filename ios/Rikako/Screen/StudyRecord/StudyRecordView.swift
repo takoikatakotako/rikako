@@ -5,20 +5,30 @@ struct StudyRecordView: View {
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
     @State private var wrongAnswersTotal = 0
+    @State private var popoverDayIndex: Int? = nil
     @State private var isLoading = true
+    private let isPreview: Bool
+
+    init() {
+        isPreview = false
+    }
+
+    fileprivate init(skeletonPreview: Bool) {
+        isPreview = skeletonPreview
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("読み込み中...")
+                    skeletonView
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
                             greetingSection
                             streakCard
-                            reminderBanner
                             statsSection
+                            studyHistorySection
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -29,7 +39,120 @@ struct StudyRecordView: View {
             .navigationTitle("学習記録")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .task { await load() }
+        .task {
+            guard !isPreview else { return }
+            await load()
+        }
+    }
+
+    private var skeletonView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                // greetingSection skeleton
+                HStack(alignment: .top, spacing: 12) {
+                    Circle()
+                        .fill(Color(.systemGray5))
+                        .frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 8) {
+                        skeletonRect(width: 200, height: 16)
+                        skeletonRect(width: 160, height: 13)
+                    }
+                    .padding(.top, 6)
+                }
+                .padding(.horizontal, 4)
+
+                // streakCard skeleton
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            skeletonRect(width: 110, height: 15)
+                            skeletonRect(width: 80, height: 12)
+                        }
+                        Spacer()
+                        skeletonRect(width: 70, height: 48)
+                    }
+                    HStack(spacing: 10) {
+                        ForEach(0..<7, id: \.self) { _ in
+                            VStack(spacing: 8) {
+                                skeletonRect(width: 14, height: 11)
+                                Circle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 24, height: 24)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .padding(20)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+
+                // statsSection skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    skeletonRect(width: 140, height: 15)
+
+                    HStack(spacing: 12) {
+                        skeletonTile()
+                        skeletonTile()
+                    }
+                    HStack(spacing: 12) {
+                        skeletonTile()
+                        skeletonTile()
+                    }
+
+                    // Review list card skeleton
+                    HStack {
+                        VStack(alignment: .leading, spacing: 8) {
+                            skeletonRect(width: 80, height: 15)
+                            skeletonRect(width: 130, height: 12)
+                        }
+                        Spacer()
+                        skeletonRect(width: 44, height: 15)
+                    }
+                    .padding(18)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+
+                // studyHistorySection skeleton
+                VStack(alignment: .leading, spacing: 12) {
+                    skeletonRect(width: 130, height: 15)
+                    VStack(alignment: .leading, spacing: 10) {
+                        skeletonRect(height: 108)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                        HStack { Spacer(); skeletonRect(width: 90, height: 10) }
+                    }
+                    .padding(16)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func skeletonRect(width: CGFloat? = nil, height: CGFloat = 14) -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(Color(.systemGray5))
+            .frame(width: width, height: height)
+    }
+
+    private func skeletonTile() -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color(.systemGray5))
+                    .frame(width: 24, height: 24)
+                skeletonRect(width: 60, height: 12)
+            }
+            skeletonRect(width: 50, height: 24)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
     private var greetingSection: some View {
@@ -81,19 +204,31 @@ struct StudyRecordView: View {
 
             HStack(spacing: 10) {
                 ForEach(0..<7, id: \.self) { index in
-                    VStack(spacing: 8) {
-                        Text(["月", "火", "水", "木", "金", "土", "日"][index])
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Circle()
-                            .stroke(Color(.main).opacity(0.6), lineWidth: 2)
-                            .frame(width: 24, height: 24)
-                            .background(
-                                Circle()
-                                    .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
-                            )
+                    Button {
+                        popoverDayIndex = index
+                    } label: {
+                        VStack(spacing: 8) {
+                            Text(["月", "火", "水", "木", "金", "土", "日"][index])
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Circle()
+                                .stroke(Color(.main).opacity(0.6), lineWidth: 2)
+                                .frame(width: 24, height: 24)
+                                .background(
+                                    Circle()
+                                        .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
+                                )
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    .popover(isPresented: Binding(
+                        get: { popoverDayIndex == index },
+                        set: { if !$0 { popoverDayIndex = nil } }
+                    )) {
+                        dayPopoverContent(dayIndex: index)
+                    }
                 }
             }
 
@@ -113,39 +248,10 @@ struct StudyRecordView: View {
         )
     }
 
-    private var reminderBanner: some View {
-        let totalAnswered = summary?.totalAnswered ?? 0
-        return HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.main).opacity(0.18))
-                .frame(height: 88)
-                .overlay(
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("ウィジェットで勉強を\n忘れないようにしよう")
-                            .font(.headline.bold())
-                        Text("設定方法を見る")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                )
-
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.main).opacity(0.12))
-                .frame(width: 110, height: 88)
-                .overlay(
-                    VStack(spacing: 8) {
-                        Text("\(totalAnswered)")
-                            .font(.title.bold())
-                            .foregroundStyle(Color(.main))
-                        Text("今までの解答数")
-                            .font(.caption.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(8)
-                )
-        }
+    private var weeklyWrongCount: Int {
+        let answered = summary?.weeklyAnswered ?? 0
+        let correct = summary?.weeklyCorrect ?? 0
+        return max(0, answered - correct)
     }
 
     private var statsSection: some View {
@@ -164,7 +270,7 @@ struct StudyRecordView: View {
 
             HStack(spacing: 12) {
                 statTile(title: "勉強した問題集", value: "\(weeklyWorkbookCount)冊", icon: "books.vertical.fill", accentColor: Color.blue)
-                statTile(title: "間違えた問題", value: "\(wrongAnswersTotal)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
+                statTile(title: "間違えた問題", value: "\(weeklyWrongCount)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
             }
 
             NavigationLink(destination: WrongAnswersView()) {
@@ -234,6 +340,157 @@ struct StudyRecordView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
+    private func dayPopoverContent(dayIndex: Int) -> some View {
+        let date = viewModel.weeklyDate(at: dayIndex)
+        let studyDates = Set(summary?.studyDates ?? [])
+        let studied = date.map { studyDates.contains(DateFormatter.yyyyMMdd.string(from: $0)) } ?? false
+        let dayNames = ["月", "火", "水", "木", "金", "土", "日"]
+        let dateLabel: String = {
+            guard let date else { return "--" }
+            let f = DateFormatter()
+            f.dateFormat = "M月d日"
+            return "\(f.string(from: date))（\(dayNames[dayIndex])）"
+        }()
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(dateLabel)
+                .font(.headline.bold())
+            if studied {
+                Label("学習しました", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Color(.main))
+                    .font(.subheadline)
+            } else {
+                Label("学習していません", systemImage: "minus.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            }
+        }
+        .padding(18)
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private static let heatmapDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private var studyHistorySection: some View {
+        let studySet = Set(summary?.studyDates ?? [])
+        let weeks = makeWeeks()
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("今までの学習記録")
+                .font(.headline.bold())
+
+            VStack(alignment: .leading, spacing: 10) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollViewReader { proxy in
+                        heatmapGrid(weeks: weeks, studySet: studySet)
+                            .padding(.vertical, 2)
+                            .onAppear {
+                                proxy.scrollTo("week-\(weeks.count - 1)", anchor: .trailing)
+                            }
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(.main).opacity(0.75))
+                        .frame(width: 11, height: 11)
+                    Text("学習した日")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(Color(.main).opacity(0.08), lineWidth: 1.5)
+            )
+        }
+    }
+
+    private func heatmapGrid(weeks: [[Date?]], studySet: Set<String>) -> some View {
+        let cellSize: CGFloat = 11
+        let gap: CGFloat = 3
+        let dayLabelWidth: CGFloat = 18
+        let dayLabels = ["月", "", "水", "", "金", "", ""]
+
+        return VStack(alignment: .leading, spacing: 4) {
+            // Month labels
+            HStack(alignment: .bottom, spacing: gap) {
+                Color.clear.frame(width: dayLabelWidth + gap)
+                ForEach(weeks.indices, id: \.self) { i in
+                    Text(heatmapMonthLabel(for: weeks[i]))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .frame(width: cellSize, alignment: .leading)
+                }
+            }
+
+            // Grid
+            HStack(alignment: .top, spacing: gap) {
+                // Day labels (月水金 only)
+                VStack(alignment: .leading, spacing: gap) {
+                    ForEach(0..<7, id: \.self) { i in
+                        Text(dayLabels[i])
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .frame(width: dayLabelWidth, height: cellSize, alignment: .leading)
+                    }
+                }
+
+                // Week columns
+                ForEach(weeks.indices, id: \.self) { weekIndex in
+                    VStack(spacing: gap) {
+                        ForEach(0..<7, id: \.self) { dayIndex in
+                            if let date = weeks[weekIndex][dayIndex] {
+                                let str = Self.heatmapDateFormatter.string(from: date)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(studySet.contains(str) ? Color(.main).opacity(0.75) : Color(.systemGray5))
+                                    .frame(width: cellSize, height: cellSize)
+                            } else {
+                                Color.clear.frame(width: cellSize, height: cellSize)
+                            }
+                        }
+                    }
+                    .id("week-\(weekIndex)")
+                }
+            }
+        }
+    }
+
+    private func heatmapMonthLabel(for week: [Date?]) -> String {
+        let calendar = Calendar.current
+        for date in week.compactMap({ $0 }) {
+            if calendar.component(.day, from: date) == 1 {
+                return "\(calendar.component(.month, from: date))月"
+            }
+        }
+        return ""
+    }
+
+    private func makeWeeks(count: Int = 53) -> [[Date?]] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.firstWeekday = 2
+        let today = Date()
+        let todayStr = Self.heatmapDateFormatter.string(from: today)
+        let weekday = calendar.component(.weekday, from: today)
+        let daysBack = (weekday - 2 + 7) % 7
+        let monday = calendar.date(byAdding: .day, value: -daysBack, to: today)!
+        let startDate = calendar.date(byAdding: .weekOfYear, value: -(count - 1), to: monday)!
+        return (0..<count).map { weekIndex in
+            let weekStart = calendar.date(byAdding: .weekOfYear, value: weekIndex, to: startDate)!
+            return (0..<7).map { d in
+                guard let day = calendar.date(byAdding: .day, value: d, to: weekStart) else { return nil }
+                return Self.heatmapDateFormatter.string(from: day) <= todayStr ? day : nil
+            }
+        }
+    }
+
     private func load() async {
         isLoading = true
         async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
@@ -244,7 +501,12 @@ struct StudyRecordView: View {
     }
 }
 
-#Preview {
+#Preview("通常") {
     StudyRecordView()
+        .environment(AppState.shared)
+}
+
+#Preview("読み込み中") {
+    StudyRecordView(skeletonPreview: true)
         .environment(AppState.shared)
 }
