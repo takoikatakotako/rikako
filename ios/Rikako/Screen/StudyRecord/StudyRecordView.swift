@@ -205,13 +205,13 @@ struct StudyRecordView: View {
 
             HStack(spacing: 10) {
                 ForEach(0..<7, id: \.self) { index in
-                    VStack(spacing: 8) {
-                        Text(["月", "火", "水", "木", "金", "土", "日"][index])
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Button {
-                            popoverDayIndex = index
-                        } label: {
+                    Button {
+                        popoverDayIndex = index
+                    } label: {
+                        VStack(spacing: 8) {
+                            Text(["月", "火", "水", "木", "金", "土", "日"][index])
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                             Circle()
                                 .stroke(Color(.main).opacity(0.6), lineWidth: 2)
                                 .frame(width: 24, height: 24)
@@ -220,15 +220,16 @@ struct StudyRecordView: View {
                                         .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
                                 )
                         }
-                        .buttonStyle(.plain)
-                        .popover(isPresented: Binding(
-                            get: { popoverDayIndex == index },
-                            set: { if !$0 { popoverDayIndex = nil } }
-                        )) {
-                            dayPopoverContent(dayIndex: index)
-                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    .popover(isPresented: Binding(
+                        get: { popoverDayIndex == index },
+                        set: { if !$0 { popoverDayIndex = nil } }
+                    )) {
+                        dayPopoverContent(dayIndex: index)
+                    }
                 }
             }
 
