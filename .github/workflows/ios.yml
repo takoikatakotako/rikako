@@ -23,7 +23,7 @@ jobs:
         run: |
           xcodebuild build \
             -scheme Rikako \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Designed for iPad,iPhone' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
@@ -32,7 +32,7 @@ jobs:
         run: |
           xcodebuild test \
             -scheme Rikako \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
+            -destination 'platform=macOS,variant=Designed for iPad,iPhone' \
             -skip-testing:RikakoUITests \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
