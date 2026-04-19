@@ -4,8 +4,15 @@ type: single_choice
 text: |
   事業、経営情報に知財情報を組み込んで分析し、現状の俯瞰や将来展望などの分析結果を事業責任者、経営者と共有し、事業戦略又は経営戦略に反映させることを表す用語として、最も適切なものはどれか。
 choices:
-  - "CVC（Corporate Venture Capital）"
+  - "CVC （Corporate Venture Capital）"
   - "IPランドスケープ（Intellectual Property Landscape）"
-  - "MOT（Management of Technology）"
-  - "SWOT分析"
+  - "MOT （Management of Technology）"
+  - "SWOT 分析"
 correct: 1
+explanation: |
+  IPランドスケープは、事業や市場の情報と知財情報を組み合わせて分析し、その結果を経営や事業戦略に活用する考え方です。したがって、正解は「IPランドスケープ（Intellectual Property Landscape）」です。
+  
+  「CVC （Corporate Venture Capital）」はCVC は事業会社が行うベンチャー投資です。
+  「IPランドスケープ（Intellectual Property Landscape）」が正しいです。知財情報を経営戦略や事業戦略へ反映する手法です。
+  「MOT （Management of Technology）」はMOT は技術経営を指すが、設問の定義そのものではありません。
+  「SWOT 分析」はSWOT分析は強み・弱み・機会・脅威の分析手法です。

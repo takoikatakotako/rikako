@@ -4,14 +4,21 @@ type: single_choice
 text: |
   次の記憶媒体のうち、記憶素子として半導体メモリを用いているものだけを全て挙げたものはどれか。
   
-  a CD-ROM
-  b DVD-RAM
-  c RAM
-  d SSD
-  e USBメモリ
+  a: CD-ROM
+  b: DVD-RAM
+  c: RAM
+  d: SSD
+  e: USBメモリ
 choices:
   - "a, b, c"
   - "a, b, e"
   - "c, d, e"
   - "c, e"
-correct: 3
+correct: 2
+explanation: |
+  この問題の公開解答では「c, d, e」が正解とされています。
+  
+  「a, b, c」は公開解答では正解ではありません。
+  「a, b, e」は公開解答では正解ではありません。
+  「c, d, e」が公開解答で正解とされています。
+  「c, e」は公開解答では正解ではありません。
