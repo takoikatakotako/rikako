@@ -4,8 +4,15 @@ type: single_choice
 text: |
   業務と情報システムを最適にすることを目的として、業務と情報システムの現状の把握と目標とする理想像の設定から現状と理想との乖離を明確にし、目標に向けた改善活動を移行計画として定義したい。このときに用いられる手法として、最も適切なものはどれか。
 choices:
-  - "BI（Business Intelligence）"
-  - "EA（Enterprise Architecture）"
-  - "MOT（Management of Technology）"
-  - "SOA（Service Oriented Architecture）"
+  - "BI （Business Intelligence）"
+  - "EA （Enterprise Architecture）"
+  - "MOT （Management of Technology）"
+  - "SOA （Service Oriented Architecture）"
 correct: 1
+explanation: |
+  EA は、業務とシステムの全体像を整理し、現状からあるべき姿への移行計画を策定するための手法です。設問の説明に一致するのはイです。
+  
+  「BI （Business Intelligence）」はBI は蓄積データを分析して意思決定に活かす仕組みであり、移行計画策定の枠組みではありません。
+  「EA （Enterprise Architecture）」が正しいです。EA は現状と理想像を整理し、移行計画を定義するために用います。
+  「MOT （Management of Technology）」はMOT は技術を経営へ活かす考え方であり、設問の目的とは異なる。
+  「SOA （Service Oriented Architecture）」はSOA はサービス単位でシステムを構成するアーキテクチャの考え方です。
