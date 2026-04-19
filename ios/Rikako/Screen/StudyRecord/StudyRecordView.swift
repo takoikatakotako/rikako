@@ -5,6 +5,8 @@ struct StudyRecordView: View {
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
     @State private var wrongAnswersTotal = 0
+    @State private var answerLogs: [AnswerLog] = []
+    @State private var popoverDayIndex: Int? = nil
     @State private var isLoading = true
     private let isPreview: Bool
 
@@ -207,13 +209,24 @@ struct StudyRecordView: View {
                         Text(["月", "火", "水", "木", "金", "土", "日"][index])
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Circle()
-                            .stroke(Color(.main).opacity(0.6), lineWidth: 2)
-                            .frame(width: 24, height: 24)
-                            .background(
-                                Circle()
-                                    .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
-                            )
+                        Button {
+                            popoverDayIndex = index
+                        } label: {
+                            Circle()
+                                .stroke(Color(.main).opacity(0.6), lineWidth: 2)
+                                .frame(width: 24, height: 24)
+                                .background(
+                                    Circle()
+                                        .fill(weekly[index] ? Color(.main).opacity(0.18) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: Binding(
+                            get: { popoverDayIndex == index },
+                            set: { if !$0 { popoverDayIndex = nil } }
+                        )) {
+                            dayPopoverContent(dayIndex: index)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -319,6 +332,45 @@ struct StudyRecordView: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func dayPopoverContent(dayIndex: Int) -> some View {
+        let date = viewModel.weeklyDate(at: dayIndex)
+        let stats = date.map { dailyStats(for: $0) }
+        let dayNames = ["月", "火", "水", "木", "金", "土", "日"]
+        let dateLabel: String = {
+            guard let date else { return "--" }
+            let f = DateFormatter()
+            f.dateFormat = "M月d日"
+            return "\(f.string(from: date))（\(dayNames[dayIndex])）"
+        }()
+
+        return VStack(alignment: .leading, spacing: 14) {
+            Text(dateLabel)
+                .font(.headline.bold())
+
+            if let stats, stats.answered > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("\(stats.answered)問 解答", systemImage: "square.and.pencil")
+                    Label("\(stats.wrong)問 間違い", systemImage: "xmark.circle")
+                        .foregroundStyle(stats.wrong > 0 ? Color.red : Color.secondary)
+                }
+                .font(.subheadline)
+            } else {
+                Text("この日は学習していません")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .presentationCompactAdaptation(.popover)
+    }
+
+    private func dailyStats(for date: Date) -> (answered: Int, wrong: Int) {
+        let formatter = DateFormatter.yyyyMMdd
+        let dateStr = formatter.string(from: date)
+        let dayLogs = answerLogs.filter { formatter.string(from: $0.answeredAt) == dateStr }
+        return (dayLogs.count, dayLogs.filter { !$0.isCorrect }.count)
     }
 
     private static let heatmapDateFormatter: DateFormatter = {
@@ -454,8 +506,10 @@ struct StudyRecordView: View {
         isLoading = true
         async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
         async let wrongResult = try? AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 1, offset: 0)
+        async let logsResult = try? AppContainer.shared.learningUseCases.fetchAnswerLogs.execute(limit: 500)
         summary = await summaryResult
         wrongAnswersTotal = await wrongResult?.total ?? 0
+        answerLogs = await logsResult?.logs ?? []
         isLoading = false
     }
 }
