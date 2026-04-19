@@ -166,7 +166,7 @@ struct StudyRecordView: View {
             }
 
             HStack(spacing: 12) {
-                statTile(title: "完了した問題集", value: "\(weeklyWorkbookCount)冊", icon: "books.vertical.fill", accentColor: Color.blue)
+                statTile(title: "勉強した問題集", value: "\(weeklyWorkbookCount)冊", icon: "books.vertical.fill", accentColor: Color.blue)
                 statTile(title: "間違えた問題", value: "\(wrongAnswersTotal)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
             }
 
