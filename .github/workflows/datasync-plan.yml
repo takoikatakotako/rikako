@@ -38,19 +38,23 @@ jobs:
         id: plan
         working-directory: app
         run: |
-          OUTPUT=$(./datasync -data ../data -env dev plan 2>&1 | tail -n +2)
-          echo "result<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          ./datasync -data ../data -env dev plan 2>&1 | tail -n +2 > ../datasync-plan.txt
 
       - name: Comment on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const output = `### 📋 Data Sync Plan (dev)
+            const fs = require('fs');
+            const full = fs.readFileSync('datasync-plan.txt', 'utf8').trim();
+            const maxLen = 60000;
+            const result = full.length > maxLen
+              ? `${full.slice(0, maxLen)}\n\n...truncated (${full.length - maxLen} chars omitted). See workflow logs for full output.`
+              : full;
+
+            const body = `### 📋 Data Sync Plan (dev)
 
             \`\`\`
-            ${{ steps.plan.outputs.result }}
+            ${result}
             \`\`\`
 
             > \`data/\` の変更による DB 差分です。反映するには \`datasync apply\` を手動実行してください。
@@ -65,8 +69,6 @@ jobs:
             const existing = comments.find(c =>
               c.user.type === 'Bot' && c.body.includes('Data Sync Plan')
             );
-
-            const body = output.replace(/^ {12}/gm, '');
 
             if (existing) {
               await github.rest.issues.updateComment({
