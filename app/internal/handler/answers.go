@@ -186,14 +186,16 @@ func (h *Handler) GetUserSummary(ctx context.Context, request api.GetUserSummary
 	}, nil
 }
 
-// isoWeekStart returns the Monday 00:00:00 UTC of the ISO week containing t.
+// isoWeekStart returns Monday 00:00:00 JST (= Sunday 15:00:00 UTC) of the ISO week containing t.
 func isoWeekStart(t time.Time) time.Time {
-	t = t.UTC()
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+	t = t.In(jst)
 	weekday := int(t.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	return time.Date(t.Year(), t.Month(), t.Day()-weekday+1, 0, 0, 0, 0, time.UTC)
+	monday := time.Date(t.Year(), t.Month(), t.Day()-weekday+1, 0, 0, 0, 0, jst)
+	return monday.UTC()
 }
 
 func (h *Handler) GetAnswerLogs(ctx context.Context, request api.GetAnswerLogsRequestObject) (api.GetAnswerLogsResponseObject, error) {

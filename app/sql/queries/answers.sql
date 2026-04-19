@@ -109,7 +109,7 @@ FROM user_answers
 WHERE user_id = $1 AND answered_at >= $2;
 
 -- name: ListStudyDates :many
-SELECT DISTINCT DATE(answered_at)::text AS study_date
+SELECT DISTINCT DATE(answered_at AT TIME ZONE 'Asia/Tokyo')::text AS study_date
 FROM user_answers
 WHERE user_id = $1
 ORDER BY study_date DESC
