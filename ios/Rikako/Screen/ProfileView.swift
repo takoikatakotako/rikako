@@ -4,6 +4,7 @@ struct ProfileView: View {
     @Environment(AppState.self) private var appState
     @State private var displayName = ""
     @State private var isSaving = false
+    @State private var summary: UserSummary?
     @FocusState private var isDisplayNameFocused: Bool
 
     var body: some View {
@@ -46,27 +47,22 @@ struct ProfileView: View {
                 HStack {
                     Label("総解答数", systemImage: "number")
                     Spacer()
-                    Text("\(appState.totalAnswered)")
+                    Text("\(summary?.totalAnswered ?? 0)")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
                     Label("正答数", systemImage: "checkmark")
                     Spacer()
-                    Text("\(appState.totalCorrect)")
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    Label("完了した問題集", systemImage: "book.closed")
-                    Spacer()
-                    Text("\(appState.completedWorkbookIDs.count)")
+                    Text("\(summary?.totalCorrect ?? 0)")
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .navigationTitle("プロフィール")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
+        .task {
             displayName = appState.displayName ?? ""
+            summary = try? await AppContainer.shared.learningUseCases.fetchUserSummary.execute()
         }
         .onChange(of: isDisplayNameFocused) { _, focused in
             if !focused {
