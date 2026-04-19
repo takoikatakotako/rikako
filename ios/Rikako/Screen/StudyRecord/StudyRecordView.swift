@@ -17,7 +17,6 @@ struct StudyRecordView: View {
                         VStack(alignment: .leading, spacing: 18) {
                             greetingSection
                             streakCard
-                            reminderBanner
                             statsSection
                         }
                         .padding(.horizontal, 16)
@@ -111,41 +110,6 @@ struct StudyRecordView: View {
             RoundedRectangle(cornerRadius: 22)
                 .stroke(Color(.main).opacity(0.10), lineWidth: 1.5)
         )
-    }
-
-    private var reminderBanner: some View {
-        let totalAnswered = summary?.totalAnswered ?? 0
-        return HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.main).opacity(0.18))
-                .frame(height: 88)
-                .overlay(
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("ウィジェットで勉強を\n忘れないようにしよう")
-                            .font(.headline.bold())
-                        Text("設定方法を見る")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                )
-
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.main).opacity(0.12))
-                .frame(width: 110, height: 88)
-                .overlay(
-                    VStack(spacing: 8) {
-                        Text("\(totalAnswered)")
-                            .font(.title.bold())
-                            .foregroundStyle(Color(.main))
-                        Text("今までの解答数")
-                            .font(.caption.bold())
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(8)
-                )
-        }
     }
 
     private var statsSection: some View {
