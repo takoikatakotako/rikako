@@ -13,7 +13,7 @@ extension DateFormatter {
 @Observable
 @MainActor
 final class StudyRecordViewModel {
-    private let calendar = Calendar.current
+    private let calendar = Calendar(identifier: .iso8601)
 
     // 連続学習日数（今日または昨日を含む連続した日数）
     func streak(studyDates: Set<String>) -> Int {
