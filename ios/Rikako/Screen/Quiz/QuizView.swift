@@ -66,7 +66,11 @@ struct QuizView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
-                    showExitConfirmation = true
+                    if viewModel.answers.allSatisfy({ $0 == nil }) {
+                        dismiss()
+                    } else {
+                        showExitConfirmation = true
+                    }
                 } label: {
                     Image(systemName: "chevron.left")
                 }
@@ -79,6 +83,7 @@ struct QuizView: View {
             }
             Button("履歴を保存して戻る") {
                 viewModel.submitAnswers()
+                appState.notifyQuizCompleted()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) {}
