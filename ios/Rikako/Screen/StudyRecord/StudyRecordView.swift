@@ -477,25 +477,18 @@ struct StudyRecordView: View {
         var calendar = Calendar(identifier: .gregorian)
         calendar.firstWeekday = 2
         let today = Date()
+        let todayStr = Self.heatmapDateFormatter.string(from: today)
         let weekday = calendar.component(.weekday, from: today)
         let daysBack = (weekday - 2 + 7) % 7
         let monday = calendar.date(byAdding: .day, value: -daysBack, to: today)!
         let startDate = calendar.date(byAdding: .weekOfYear, value: -(count - 1), to: monday)!
-        var weeks: [[Date?]] = []
-        var weekStart = startDate
-        for _ in 0..<count {
-            var week: [Date?] = []
-            for d in 0..<7 {
-                if let day = calendar.date(byAdding: .day, value: d, to: weekStart) {
-                    week.append(day <= today ? day : nil)
-                } else {
-                    week.append(nil)
-                }
+        return (0..<count).map { weekIndex in
+            let weekStart = calendar.date(byAdding: .weekOfYear, value: weekIndex, to: startDate)!
+            return (0..<7).map { d in
+                guard let day = calendar.date(byAdding: .day, value: d, to: weekStart) else { return nil }
+                return Self.heatmapDateFormatter.string(from: day) <= todayStr ? day : nil
             }
-            weeks.append(week)
-            weekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart)!
         }
-        return weeks
     }
 
     private func load() async {
