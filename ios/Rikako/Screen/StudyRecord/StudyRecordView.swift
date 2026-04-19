@@ -59,8 +59,6 @@ struct StudyRecordView: View {
         let weekly = viewModel.weeklyStudied(studyDates: studyDates)
         let weeklyCount = viewModel.weeklyStudyCount(studyDates: studyDates)
         let streak = viewModel.streak(studyDates: studyDates)
-        let totalAnswered = summary?.totalAnswered ?? 0
-
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -99,7 +97,6 @@ struct StudyRecordView: View {
                 }
             }
 
-            chartRow(label: "問題数", value: min(totalAnswered, 30))
         }
         .padding(20)
         .background(
@@ -206,25 +203,6 @@ struct StudyRecordView: View {
                 )
             }
             .buttonStyle(.plain)
-        }
-    }
-
-    private func chartRow(label: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.main).opacity(0.85))
-                        .frame(width: max(proxy.size.width * CGFloat(value) / 30.0, 12), height: 8)
-                }
-            }
-            .frame(height: 8)
         }
     }
 
