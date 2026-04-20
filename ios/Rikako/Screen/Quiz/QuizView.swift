@@ -82,9 +82,11 @@ struct QuizView: View {
                 dismiss()
             }
             Button("履歴を保存して戻る") {
-                viewModel.submitAnswers()
-                appState.notifyQuizCompleted()
-                dismiss()
+                Task {
+                    await viewModel.submitAnswers()
+                    appState.notifyQuizCompleted()
+                    dismiss()
+                }
             }
             Button("キャンセル", role: .cancel) {}
         }
