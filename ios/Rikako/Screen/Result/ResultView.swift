@@ -5,6 +5,7 @@ struct ResultView: View {
     @State private var viewModel: ResultViewModel
     @State private var showContinueQuiz = false
     @State private var showRetryWrongAnswers = false
+    @State private var loadedSections: [[Question]] = []
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
 
@@ -26,6 +27,20 @@ struct ResultView: View {
         self.currentSectionIndex = currentSectionIndex
     }
 
+    private var effectiveSections: [[Question]] {
+        allSectionsQuestions.isEmpty ? loadedSections : allSectionsQuestions
+    }
+
+    private var wrongQuestions: [Question] {
+        viewModel.questionResults.filter { !$0.isCorrect }.map { $0.question }
+    }
+
+    private var nextSectionIndex: Int {
+        let sections = effectiveSections
+        guard !sections.isEmpty else { return 0 }
+        return (currentSectionIndex + 1) % sections.count
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -41,9 +56,39 @@ struct ResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
+        .navigationDestination(isPresented: $showContinueQuiz) {
+            let sections = effectiveSections
+            let idx = nextSectionIndex
+            QuizView(
+                questions: sections.isEmpty ? viewModel.questions : sections[idx],
+                workbookTitle: viewModel.workbookTitle,
+                workbookId: viewModel.workbookId,
+                allSectionsQuestions: sections,
+                currentSectionIndex: idx
+            )
+        }
+        .navigationDestination(isPresented: $showRetryWrongAnswers) {
+            QuizView(
+                questions: wrongQuestions,
+                workbookTitle: viewModel.workbookTitle,
+                workbookId: viewModel.workbookId
+            )
+        }
         .task {
             await viewModel.recordSessionIfNeeded()
             appState.notifyQuizCompleted()
+            if allSectionsQuestions.isEmpty {
+                await loadSections()
+            }
+        }
+    }
+
+    private func loadSections() async {
+        guard let detail = try? await AppContainer.shared.learningUseCases.fetchWorkbookDetail.execute(id: viewModel.workbookId) else { return }
+        let chunkSize = 10
+        let total = detail.questions.count
+        loadedSections = stride(from: 0, to: total, by: chunkSize).map { start in
+            Array(detail.questions[start ..< min(start + chunkSize, total)])
         }
     }
 
@@ -157,14 +202,12 @@ struct ResultView: View {
     }
 
     private var continueButton: some View {
-        let nextIndex = allSectionsQuestions.isEmpty ? 0 : (currentSectionIndex + 1) % allSectionsQuestions.count
-        let nextQuestions = allSectionsQuestions.isEmpty ? viewModel.questions : allSectionsQuestions[nextIndex]
-        let nextSectionNumber = nextIndex + 1
-
+        let sections = effectiveSections
+        let sectionNumber = sections.isEmpty ? 1 : nextSectionIndex + 1
         return Button {
             showContinueQuiz = true
         } label: {
-            Text(allSectionsQuestions.isEmpty ? "次のチャプターを勉強する" : "Chapter \(nextSectionNumber) を勉強する")
+            Text(sections.isEmpty ? "次のチャプターを勉強する" : "Chapter \(sectionNumber) を勉強する")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -172,20 +215,10 @@ struct ResultView: View {
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .navigationDestination(isPresented: $showContinueQuiz) {
-            QuizView(
-                questions: nextQuestions,
-                workbookTitle: viewModel.workbookTitle,
-                workbookId: viewModel.workbookId,
-                allSectionsQuestions: allSectionsQuestions,
-                currentSectionIndex: nextIndex
-            )
-        }
     }
 
     @ViewBuilder
     private var retryWrongAnswersButton: some View {
-        let wrongQuestions = viewModel.questionResults.filter { !$0.isCorrect }.map { $0.question }
         if !wrongQuestions.isEmpty {
             Button {
                 showRetryWrongAnswers = true
@@ -197,13 +230,6 @@ struct ResultView: View {
                     .background(Color(.correctPink))
                     .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-            .navigationDestination(isPresented: $showRetryWrongAnswers) {
-                QuizView(
-                    questions: wrongQuestions,
-                    workbookTitle: viewModel.workbookTitle,
-                    workbookId: viewModel.workbookId
-                )
             }
         }
     }
