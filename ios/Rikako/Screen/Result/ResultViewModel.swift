@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 @Observable
 @MainActor
@@ -52,12 +53,11 @@ final class ResultViewModel {
         return "復習しましょう！"
     }
 
-    var scoreColorName: String {
-        if scorePercentage == 100 { return "resultColor-80per" }
-        if scorePercentage >= 80 { return "resultColor-80per" }
-        if scorePercentage >= 60 { return "resultColor-60per" }
-        if scorePercentage >= 40 { return "resultColor-40per" }
-        return "resultColor-20per"
+    var scoreColor: Color {
+        if scorePercentage >= 80 { return Color(.resultColor80Per) }
+        if scorePercentage >= 60 { return Color(.resultColor60Per) }
+        if scorePercentage >= 40 { return Color(.resultColor40Per) }
+        return Color(.resultColor20Per)
     }
 
     var summaryText: String {

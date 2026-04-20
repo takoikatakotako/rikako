@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct ResultView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @State private var viewModel: ResultViewModel
     @State private var showContinueQuiz = false
+    @State private var showRetryWrongAnswers = false
+    @State private var loadedSections: [[Question]] = []
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
-    private let onBackToWorkbookList: () -> Void
 
     init(
         questions: [Question],
@@ -15,8 +15,7 @@ struct ResultView: View {
         workbookTitle: String,
         workbookId: Int64,
         allSectionsQuestions: [[Question]] = [],
-        currentSectionIndex: Int = 0,
-        onBackToWorkbookList: @escaping () -> Void = {}
+        currentSectionIndex: Int = 0
     ) {
         _viewModel = State(initialValue: ResultViewModel(
             questions: questions,
@@ -26,7 +25,20 @@ struct ResultView: View {
         ))
         self.allSectionsQuestions = allSectionsQuestions
         self.currentSectionIndex = currentSectionIndex
-        self.onBackToWorkbookList = onBackToWorkbookList
+    }
+
+    private var effectiveSections: [[Question]] {
+        allSectionsQuestions.isEmpty ? loadedSections : allSectionsQuestions
+    }
+
+    private var wrongQuestions: [Question] {
+        viewModel.questionResults.filter { !$0.isCorrect }.map { $0.question }
+    }
+
+    private var nextSectionIndex: Int {
+        let sections = effectiveSections
+        guard !sections.isEmpty else { return 0 }
+        return (currentSectionIndex + 1) % sections.count
     }
 
     var body: some View {
@@ -34,6 +46,7 @@ struct ResultView: View {
             VStack(spacing: 24) {
                 scoreCard
                 questionResults
+                retryWrongAnswersButton
                 continueButton
                 backButton
             }
@@ -43,9 +56,39 @@ struct ResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
+        .navigationDestination(isPresented: $showContinueQuiz) {
+            let sections = effectiveSections
+            let idx = nextSectionIndex
+            QuizView(
+                questions: sections.isEmpty ? viewModel.questions : sections[idx],
+                workbookTitle: viewModel.workbookTitle,
+                workbookId: viewModel.workbookId,
+                allSectionsQuestions: sections,
+                currentSectionIndex: idx
+            )
+        }
+        .navigationDestination(isPresented: $showRetryWrongAnswers) {
+            QuizView(
+                questions: wrongQuestions,
+                workbookTitle: viewModel.workbookTitle,
+                workbookId: viewModel.workbookId
+            )
+        }
         .task {
             await viewModel.recordSessionIfNeeded()
             appState.notifyQuizCompleted()
+            if allSectionsQuestions.isEmpty {
+                await loadSections()
+            }
+        }
+    }
+
+    private func loadSections() async {
+        guard let detail = try? await AppContainer.shared.learningUseCases.fetchWorkbookDetail.execute(id: viewModel.workbookId) else { return }
+        let chunkSize = 10
+        let total = detail.questions.count
+        loadedSections = stride(from: 0, to: total, by: chunkSize).map { start in
+            Array(detail.questions[start ..< min(start + chunkSize, total)])
         }
     }
 
@@ -76,16 +119,16 @@ struct ResultView: View {
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text("\(Int(viewModel.scorePercentage))")
                     .font(.system(size: 54, weight: .black))
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
                 Text("%")
                     .font(.title2.bold())
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
             }
 
             HStack(spacing: 10) {
                 Label(viewModel.summaryText, systemImage: "checkmark.seal.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
 
                 Spacer()
 
@@ -98,7 +141,7 @@ struct ResultView: View {
         .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [Color.white, Color(viewModel.scoreColorName).opacity(0.08)],
+                colors: [Color.white, viewModel.scoreColor.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -106,7 +149,7 @@ struct ResultView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(Color(viewModel.scoreColorName).opacity(0.18), lineWidth: 2)
+                .stroke(viewModel.scoreColor.opacity(0.18), lineWidth: 2)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 14, x: 0, y: 6)
     }
@@ -159,14 +202,12 @@ struct ResultView: View {
     }
 
     private var continueButton: some View {
-        let nextIndex = allSectionsQuestions.isEmpty ? 0 : (currentSectionIndex + 1) % allSectionsQuestions.count
-        let nextQuestions = allSectionsQuestions.isEmpty ? viewModel.questions : allSectionsQuestions[nextIndex]
-        let nextSectionNumber = nextIndex + 1
-
+        let sections = effectiveSections
+        let sectionNumber = sections.isEmpty ? 1 : nextSectionIndex + 1
         return Button {
             showContinueQuiz = true
         } label: {
-            Text(allSectionsQuestions.isEmpty ? "つづける" : "Section \(nextSectionNumber) へ")
+            Text(sections.isEmpty ? "次のチャプターを勉強する" : "Chapter \(sectionNumber) を勉強する")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -174,23 +215,28 @@ struct ResultView: View {
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .navigationDestination(isPresented: $showContinueQuiz) {
-            QuizView(
-                questions: nextQuestions,
-                workbookTitle: viewModel.workbookTitle,
-                workbookId: viewModel.workbookId,
-                allSectionsQuestions: allSectionsQuestions,
-                currentSectionIndex: nextIndex
-            )
+    }
+
+    @ViewBuilder
+    private var retryWrongAnswersButton: some View {
+        if !wrongQuestions.isEmpty {
+            Button {
+                showRetryWrongAnswers = true
+            } label: {
+                Text("間違えた\(wrongQuestions.count)問を解き直す")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.correctPink))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
         }
     }
 
     private var backButton: some View {
         Button {
-            dismiss()
-            DispatchQueue.main.async {
-                onBackToWorkbookList()
-            }
+            appState.notifyDismissAllQuiz()
         } label: {
             Text("問題集一覧に戻る")
                 .font(.headline)
@@ -310,14 +356,37 @@ private extension Array {
     }
 }
 
-#Preview {
+#Preview("100% 全問正解") {
     NavigationStack {
-        ResultView(
-            questions: MockData.questions,
-            answers: [0, 1, 2, 0, 2],
-            workbookTitle: "基礎化学",
-            workbookId: 1
-        )
-        .environment(AppState.shared)
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 1, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("80%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("60%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 1, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("40%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("20%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 0], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
     }
 }

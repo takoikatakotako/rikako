@@ -4,6 +4,7 @@ struct StudyRecordView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
+    @State private var showingWrongAnswers = false
     @State private var wrongAnswersTotal = 0
 
     private var studyDates: Set<String> { Set(summary?.studyDates ?? []) }
@@ -40,7 +41,11 @@ struct StudyRecordView: View {
             }
             .navigationTitle("学習記録")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showingWrongAnswers) {
+                WrongAnswersView()
+            }
         }
+        .onChange(of: appState.quizDismissAllID) { _, _ in showingWrongAnswers = false }
         .task {
             guard !isPreview else { return }
             await load()
@@ -278,7 +283,7 @@ struct StudyRecordView: View {
                 statTile(title: "間違えた問題", value: "\(weeklyWrongCount)問", icon: "arrow.counterclockwise.circle.fill", accentColor: Color.orange)
             }
 
-            NavigationLink(destination: WrongAnswersView()) {
+            Button { showingWrongAnswers = true } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("復習リスト")

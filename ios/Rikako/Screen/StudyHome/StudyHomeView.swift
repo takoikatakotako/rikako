@@ -4,7 +4,17 @@ struct StudyHomeView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: StudyHomeViewModel
     @State private var workbookProgress: [String: Bool] = [:]
+    @State private var showingQuiz = false
+    @State private var pendingQuizConfig: QuizLaunchConfig? = nil
     private let isPreview: Bool
+
+    private struct QuizLaunchConfig {
+        let questions: [Question]
+        let workbookTitle: String
+        let workbookId: Int64
+        let allSectionsQuestions: [[Question]]
+        let currentSectionIndex: Int
+    }
 
     init() {
         _viewModel = State(initialValue: StudyHomeViewModel(
@@ -66,7 +76,19 @@ struct StudyHomeView: View {
                     .accessibilityLabel("問題集を変更")
                 }
             }
+            .navigationDestination(isPresented: $showingQuiz) {
+                if let config = pendingQuizConfig {
+                    QuizView(
+                        questions: config.questions,
+                        workbookTitle: config.workbookTitle,
+                        workbookId: config.workbookId,
+                        allSectionsQuestions: config.allSectionsQuestions,
+                        currentSectionIndex: config.currentSectionIndex
+                    )
+                }
+            }
         }
+        .onChange(of: appState.quizDismissAllID) { _, _ in showingQuiz = false }
         .sheet(isPresented: $viewModel.isShowingWorkbookPicker) {
             workbookPickerSheet
         }
@@ -178,13 +200,16 @@ struct StudyHomeView: View {
                 .padding(.bottom, 16)
 
             if let workbookDetail = viewModel.workbookDetail {
-                NavigationLink(destination: QuizView(
-                    questions: viewModel.firstSectionQuestions(),
-                    workbookTitle: workbookDetail.title,
-                    workbookId: workbookDetail.id,
-                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
-                    currentSectionIndex: 0
-                )) {
+                Button {
+                    pendingQuizConfig = QuizLaunchConfig(
+                        questions: viewModel.firstSectionQuestions(),
+                        workbookTitle: workbookDetail.title,
+                        workbookId: workbookDetail.id,
+                        allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                        currentSectionIndex: 0
+                    )
+                    showingQuiz = true
+                } label: {
                     VStack(spacing: 4) {
                         Text("はじめる")
                             .font(.headline.bold())
@@ -230,17 +255,17 @@ struct StudyHomeView: View {
         let workbookDetail = viewModel.workbookDetail
         let progress = viewModel.sectionProgress(for: section, questionResults: workbookProgress)
 
-        return NavigationLink(destination: Group {
-            if let workbookDetail {
-                QuizView(
-                    questions: questions,
-                    workbookTitle: workbookDetail.title,
-                    workbookId: workbookDetail.id,
-                    allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
-                    currentSectionIndex: section.id - 1
-                )
-            }
-        }) {
+        return Button {
+            guard let workbookDetail else { return }
+            pendingQuizConfig = QuizLaunchConfig(
+                questions: questions,
+                workbookTitle: workbookDetail.title,
+                workbookId: workbookDetail.id,
+                allSectionsQuestions: viewModel.sections().map { viewModel.questions(for: $0) },
+                currentSectionIndex: section.id - 1
+            )
+            showingQuiz = true
+        } label: {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
