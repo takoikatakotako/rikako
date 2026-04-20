@@ -54,10 +54,10 @@ final class ResultViewModel {
     }
 
     var scoreColor: Color {
-        if scorePercentage >= 80 { return Color(.resultColor80per) }
-        if scorePercentage >= 60 { return Color(.resultColor60per) }
-        if scorePercentage >= 40 { return Color(.resultColor40per) }
-        return Color(.resultColor20per)
+        if scorePercentage >= 80 { return Color(.resultColor80Per) }
+        if scorePercentage >= 60 { return Color(.resultColor60Per) }
+        if scorePercentage >= 40 { return Color(.resultColor40Per) }
+        return Color(.resultColor20Per)
     }
 
     var summaryText: String {
