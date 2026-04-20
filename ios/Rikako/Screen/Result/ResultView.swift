@@ -5,6 +5,7 @@ struct ResultView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: ResultViewModel
     @State private var showContinueQuiz = false
+    @State private var showRetryWrongAnswers = false
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
     private let onBackToWorkbookList: () -> Void
@@ -35,6 +36,7 @@ struct ResultView: View {
                 scoreCard
                 questionResults
                 continueButton
+                retryWrongAnswersButton
                 backButton
             }
             .padding()
@@ -182,6 +184,31 @@ struct ResultView: View {
                 allSectionsQuestions: allSectionsQuestions,
                 currentSectionIndex: nextIndex
             )
+        }
+    }
+
+    @ViewBuilder
+    private var retryWrongAnswersButton: some View {
+        let wrongQuestions = viewModel.questionResults.filter { !$0.isCorrect }.map { $0.question }
+        if !wrongQuestions.isEmpty {
+            Button {
+                showRetryWrongAnswers = true
+            } label: {
+                Text("間違えた\(wrongQuestions.count)問を解き直す")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.correctPink))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .navigationDestination(isPresented: $showRetryWrongAnswers) {
+                QuizView(
+                    questions: wrongQuestions,
+                    workbookTitle: viewModel.workbookTitle,
+                    workbookId: viewModel.workbookId
+                )
+            }
         }
     }
 
