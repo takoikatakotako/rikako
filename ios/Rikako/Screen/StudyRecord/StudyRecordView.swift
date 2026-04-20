@@ -4,8 +4,9 @@ struct StudyRecordView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
-    @State private var studyDates: Set<String> = []
     @State private var wrongAnswersTotal = 0
+
+    private var studyDates: Set<String> { Set(summary?.studyDates ?? []) }
     @State private var popoverDayIndex: Int? = nil
     @State private var isLoading = true
     private let isPreview: Bool
@@ -499,32 +500,10 @@ struct StudyRecordView: View {
     private func load() async {
         isLoading = true
         async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
-        async let datesResult = loadStudyDates()
         async let wrongResult = try? AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 1, offset: 0)
         summary = await summaryResult
-        studyDates = await datesResult
         wrongAnswersTotal = await wrongResult?.total ?? 0
         isLoading = false
-    }
-
-    private func loadStudyDates() async -> Set<String> {
-        let formatter = DateFormatter.yyyyMMdd
-        let cutoff = Calendar.current.date(byAdding: .day, value: -365, to: Date()) ?? Date.distantPast
-        var dates: Set<String> = []
-        var offset = 0
-        let limit = 100
-
-        while dates.count < 365 {
-            guard let response = try? await AppContainer.shared.learningUseCases.fetchAnswerLogs.execute(limit: limit, offset: offset) else { break }
-            for log in response.logs {
-                dates.insert(formatter.string(from: log.answeredAt))
-            }
-            offset += response.logs.count
-            let exhausted = response.logs.count < limit || offset >= response.total
-            let tooOld = response.logs.last.map { $0.answeredAt < cutoff } ?? true
-            if exhausted || tooOld { break }
-        }
-        return dates
     }
 }
 
