@@ -44,7 +44,7 @@ struct ResultView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .task {
-            viewModel.recordSessionIfNeeded()
+            await viewModel.recordSessionIfNeeded()
             appState.notifyQuizCompleted()
         }
     }

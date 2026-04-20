@@ -5,6 +5,8 @@ struct StudyRecordView: View {
     @State private var viewModel = StudyRecordViewModel()
     @State private var summary: UserSummary?
     @State private var wrongAnswersTotal = 0
+
+    private var studyDates: Set<String> { Set(summary?.studyDates ?? []) }
     @State private var popoverDayIndex: Int? = nil
     @State private var isLoading = true
     private let isPreview: Bool
@@ -41,6 +43,10 @@ struct StudyRecordView: View {
         }
         .task {
             guard !isPreview else { return }
+            await load()
+        }
+        .task(id: appState.lastQuizCompletionID) {
+            guard !isPreview, appState.lastQuizCompletionID > 0 else { return }
             await load()
         }
     }
@@ -178,7 +184,6 @@ struct StudyRecordView: View {
     }
 
     private var streakCard: some View {
-        let studyDates = Set(summary?.studyDates ?? [])
         let weekly = viewModel.weeklyStudied(studyDates: studyDates)
         let weeklyCount = viewModel.weeklyStudyCount(studyDates: studyDates)
         let streak = viewModel.streak(studyDates: studyDates)
@@ -342,7 +347,6 @@ struct StudyRecordView: View {
 
     private func dayPopoverContent(dayIndex: Int) -> some View {
         let date = viewModel.weeklyDate(at: dayIndex)
-        let studyDates = Set(summary?.studyDates ?? [])
         let studied = date.map { studyDates.contains(DateFormatter.yyyyMMdd.string(from: $0)) } ?? false
         let dayNames = ["月", "火", "水", "木", "金", "土", "日"]
         let dateLabel: String = {
@@ -372,11 +376,13 @@ struct StudyRecordView: View {
     private static let heatmapDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Tokyo")
         return f
     }()
 
     private var studyHistorySection: some View {
-        let studySet = Set(summary?.studyDates ?? [])
+        let studySet = studyDates
         let weeks = makeWeeks()
         return VStack(alignment: .leading, spacing: 12) {
             Text("今までの学習記録")
