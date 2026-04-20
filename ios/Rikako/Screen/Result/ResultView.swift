@@ -35,8 +35,8 @@ struct ResultView: View {
             VStack(spacing: 24) {
                 scoreCard
                 questionResults
-                continueButton
                 retryWrongAnswersButton
+                continueButton
                 backButton
             }
             .padding()
@@ -168,7 +168,7 @@ struct ResultView: View {
         return Button {
             showContinueQuiz = true
         } label: {
-            Text(allSectionsQuestions.isEmpty ? "つづける" : "Section \(nextSectionNumber) へ")
+            Text(allSectionsQuestions.isEmpty ? "次のチャプターを勉強する" : "Chapter \(nextSectionNumber) を勉強する")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding()
