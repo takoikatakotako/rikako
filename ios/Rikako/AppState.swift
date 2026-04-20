@@ -22,6 +22,7 @@ final class AppState {
     var displayName: String?
     var selectedWorkbookID: Int64?
     var lastQuizCompletionID: Int = 0
+    var quizDismissAllID: Int = 0
     private let userDefaults: UserDefaults
 
     private init(userDefaults: UserDefaults = .standard) {
@@ -59,6 +60,10 @@ final class AppState {
 
     func notifyQuizCompleted() {
         lastQuizCompletionID += 1
+    }
+
+    func notifyDismissAllQuiz() {
+        quizDismissAllID += 1
     }
 
     func selectWorkbook(_ workbookID: Int64) {

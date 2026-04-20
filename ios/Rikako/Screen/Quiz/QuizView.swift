@@ -77,6 +77,7 @@ struct QuizView: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
+        .onChange(of: appState.quizDismissAllID) { _, _ in dismiss() }
         .alert("クイズを終了しますか？", isPresented: $showExitConfirmation) {
             Button("戻る", role: .destructive) {
                 dismiss()
@@ -97,10 +98,7 @@ struct QuizView: View {
                 workbookTitle: viewModel.workbookTitle,
                 workbookId: viewModel.workbookId,
                 allSectionsQuestions: allSectionsQuestions,
-                currentSectionIndex: currentSectionIndex,
-                onBackToWorkbookList: {
-                    dismiss()
-                }
+                currentSectionIndex: currentSectionIndex
             )
         }
     }

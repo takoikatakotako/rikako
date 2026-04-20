@@ -1,14 +1,12 @@
 import SwiftUI
 
 struct ResultView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @State private var viewModel: ResultViewModel
     @State private var showContinueQuiz = false
     @State private var showRetryWrongAnswers = false
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
-    private let onBackToWorkbookList: () -> Void
 
     init(
         questions: [Question],
@@ -16,8 +14,7 @@ struct ResultView: View {
         workbookTitle: String,
         workbookId: Int64,
         allSectionsQuestions: [[Question]] = [],
-        currentSectionIndex: Int = 0,
-        onBackToWorkbookList: @escaping () -> Void = {}
+        currentSectionIndex: Int = 0
     ) {
         _viewModel = State(initialValue: ResultViewModel(
             questions: questions,
@@ -27,7 +24,6 @@ struct ResultView: View {
         ))
         self.allSectionsQuestions = allSectionsQuestions
         self.currentSectionIndex = currentSectionIndex
-        self.onBackToWorkbookList = onBackToWorkbookList
     }
 
     var body: some View {
@@ -214,10 +210,7 @@ struct ResultView: View {
 
     private var backButton: some View {
         Button {
-            dismiss()
-            DispatchQueue.main.async {
-                onBackToWorkbookList()
-            }
+            appState.notifyDismissAllQuiz()
         } label: {
             Text("問題集一覧に戻る")
                 .font(.headline)
