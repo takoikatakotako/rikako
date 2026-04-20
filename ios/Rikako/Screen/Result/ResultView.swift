@@ -310,14 +310,37 @@ private extension Array {
     }
 }
 
-#Preview {
+#Preview("100% 全問正解") {
     NavigationStack {
-        ResultView(
-            questions: MockData.questions,
-            answers: [0, 1, 2, 0, 2],
-            workbookTitle: "基礎化学",
-            workbookId: 1
-        )
-        .environment(AppState.shared)
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 1, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("80%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("60%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 1, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("40%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
+    }
+}
+
+#Preview("20%") {
+    NavigationStack {
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 0], workbookTitle: "基礎化学", workbookId: 1)
+            .environment(AppState.shared)
     }
 }

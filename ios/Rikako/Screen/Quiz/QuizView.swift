@@ -262,7 +262,13 @@ struct QuizView: View {
     }
 }
 
-#Preview {
+#Preview("問題表示") {
+    NavigationStack {
+        QuizView(questions: MockData.questions, workbookTitle: "基礎化学", workbookId: 1)
+    }
+}
+
+#Preview("画像付き問題") {
     NavigationStack {
         QuizView(questions: MockData.questionsWithImages, workbookTitle: "基礎化学", workbookId: 1)
     }
