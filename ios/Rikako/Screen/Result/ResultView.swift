@@ -76,16 +76,16 @@ struct ResultView: View {
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text("\(Int(viewModel.scorePercentage))")
                     .font(.system(size: 54, weight: .black))
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
                 Text("%")
                     .font(.title2.bold())
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
             }
 
             HStack(spacing: 10) {
                 Label(viewModel.summaryText, systemImage: "checkmark.seal.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(viewModel.scoreColorName))
+                    .foregroundStyle(viewModel.scoreColor)
 
                 Spacer()
 
@@ -98,7 +98,7 @@ struct ResultView: View {
         .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [Color.white, Color(viewModel.scoreColorName).opacity(0.08)],
+                colors: [Color.white, viewModel.scoreColor.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -106,7 +106,7 @@ struct ResultView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(Color(viewModel.scoreColorName).opacity(0.18), lineWidth: 2)
+                .stroke(viewModel.scoreColor.opacity(0.18), lineWidth: 2)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 14, x: 0, y: 6)
     }
