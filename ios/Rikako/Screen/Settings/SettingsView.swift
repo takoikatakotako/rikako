@@ -6,10 +6,13 @@ struct SettingsView: View {
     @State private var showLogoutConfirmation = false
     @State private var versionTapCount = 0
     @State private var showDebug = false
+    @AppStorage(UserPreferencesKey.soundEnabled) private var isSoundEnabled = true
+    @AppStorage(UserPreferencesKey.hapticEnabled) private var isHapticEnabled = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
+                feedbackCard
                 aboutCard
                 logoutButton
             }
@@ -29,6 +32,20 @@ struct SettingsView: View {
             }
         } message: {
             Text("ログアウトすると学習データがリセットされます。よろしいですか？")
+        }
+    }
+
+    private var feedbackCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("サウンド・フィードバック")
+
+            VStack(spacing: 0) {
+                toggleRow(symbol: "speaker.wave.2.fill", title: "効果音", accentColor: .purple, isOn: $isSoundEnabled)
+                Divider().padding(.leading, 48)
+                toggleRow(symbol: "hand.tap.fill", title: "触覚フィードバック", accentColor: .orange, isOn: $isHapticEnabled)
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
     }
 
@@ -79,6 +96,28 @@ struct SettingsView: View {
         Text(title)
             .font(.headline.bold())
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func toggleRow(symbol: String, title: String, accentColor: Color, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.subheadline.bold())
+                .foregroundStyle(accentColor)
+                .frame(width: 28, height: 28)
+                .background(accentColor.opacity(0.10))
+                .clipShape(Circle())
+
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     private func infoRow(symbol: String, title: String, trailing: String? = nil, accentColor: Color) -> some View {
