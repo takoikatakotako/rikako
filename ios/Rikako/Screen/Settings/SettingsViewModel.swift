@@ -10,3 +10,8 @@ final class SettingsViewModel {
         return "\(version) (\(build))"
     }
 }
+
+enum UserPreferencesKey {
+    static let soundEnabled = "soundEnabled"
+    static let hapticEnabled = "hapticEnabled"
+}

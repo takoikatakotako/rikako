@@ -1,9 +1,12 @@
 import SwiftUI
+import AudioToolbox
 
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @State private var viewModel: QuizViewModel
+    @AppStorage(UserPreferencesKey.soundEnabled) private var isSoundEnabled = true
+    @AppStorage(UserPreferencesKey.hapticEnabled) private var isHapticEnabled = true
     @State private var isNextButtonVisible = false
     @State private var scrollViewHeight: CGFloat = 0
     @State private var showExitConfirmation = false
@@ -145,11 +148,17 @@ struct QuizView: View {
         VStack(spacing: 12) {
             ForEach(Array(viewModel.currentQuestion.choices.enumerated()), id: \.offset) { index, choice in
                 Button {
+                    let isCorrect = index == viewModel.currentQuestion.correctIndex
                     withAnimation {
                         viewModel.selectChoice(index)
                     }
-                    let feedback = UINotificationFeedbackGenerator()
-                    feedback.notificationOccurred(index == viewModel.currentQuestion.correctIndex ? .success : .error)
+                    if isHapticEnabled {
+                        let feedback = UINotificationFeedbackGenerator()
+                        feedback.notificationOccurred(isCorrect ? .success : .error)
+                    }
+                    if isSoundEnabled {
+                        AudioServicesPlaySystemSound(isCorrect ? 1057 : 1073)
+                    }
                 } label: {
                     HStack(spacing: 14) {
                         Text(choiceLabel(for: index))
