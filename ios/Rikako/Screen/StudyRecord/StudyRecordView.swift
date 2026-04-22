@@ -503,7 +503,7 @@ struct StudyRecordView: View {
     }
 
     private func load() async {
-        isLoading = true
+        if summary == nil { isLoading = true }
         async let summaryResult = try? AppContainer.shared.learningUseCases.fetchUserSummary.execute()
         async let wrongResult = try? AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 1, offset: 0)
         summary = await summaryResult

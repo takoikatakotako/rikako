@@ -32,7 +32,7 @@ final class StudyHomeViewModel {
     }
 
     func loadInitialState(selectedWorkbookID: Int64?) async throws -> Int64? {
-        isLoading = true
+        if workbooks.isEmpty { isLoading = true }
         errorMessage = nil
         defer { isLoading = false }
 
