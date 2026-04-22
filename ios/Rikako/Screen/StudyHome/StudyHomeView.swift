@@ -109,7 +109,7 @@ struct StudyHomeView: View {
     }
 
     private func loadWorkbookProgress(showLoading: Bool = true) async {
-        if showLoading { isProgressLoading = true }
+        if showLoading && workbookProgress.isEmpty { isProgressLoading = true }
         defer { isProgressLoading = false }
         guard let workbookId = appState.selectedWorkbookID else { return }
         let response = try? await AppContainer.shared.learningUseCases.fetchWorkbookProgress.execute(workbookId: workbookId)
