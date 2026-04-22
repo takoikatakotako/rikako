@@ -30,6 +30,26 @@ func (e QuestionType) Valid() bool {
 	}
 }
 
+// Announcement defines model for Announcement.
+type Announcement struct {
+	// Body 本文（Markdown）
+	Body string `json:"body"`
+
+	// Category 種別（info / maintenance / release など）
+	Category    string    `json:"category"`
+	Id          int64     `json:"id"`
+	PublishedAt time.Time `json:"publishedAt"`
+	Title       string    `json:"title"`
+}
+
+// AnnouncementsResponse defines model for AnnouncementsResponse.
+type AnnouncementsResponse struct {
+	Announcements []Announcement `json:"announcements"`
+
+	// Total 総件数
+	Total int `json:"total"`
+}
+
 // AnonymousSignInResponse defines model for AnonymousSignInResponse.
 type AnonymousSignInResponse struct {
 	// IdentityId Cognito Identity ID
@@ -320,6 +340,12 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// お知らせ一覧取得
+	// (GET /announcements)
+	GetAnnouncements(ctx echo.Context) error
+	// お知らせ詳細取得
+	// (GET /announcements/{announcementId})
+	GetAnnouncement(ctx echo.Context, announcementId int64) error
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx echo.Context, params SubmitAnswersParams) error
@@ -384,6 +410,31 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// GetAnnouncements converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnnouncements(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnnouncements(ctx)
+	return err
+}
+
+// GetAnnouncement converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnnouncement(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "announcementId" -------------
+	var announcementId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "announcementId", ctx.Param("announcementId"), &announcementId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter announcementId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnnouncement(ctx, announcementId)
 	return err
 }
 
@@ -880,6 +931,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
+	router.GET(baseURL+"/announcements/:announcementId", wrapper.GetAnnouncement)
 	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
 	router.POST(baseURL+"/auth/anonymous/sign-in", wrapper.AnonymousSignIn)
 	router.POST(baseURL+"/auth/anonymous/sign-out", wrapper.AnonymousSignOut)
@@ -912,6 +965,48 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncementsRequestObject struct {
+}
+
+type GetAnnouncementsResponseObject interface {
+	VisitGetAnnouncementsResponse(w http.ResponseWriter) error
+}
+
+type GetAnnouncements200JSONResponse AnnouncementsResponse
+
+func (response GetAnnouncements200JSONResponse) VisitGetAnnouncementsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncementRequestObject struct {
+	AnnouncementId int64 `json:"announcementId"`
+}
+
+type GetAnnouncementResponseObject interface {
+	VisitGetAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type GetAnnouncement200JSONResponse Announcement
+
+func (response GetAnnouncement200JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncement404JSONResponse Error
+
+func (response GetAnnouncement404JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1343,6 +1438,12 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// お知らせ一覧取得
+	// (GET /announcements)
+	GetAnnouncements(ctx context.Context, request GetAnnouncementsRequestObject) (GetAnnouncementsResponseObject, error)
+	// お知らせ詳細取得
+	// (GET /announcements/{announcementId})
+	GetAnnouncement(ctx context.Context, request GetAnnouncementRequestObject) (GetAnnouncementResponseObject, error)
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx context.Context, request SubmitAnswersRequestObject) (SubmitAnswersResponseObject, error)
@@ -1425,6 +1526,54 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAnnouncements operation middleware
+func (sh *strictHandler) GetAnnouncements(ctx echo.Context) error {
+	var request GetAnnouncementsRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnnouncements(ctx.Request().Context(), request.(GetAnnouncementsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnnouncements")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnnouncementsResponseObject); ok {
+		return validResponse.VisitGetAnnouncementsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAnnouncement operation middleware
+func (sh *strictHandler) GetAnnouncement(ctx echo.Context, announcementId int64) error {
+	var request GetAnnouncementRequestObject
+
+	request.AnnouncementId = announcementId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnnouncement(ctx.Request().Context(), request.(GetAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnnouncement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnnouncementResponseObject); ok {
+		return validResponse.VisitGetAnnouncementResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
