@@ -466,6 +466,149 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /announcements:
+    get:
+      summary: お知らせ一覧取得
+      operationId: getAnnouncements
+      tags:
+        - Announcements
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: お知らせ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementsResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: お知らせ作成
+      operationId: createAnnouncement
+      tags:
+        - Announcements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnouncementRequest'
+      responses:
+        '201':
+          description: お知らせ作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /announcements/{announcementId}:
+    get:
+      summary: お知らせ取得
+      operationId: getAnnouncement
+      tags:
+        - Announcements
+      parameters:
+        - name: announcementId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: お知らせ詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '404':
+          description: お知らせが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: お知らせ更新
+      operationId: updateAnnouncement
+      tags:
+        - Announcements
+      parameters:
+        - name: announcementId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAnnouncementRequest'
+      responses:
+        '200':
+          description: お知らせ更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: お知らせが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: お知らせ削除
+      operationId: deleteAnnouncement
+      tags:
+        - Announcements
+      parameters:
+        - name: announcementId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 削除成功
+        '404':
+          description: お知らせが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /publish:
     post:
       summary: コンテンツをS3にJSON書き出し
@@ -1101,6 +1244,79 @@ components:
           type: integer
         workbooksCount:
           type: integer
+        announcementsCount:
+          type: integer
+
+    Announcement:
+      type: object
+      required:
+        - id
+        - title
+        - body
+        - category
+        - publishedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        body:
+          type: string
+          description: 本文（Markdown）
+        category:
+          type: string
+          description: 種別（info / maintenance / release など）
+        publishedAt:
+          type: string
+          format: date-time
+
+    AnnouncementsResponse:
+      type: object
+      required:
+        - announcements
+        - total
+      properties:
+        announcements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Announcement'
+        total:
+          type: integer
+
+    CreateAnnouncementRequest:
+      type: object
+      required:
+        - title
+        - body
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+          description: 未指定時は "info"
+        publishedAt:
+          type: string
+          format: date-time
+          description: 未指定時は現在時刻
+
+    UpdateAnnouncementRequest:
+      type: object
+      required:
+        - title
+        - body
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
 
     App:
       type: object

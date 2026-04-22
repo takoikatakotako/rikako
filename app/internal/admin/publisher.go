@@ -80,16 +80,61 @@ func (h *Handler) PostPublish(ctx context.Context, _ adminapi.PostPublishRequest
 		}
 	}
 
+	// お知らせ一覧を生成・アップロード
+	announcements, err := h.buildAnnouncements(ctx)
+	if err != nil {
+		h.logger.Error("failed to build announcements", "error", err)
+		return adminapi.PostPublish500JSONResponse{Code: "INTERNAL_ERROR", Message: "failed to build announcements"}, nil
+	}
+
+	announcementsResp := api.AnnouncementsResponse{
+		Announcements: announcements,
+		Total:         len(announcements),
+	}
+	if err := h.uploadJSON(ctx, "v1/announcements.json", announcementsResp); err != nil {
+		h.logger.Error("failed to upload announcements.json", "error", err)
+		return adminapi.PostPublish500JSONResponse{Code: "INTERNAL_ERROR", Message: "failed to upload announcements.json"}, nil
+	}
+
+	// お知らせ詳細を生成・アップロード
+	for _, a := range announcements {
+		if err := h.uploadJSON(ctx, fmt.Sprintf("v1/announcements/%d.json", a.Id), a); err != nil {
+			h.logger.Error("failed to upload announcement detail", "error", err, "announcement_id", a.Id)
+			return adminapi.PostPublish500JSONResponse{Code: "INTERNAL_ERROR", Message: fmt.Sprintf("failed to upload announcement %d", a.Id)}, nil
+		}
+	}
+
 	categoriesCount := len(categories)
 	workbooksCount := len(workbooks)
+	announcementsCount := len(announcements)
 	now := time.Now()
 
 	return adminapi.PostPublish200JSONResponse{
-		Message:         "published successfully",
-		PublishedAt:     now,
-		CategoriesCount: &categoriesCount,
-		WorkbooksCount:  &workbooksCount,
+		Message:            "published successfully",
+		PublishedAt:        now,
+		CategoriesCount:    &categoriesCount,
+		WorkbooksCount:     &workbooksCount,
+		AnnouncementsCount: &announcementsCount,
 	}, nil
+}
+
+func (h *Handler) buildAnnouncements(ctx context.Context) ([]api.Announcement, error) {
+	rows, err := h.queries.ListLatestAnnouncements(ctx, 50)
+	if err != nil {
+		return nil, err
+	}
+
+	items := []api.Announcement{}
+	for _, row := range rows {
+		items = append(items, api.Announcement{
+			Id:          row.ID,
+			Title:       row.Title,
+			Body:        row.Body,
+			Category:    row.Category,
+			PublishedAt: row.PublishedAt,
+		})
+	}
+	return items, nil
 }
 
 func (h *Handler) uploadJSON(ctx context.Context, key string, data any) error {

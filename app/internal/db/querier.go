@@ -10,8 +10,10 @@ import (
 )
 
 type Querier interface {
+	AnnouncementExists(ctx context.Context, id int64) (bool, error)
 	CategoryExists(ctx context.Context, id int64) (bool, error)
 	CheckAnswerCorrect(ctx context.Context, arg CheckAnswerCorrectParams) (bool, error)
+	CountAnnouncements(ctx context.Context) (int64, error)
 	CountApps(ctx context.Context) (int64, error)
 	CountCategories(ctx context.Context) (int64, error)
 	CountQuestions(ctx context.Context) (int64, error)
@@ -19,6 +21,7 @@ type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
 	CountWorkbooks(ctx context.Context) (int64, error)
 	CountWrongAnswers(ctx context.Context, userID int64) (int64, error)
+	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (int64, error)
 	CreateApp(ctx context.Context, arg CreateAppParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (int64, error)
 	CreateChoice(ctx context.Context, arg CreateChoiceParams) error
@@ -37,6 +40,7 @@ type Querier interface {
 	DeleteAllSingleChoices(ctx context.Context) error
 	DeleteAllWorkbookQuestions(ctx context.Context) error
 	DeleteAllWorkbooks(ctx context.Context) error
+	DeleteAnnouncement(ctx context.Context, id int64) (sql.Result, error)
 	DeleteApp(ctx context.Context, id int64) (sql.Result, error)
 	DeleteCategory(ctx context.Context, id int64) (sql.Result, error)
 	DeleteChoicesByQuestionID(ctx context.Context, questionID int64) error
@@ -44,6 +48,7 @@ type Querier interface {
 	DeleteQuestionImages(ctx context.Context, questionID int64) error
 	DeleteWorkbook(ctx context.Context, id int64) (sql.Result, error)
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
+	GetAnnouncement(ctx context.Context, id int64) (Announcement, error)
 	GetAppByID(ctx context.Context, id int64) (App, error)
 	GetAppBySlug(ctx context.Context, slug string) (GetAppBySlugRow, error)
 	GetAppStatus(ctx context.Context) (GetAppStatusRow, error)
@@ -72,8 +77,10 @@ type Querier interface {
 	ImportWorkbookQuestion(ctx context.Context, arg ImportWorkbookQuestionParams) error
 	ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error)
 	ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, error)
+	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
 	ListApps(ctx context.Context) ([]App, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]ListCategoriesRow, error)
+	ListLatestAnnouncements(ctx context.Context, limit int32) ([]Announcement, error)
 	ListQuestions(ctx context.Context, arg ListQuestionsParams) ([]ListQuestionsRow, error)
 	ListQuestionsByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsByWorkbookRow, error)
 	ListQuestionsWithChoices(ctx context.Context, arg ListQuestionsWithChoicesParams) ([]ListQuestionsWithChoicesRow, error)
@@ -90,6 +97,7 @@ type Querier interface {
 	ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	SetWorkbookCategory(ctx context.Context, arg SetWorkbookCategoryParams) error
+	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) error
 	UpdateApp(ctx context.Context, arg UpdateAppParams) error
 	UpdateAppStatus(ctx context.Context, arg UpdateAppStatusParams) error
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) error

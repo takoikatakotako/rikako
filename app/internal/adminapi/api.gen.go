@@ -78,6 +78,24 @@ func (e UpdateQuestionRequestType) Valid() bool {
 	}
 }
 
+// Announcement defines model for Announcement.
+type Announcement struct {
+	// Body 本文（Markdown）
+	Body string `json:"body"`
+
+	// Category 種別（info / maintenance / release など）
+	Category    string    `json:"category"`
+	Id          int64     `json:"id"`
+	PublishedAt time.Time `json:"publishedAt"`
+	Title       string    `json:"title"`
+}
+
+// AnnouncementsResponse defines model for AnnouncementsResponse.
+type AnnouncementsResponse struct {
+	Announcements []Announcement `json:"announcements"`
+	Total         int            `json:"total"`
+}
+
 // App defines model for App.
 type App struct {
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
@@ -125,6 +143,18 @@ type CategoryDetail struct {
 type Choice struct {
 	IsCorrect bool   `json:"isCorrect"`
 	Text      string `json:"text"`
+}
+
+// CreateAnnouncementRequest defines model for CreateAnnouncementRequest.
+type CreateAnnouncementRequest struct {
+	Body string `json:"body"`
+
+	// Category 未指定時は "info"
+	Category *string `json:"category,omitempty"`
+
+	// PublishedAt 未指定時は現在時刻
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	Title       string     `json:"title"`
 }
 
 // CreateAppRequest defines model for CreateAppRequest.
@@ -193,10 +223,11 @@ type PresignedUrlResponse struct {
 
 // PublishResponse defines model for PublishResponse.
 type PublishResponse struct {
-	CategoriesCount *int      `json:"categoriesCount,omitempty"`
-	Message         string    `json:"message"`
-	PublishedAt     time.Time `json:"publishedAt"`
-	WorkbooksCount  *int      `json:"workbooksCount,omitempty"`
+	AnnouncementsCount *int      `json:"announcementsCount,omitempty"`
+	CategoriesCount    *int      `json:"categoriesCount,omitempty"`
+	Message            string    `json:"message"`
+	PublishedAt        time.Time `json:"publishedAt"`
+	WorkbooksCount     *int      `json:"workbooksCount,omitempty"`
 }
 
 // Question defines model for Question.
@@ -216,6 +247,14 @@ type QuestionType string
 type QuestionsResponse struct {
 	Questions []Question `json:"questions"`
 	Total     int        `json:"total"`
+}
+
+// UpdateAnnouncementRequest defines model for UpdateAnnouncementRequest.
+type UpdateAnnouncementRequest struct {
+	Body        string     `json:"body"`
+	Category    *string    `json:"category,omitempty"`
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	Title       string     `json:"title"`
 }
 
 // UpdateAppStatusRequest defines model for UpdateAppStatusRequest.
@@ -322,6 +361,12 @@ type WorkbooksResponse struct {
 	Workbooks []Workbook `json:"workbooks"`
 }
 
+// GetAnnouncementsParams defines parameters for GetAnnouncements.
+type GetAnnouncementsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // GetCategoriesParams defines parameters for GetCategories.
 type GetCategoriesParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -351,6 +396,12 @@ type GetWorkbooksParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// CreateAnnouncementJSONRequestBody defines body for CreateAnnouncement for application/json ContentType.
+type CreateAnnouncementJSONRequestBody = CreateAnnouncementRequest
+
+// UpdateAnnouncementJSONRequestBody defines body for UpdateAnnouncement for application/json ContentType.
+type UpdateAnnouncementJSONRequestBody = UpdateAnnouncementRequest
 
 // UpdateAppStatusJSONRequestBody defines body for UpdateAppStatus for application/json ContentType.
 type UpdateAppStatusJSONRequestBody = UpdateAppStatusRequest
@@ -387,6 +438,21 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// お知らせ一覧取得
+	// (GET /announcements)
+	GetAnnouncements(ctx echo.Context, params GetAnnouncementsParams) error
+	// お知らせ作成
+	// (POST /announcements)
+	CreateAnnouncement(ctx echo.Context) error
+	// お知らせ削除
+	// (DELETE /announcements/{announcementId})
+	DeleteAnnouncement(ctx echo.Context, announcementId int64) error
+	// お知らせ取得
+	// (GET /announcements/{announcementId})
+	GetAnnouncement(ctx echo.Context, announcementId int64) error
+	// お知らせ更新
+	// (PUT /announcements/{announcementId})
+	UpdateAnnouncement(ctx echo.Context, announcementId int64) error
 	// アプリステータス取得
 	// (GET /app-status)
 	GetAppStatus(ctx echo.Context) error
@@ -484,6 +550,88 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// GetAnnouncements converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnnouncements(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnnouncementsParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", ctx.QueryParams(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnnouncements(ctx, params)
+	return err
+}
+
+// CreateAnnouncement converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateAnnouncement(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateAnnouncement(ctx)
+	return err
+}
+
+// DeleteAnnouncement converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteAnnouncement(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "announcementId" -------------
+	var announcementId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "announcementId", ctx.Param("announcementId"), &announcementId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter announcementId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteAnnouncement(ctx, announcementId)
+	return err
+}
+
+// GetAnnouncement converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnnouncement(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "announcementId" -------------
+	var announcementId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "announcementId", ctx.Param("announcementId"), &announcementId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter announcementId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnnouncement(ctx, announcementId)
+	return err
+}
+
+// UpdateAnnouncement converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateAnnouncement(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "announcementId" -------------
+	var announcementId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "announcementId", ctx.Param("announcementId"), &announcementId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter announcementId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateAnnouncement(ctx, announcementId)
 	return err
 }
 
@@ -946,6 +1094,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
+	router.POST(baseURL+"/announcements", wrapper.CreateAnnouncement)
+	router.DELETE(baseURL+"/announcements/:announcementId", wrapper.DeleteAnnouncement)
+	router.GET(baseURL+"/announcements/:announcementId", wrapper.GetAnnouncement)
+	router.PUT(baseURL+"/announcements/:announcementId", wrapper.UpdateAnnouncement)
 	router.GET(baseURL+"/app-status", wrapper.GetAppStatus)
 	router.PUT(baseURL+"/app-status", wrapper.UpdateAppStatus)
 	router.GET(baseURL+"/apps", wrapper.GetApps)
@@ -989,6 +1142,145 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncementsRequestObject struct {
+	Params GetAnnouncementsParams
+}
+
+type GetAnnouncementsResponseObject interface {
+	VisitGetAnnouncementsResponse(w http.ResponseWriter) error
+}
+
+type GetAnnouncements200JSONResponse AnnouncementsResponse
+
+func (response GetAnnouncements200JSONResponse) VisitGetAnnouncementsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncements400JSONResponse Error
+
+func (response GetAnnouncements400JSONResponse) VisitGetAnnouncementsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAnnouncementRequestObject struct {
+	Body *CreateAnnouncementJSONRequestBody
+}
+
+type CreateAnnouncementResponseObject interface {
+	VisitCreateAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type CreateAnnouncement201JSONResponse Announcement
+
+func (response CreateAnnouncement201JSONResponse) VisitCreateAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAnnouncement400JSONResponse Error
+
+func (response CreateAnnouncement400JSONResponse) VisitCreateAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnnouncementRequestObject struct {
+	AnnouncementId int64 `json:"announcementId"`
+}
+
+type DeleteAnnouncementResponseObject interface {
+	VisitDeleteAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type DeleteAnnouncement204Response struct {
+}
+
+func (response DeleteAnnouncement204Response) VisitDeleteAnnouncementResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAnnouncement404JSONResponse Error
+
+func (response DeleteAnnouncement404JSONResponse) VisitDeleteAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncementRequestObject struct {
+	AnnouncementId int64 `json:"announcementId"`
+}
+
+type GetAnnouncementResponseObject interface {
+	VisitGetAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type GetAnnouncement200JSONResponse Announcement
+
+func (response GetAnnouncement200JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnnouncement404JSONResponse Error
+
+func (response GetAnnouncement404JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateAnnouncementRequestObject struct {
+	AnnouncementId int64 `json:"announcementId"`
+	Body           *UpdateAnnouncementJSONRequestBody
+}
+
+type UpdateAnnouncementResponseObject interface {
+	VisitUpdateAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type UpdateAnnouncement200JSONResponse Announcement
+
+func (response UpdateAnnouncement200JSONResponse) VisitUpdateAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateAnnouncement400JSONResponse Error
+
+func (response UpdateAnnouncement400JSONResponse) VisitUpdateAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateAnnouncement404JSONResponse Error
+
+func (response UpdateAnnouncement404JSONResponse) VisitUpdateAnnouncementResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1732,6 +2024,21 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// お知らせ一覧取得
+	// (GET /announcements)
+	GetAnnouncements(ctx context.Context, request GetAnnouncementsRequestObject) (GetAnnouncementsResponseObject, error)
+	// お知らせ作成
+	// (POST /announcements)
+	CreateAnnouncement(ctx context.Context, request CreateAnnouncementRequestObject) (CreateAnnouncementResponseObject, error)
+	// お知らせ削除
+	// (DELETE /announcements/{announcementId})
+	DeleteAnnouncement(ctx context.Context, request DeleteAnnouncementRequestObject) (DeleteAnnouncementResponseObject, error)
+	// お知らせ取得
+	// (GET /announcements/{announcementId})
+	GetAnnouncement(ctx context.Context, request GetAnnouncementRequestObject) (GetAnnouncementResponseObject, error)
+	// お知らせ更新
+	// (PUT /announcements/{announcementId})
+	UpdateAnnouncement(ctx context.Context, request UpdateAnnouncementRequestObject) (UpdateAnnouncementResponseObject, error)
 	// アプリステータス取得
 	// (GET /app-status)
 	GetAppStatus(ctx context.Context, request GetAppStatusRequestObject) (GetAppStatusResponseObject, error)
@@ -1847,6 +2154,141 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAnnouncements operation middleware
+func (sh *strictHandler) GetAnnouncements(ctx echo.Context, params GetAnnouncementsParams) error {
+	var request GetAnnouncementsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnnouncements(ctx.Request().Context(), request.(GetAnnouncementsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnnouncements")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnnouncementsResponseObject); ok {
+		return validResponse.VisitGetAnnouncementsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateAnnouncement operation middleware
+func (sh *strictHandler) CreateAnnouncement(ctx echo.Context) error {
+	var request CreateAnnouncementRequestObject
+
+	var body CreateAnnouncementJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAnnouncement(ctx.Request().Context(), request.(CreateAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAnnouncement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateAnnouncementResponseObject); ok {
+		return validResponse.VisitCreateAnnouncementResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteAnnouncement operation middleware
+func (sh *strictHandler) DeleteAnnouncement(ctx echo.Context, announcementId int64) error {
+	var request DeleteAnnouncementRequestObject
+
+	request.AnnouncementId = announcementId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAnnouncement(ctx.Request().Context(), request.(DeleteAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAnnouncement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteAnnouncementResponseObject); ok {
+		return validResponse.VisitDeleteAnnouncementResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAnnouncement operation middleware
+func (sh *strictHandler) GetAnnouncement(ctx echo.Context, announcementId int64) error {
+	var request GetAnnouncementRequestObject
+
+	request.AnnouncementId = announcementId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnnouncement(ctx.Request().Context(), request.(GetAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnnouncement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnnouncementResponseObject); ok {
+		return validResponse.VisitGetAnnouncementResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateAnnouncement operation middleware
+func (sh *strictHandler) UpdateAnnouncement(ctx echo.Context, announcementId int64) error {
+	var request UpdateAnnouncementRequestObject
+
+	request.AnnouncementId = announcementId
+
+	var body UpdateAnnouncementJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAnnouncement(ctx.Request().Context(), request.(UpdateAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAnnouncement")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateAnnouncementResponseObject); ok {
+		return validResponse.VisitUpdateAnnouncementResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

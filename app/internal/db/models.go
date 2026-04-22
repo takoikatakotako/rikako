@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+type Announcement struct {
+	ID          int64     `json:"id"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	Category    string    `json:"category"`
+	PublishedAt time.Time `json:"published_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type App struct {
 	ID        int64        `json:"id"`
 	Slug      string       `json:"slug"`
