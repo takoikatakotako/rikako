@@ -122,6 +122,14 @@ final class RemoteLearningRepository: LearningRepository {
         return try await getJSON(url: url, authenticated: true)
     }
 
+    func fetchAnnouncements() async throws -> [Announcement] {
+        let url = contentBaseURL.appendingPathComponent("announcements.json")
+        let (data, response) = try await httpClient.data(from: url)
+        try validateResponse(response)
+        let result = try decoder.decode(AnnouncementListResponse.self, from: data)
+        return result.announcements
+    }
+
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
         var components = URLComponents(url: apiBaseURL.appendingPathComponent("users/me/wrong-answers"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

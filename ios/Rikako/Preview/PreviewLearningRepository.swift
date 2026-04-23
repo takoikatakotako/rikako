@@ -130,6 +130,33 @@ final class PreviewLearningRepository: LearningRepository {
             total: min(limit, MockData.questions.count)
         )
     }
+
+    func fetchAnnouncements() async throws -> [Announcement] {
+        let now = Date()
+        return [
+            Announcement(
+                id: 1,
+                title: "春のチャレンジ応援キャンペーン",
+                body: "# キャンペーン開催\n期間限定で学習を続けやすい企画を実施中です。\n\n- ログインボーナス\n- 連続学習バッジ",
+                category: "info",
+                publishedAt: now.addingTimeInterval(-60 * 60 * 3)
+            ),
+            Announcement(
+                id: 2,
+                title: "新しい問題集を追加しました",
+                body: "基礎化学の復習に使いやすい問題集を追加しました。",
+                category: "release",
+                publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 2)
+            ),
+            Announcement(
+                id: 3,
+                title: "メンテナンスのお知らせ",
+                body: "一時的にサービスが利用できなくなる可能性があります。",
+                category: "maintenance",
+                publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 10)
+            )
+        ]
+    }
 }
 
 enum PreviewAppContainer {
