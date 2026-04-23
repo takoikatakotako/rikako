@@ -30,4 +30,28 @@ final class MyPageViewModel {
         .init(id: "school", title: "学校・塾向けの学習プランのご紹介"),
         .init(id: "recruit", title: "理科子を一緒に育てるメンバー募集中")
     ]
+
+    private(set) var announcementUnreadCount: Int = 0
+
+    private let fetchAnnouncements: FetchAnnouncementsUseCase
+    private let readStore: AnnouncementReadStore
+
+    init(
+        fetchAnnouncements: FetchAnnouncementsUseCase = AppContainer.shared.learningUseCases.fetchAnnouncements,
+        readStore: AnnouncementReadStore = AnnouncementReadStore()
+    ) {
+        self.fetchAnnouncements = fetchAnnouncements
+        self.readStore = readStore
+    }
+
+    func refreshAnnouncementUnreadCount() async {
+        do {
+            let fetched = try await fetchAnnouncements.execute()
+            announcementUnreadCount = fetched.filter { announcement in
+                announcement.isWithinUnreadWindow() && !readStore.isRead(id: announcement.id)
+            }.count
+        } catch {
+            announcementUnreadCount = 0
+        }
+    }
 }
