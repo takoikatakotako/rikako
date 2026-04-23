@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileQuestion, FolderOpen, Upload, Loader2, Users, AppWindow, WrenchIcon } from "lucide-react";
+import { BookOpen, FileQuestion, FolderOpen, Upload, Loader2, Users, AppWindow, WrenchIcon, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { apiPost } from "@/lib/api/client";
@@ -13,6 +13,7 @@ const navigation = [
   { name: "カテゴリ", href: "/categories", icon: FolderOpen },
   { name: "問題集", href: "/workbooks", icon: BookOpen },
   { name: "問題", href: "/questions", icon: FileQuestion },
+  { name: "お知らせ", href: "/announcements", icon: Megaphone },
   { name: "ユーザー", href: "/users", icon: Users },
   { name: "アプリ", href: "/apps", icon: AppWindow },
   { name: "ステータス", href: "/app-status", icon: WrenchIcon },
@@ -27,7 +28,7 @@ export function Sidebar() {
     try {
       const result = await apiPost<PublishResponse>("/publish", {});
       toast.success(
-        `出力完了: カテゴリ ${result.categoriesCount}件、問題集 ${result.workbooksCount}件`,
+        `出力完了: カテゴリ ${result.categoriesCount}件、問題集 ${result.workbooksCount}件、お知らせ ${result.announcementsCount ?? 0}件`,
       );
     } catch {
       toast.error("出力に失敗しました");
