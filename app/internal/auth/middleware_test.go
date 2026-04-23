@@ -87,6 +87,7 @@ func TestPublicOperationsPassWithoutToken(t *testing.T) {
 		"GetQuestions", "GetQuestion",
 		"GetCategories", "GetCategory",
 		"GetWorkbooks", "GetWorkbook",
+		"GetAnnouncements", "GetAnnouncement",
 	}
 	for _, op := range publicOps {
 		t.Run(op, func(t *testing.T) {
