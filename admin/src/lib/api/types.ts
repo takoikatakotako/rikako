@@ -113,6 +113,34 @@ export interface PublishResponse {
   publishedAt: string;
   categoriesCount?: number;
   workbooksCount?: number;
+  announcementsCount?: number;
+}
+
+export interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  category: string;
+  publishedAt: string;
+}
+
+export interface AnnouncementsResponse {
+  announcements: Announcement[];
+  total: number;
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  body: string;
+  category?: string;
+  publishedAt?: string;
+}
+
+export interface UpdateAnnouncementRequest {
+  title: string;
+  body: string;
+  category?: string;
+  publishedAt?: string;
 }
 
 export interface User {
