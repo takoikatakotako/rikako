@@ -25,6 +25,8 @@ var publicOperations = map[string]bool{
 	"GetCategory":     true,
 	"GetWorkbooks":    true,
 	"GetWorkbook":     true,
+	"GetAnnouncements": true,
+	"GetAnnouncement":  true,
 	"SubmitAnswers":    true,
 	"GetWrongAnswers":  true,
 	"GetAnswerLogs":       true,
