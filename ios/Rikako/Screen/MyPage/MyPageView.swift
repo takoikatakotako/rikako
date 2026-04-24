@@ -20,6 +20,7 @@ struct MyPageView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("マイページ")
             .navigationBarTitleDisplayMode(.inline)
+            .task { await viewModel.refreshAnnouncementUnreadCount() }
         }
     }
 
@@ -86,7 +87,7 @@ struct MyPageView: View {
             menuLinkRow(
                 symbol: "bell",
                 title: "お知らせ",
-                badge: "12",
+                badge: viewModel.announcementUnreadCount > 0 ? "\(viewModel.announcementUnreadCount)" : nil,
                 accentColor: .orange,
                 destination: AnyView(NotificationsView())
             )

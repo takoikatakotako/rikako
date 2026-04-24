@@ -13,6 +13,7 @@ struct LearningUseCases {
     let fetchUserSummary: FetchUserSummaryUseCase
     let fetchUserProfile: FetchUserProfileUseCase
     let updateUserProfile: UpdateUserProfileUseCase
+    let fetchAnnouncements: FetchAnnouncementsUseCase
 
     init(repository: LearningRepository) {
         self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
@@ -27,6 +28,19 @@ struct LearningUseCases {
         self.fetchUserSummary = FetchUserSummaryUseCase(repository: repository)
         self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
         self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
+        self.fetchAnnouncements = FetchAnnouncementsUseCase(repository: repository)
+    }
+}
+
+struct FetchAnnouncementsUseCase {
+    private let repository: LearningRepository
+
+    init(repository: LearningRepository) {
+        self.repository = repository
+    }
+
+    func execute() async throws -> [Announcement] {
+        try await repository.fetchAnnouncements()
     }
 }
 

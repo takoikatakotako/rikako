@@ -26,4 +26,5 @@ protocol LearningRepository {
     func anonymousSignIn() async throws -> String
     func fetchUserProfile(appSlug: String) async throws -> UserProfile
     func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile
+    func fetchAnnouncements() async throws -> [Announcement]
 }

@@ -64,6 +64,13 @@ struct SettingsView: View {
                         }
                     }
                 Divider().padding(.leading, 48)
+                NavigationLink {
+                    NotificationsView()
+                } label: {
+                    infoRow(symbol: "bell.fill", title: "お知らせ", accentColor: .orange)
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 48)
                 infoRow(symbol: "questionmark.circle.fill", title: "使い方", accentColor: Color(.main))
                 Divider().padding(.leading, 48)
                 infoRow(symbol: "star.fill", title: "レビューする", accentColor: .orange)
