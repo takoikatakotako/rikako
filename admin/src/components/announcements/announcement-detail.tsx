@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -110,9 +112,26 @@ export function AnnouncementDetail({ id }: { id: number }) {
           <CardTitle className="mt-2">{data.title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-            {data.body}
-          </pre>
+          <div className="text-sm leading-relaxed">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: (props) => <h1 className="mt-4 mb-2 text-xl font-bold" {...props} />,
+                h2: (props) => <h2 className="mt-4 mb-2 text-lg font-bold" {...props} />,
+                h3: (props) => <h3 className="mt-3 mb-2 text-base font-bold" {...props} />,
+                p: (props) => <p className="my-2" {...props} />,
+                ul: (props) => <ul className="my-2 ml-5 list-disc" {...props} />,
+                ol: (props) => <ol className="my-2 ml-5 list-decimal" {...props} />,
+                li: (props) => <li className="my-0.5" {...props} />,
+                a: (props) => <a className="text-blue-600 underline" target="_blank" rel="noreferrer" {...props} />,
+                code: (props) => <code className="rounded bg-muted px-1 py-0.5 text-xs" {...props} />,
+                blockquote: (props) => <blockquote className="my-2 border-l-4 border-muted pl-3 text-muted-foreground" {...props} />,
+                hr: () => <hr className="my-4 border-muted" />,
+              }}
+            >
+              {data.body}
+            </ReactMarkdown>
+          </div>
         </CardContent>
       </Card>
     </div>
