@@ -18,10 +18,8 @@ struct NotificationDetailView: View {
 
                 Divider()
 
-                Text(announcement.body)
-                    .font(.body)
+                MarkdownView(markdown: announcement.body)
                     .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
         }
