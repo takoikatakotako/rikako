@@ -31,10 +31,10 @@ jobs:
         working-directory: ${{ matrix.working_directory }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.14"
           terraform_wrapper: false
@@ -43,7 +43,7 @@ jobs:
         uses: shmokmt/actions-setup-tfcmt@v2
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ matrix.aws_account_id }}:role/${{ matrix.role_name }}
           aws-region: ap-northeast-1
