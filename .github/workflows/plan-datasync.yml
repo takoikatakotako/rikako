@@ -1,4 +1,4 @@
-name: Data Sync Plan
+name: Plan Data Sync
 
 on:
   pull_request:

@@ -66,10 +66,14 @@ Rikako - 問題集アプリ
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
 └── .github/workflows/      # CI設定
-    ├── deploy-dev.yml      # Devデプロイワークフロー（ECRビルド&プッシュ + Lambda更新）
-    ├── terraform-plan.yml  # Terraform Plan CI（PR時に差分表示）
-    ├── docs.yml            # ドキュメント生成・デプロイ
-    └── migrate.yml         # マイグレーションワークフロー
+    ├── deploy-api-dev.yml          # 公開APIデプロイ（ECRビルド&プッシュ + Lambda更新）
+    ├── deploy-admin-api-dev.yml    # 管理APIデプロイ
+    ├── deploy-admin-frontend-dev.yml # 管理フロントエンドデプロイ
+    ├── apply-terraform-dev.yml     # main pushで dev のTerraform自動apply
+    ├── plan-terraform.yml          # PR時にTerraform plan
+    ├── plan-datasync.yml           # PR時に data 差分plan
+    ├── docs.yml                    # ドキュメント生成・デプロイ
+    └── migrate.yml                 # マイグレーションワークフロー
 ```
 
 ## データ形式
@@ -242,26 +246,30 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 ### GitHub Actions ワークフロー
 
-1. **deploy-dev.yml** - Dev公開APIデプロイ
+1. **deploy-api-dev.yml** - Dev公開APIデプロイ
    - Dockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
    - ヘルスチェックで動作確認
    - OIDC認証でAWSアクセス
 
-2. **deploy-admin-dev.yml** - Dev管理APIデプロイ
+2. **deploy-admin-api-dev.yml** - Dev管理APIデプロイ
    - 管理APIのDockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
    - スモークテスト: https://admin.dev.rikako.jp/api
 
-3. **terraform-plan.yml** - Terraform Plan CI
+3. **plan-terraform.yml** - Terraform Plan CI
    - PRでterraform/以下の変更時に自動実行
    - shared/devの各環境でplanを実行
    - tfcmtでPRにplan結果をコメント
 
-4. **docs.yml** - ドキュメント生成
+4. **apply-terraform-dev.yml** - Dev Terraform 自動 apply
+   - main push で terraform/environments/dev/** または terraform/modules/** が変わったら自動 apply
+   - OIDC + AdministratorAccess（dev のみ）
+
+5. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
    - MkDocsビルド
    - GitHub Pagesにデプロイ
 
-5. **migrate.yml** - 手動マイグレーション
+6. **migrate.yml** - 手動マイグレーション
    - 環境選択（dev/prod）
    - 方向選択（up/down）
    - ステップ数指定
