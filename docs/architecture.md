@@ -68,7 +68,7 @@ sequenceDiagram
     participant FURL as Function URL
 
     Dev->>GH: Push to main
-    GH->>GA: Trigger deploy-dev.yml
+    GH->>GA: Trigger deploy-api-dev.yml
     GA->>GA: Docker Build
     GA->>ECR: Push Image (OIDC)
     GA->>Lambda: Update Function Code (OIDC)

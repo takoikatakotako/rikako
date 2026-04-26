@@ -17,6 +17,7 @@ app/.cache/
 *.tfstate.backup
 secret.auto.tfvars
 terraform.tfvars
+terraform/**/lambda/*.zip
 .claude/
 app/server
 app/admin

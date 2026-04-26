@@ -78,10 +78,11 @@ resource "aws_iam_role_policy" "ecr_access" {
   policy = data.aws_iam_policy_document.ecr_access.json
 }
 
-# ReadOnly access for Terraform Plan
-resource "aws_iam_role_policy_attachment" "github_actions_readonly" {
+# Terraform apply (dev のみ自動適用するため Administrator)。
+# OIDC により repo:takoikatakotako/rikako:* と dev アカウントに限定済み。
+resource "aws_iam_role_policy_attachment" "github_actions_admin" {
   role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
 # S3 Terraform state access
