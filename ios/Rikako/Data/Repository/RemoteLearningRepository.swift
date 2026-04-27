@@ -1,9 +1,9 @@
 import Foundation
 
 final class RemoteLearningRepository: LearningRepository {
-    private let contentBaseURL = URL(string: "https://content.dev.rikako.jp/v1")!
-    private let apiBaseURL = URL(string: "https://api.dev.rikako.jp")!
-
+    private let flavor: AppFlavor
+    private let contentBaseURL: URL
+    private let apiBaseURL: URL
     private let httpClient: HTTPClient
     private let deviceIdentityProvider: DeviceIdentityProviding
     private let decoder: JSONDecoder = {
@@ -13,7 +13,10 @@ final class RemoteLearningRepository: LearningRepository {
     }()
     private let encoder = JSONEncoder()
 
-    init(httpClient: HTTPClient, deviceIdentityProvider: DeviceIdentityProviding) {
+    init(flavor: AppFlavor, httpClient: HTTPClient, deviceIdentityProvider: DeviceIdentityProviding) {
+        self.flavor = flavor
+        self.contentBaseURL = flavor.contentBaseURL
+        self.apiBaseURL = flavor.apiBaseURL
         self.httpClient = httpClient
         self.deviceIdentityProvider = deviceIdentityProvider
     }
@@ -28,7 +31,12 @@ final class RemoteLearningRepository: LearningRepository {
         let (data, response) = try await httpClient.data(from: url)
         try validateResponse(response)
         let result = try decoder.decode(WorkbookListResponse.self, from: data)
-        return result.workbooks
+        let app = try await fetchAppDetail()
+        let categoryIDs = Set(app.categories.map(\.id))
+        return result.workbooks.filter { workbook in
+            guard let categoryID = workbook.categoryId else { return false }
+            return categoryIDs.contains(categoryID)
+        }
     }
 
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail {
@@ -47,6 +55,13 @@ final class RemoteLearningRepository: LearningRepository {
         let url = components.url!
         let result: CategoryListResponse = try await getJSON(url: url, authenticated: false)
         return result.categories
+    }
+
+    private func fetchAppDetail() async throws -> AppDetail {
+        let url = apiBaseURL
+            .appendingPathComponent("apps")
+            .appendingPathComponent(flavor.slug)
+        return try await getJSON(url: url, authenticated: false)
     }
 
     func fetchCategoryDetail(id: Int64) async throws -> CategoryDetail {
@@ -145,6 +160,7 @@ final class RemoteLearningRepository: LearningRepository {
         if authenticated {
             let deviceId = try await deviceIdentityProvider.getIdentityId()
             request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+            request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
         }
 
         let (data, response) = try await httpClient.data(for: request)
@@ -159,6 +175,7 @@ final class RemoteLearningRepository: LearningRepository {
         if authenticated {
             let deviceId = try await deviceIdentityProvider.getIdentityId()
             request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+            request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
         }
         request.httpBody = try encoder.encode(body)
 

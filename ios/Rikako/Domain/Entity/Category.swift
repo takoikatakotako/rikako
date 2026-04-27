@@ -13,3 +13,10 @@ struct CategoryDetail: Identifiable, Codable {
     let description: String?
     let workbooks: [Workbook]
 }
+
+struct AppDetail: Identifiable, Codable {
+    let id: Int64
+    let slug: String
+    let title: String
+    let categories: [Category]
+}

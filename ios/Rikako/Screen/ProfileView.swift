@@ -78,7 +78,7 @@ struct ProfileView: View {
         defer { isSaving = false }
         do {
             let profile = try await AppContainer.shared.learningUseCases.updateUserProfile.execute(
-                appSlug: "chemistry",
+                appSlug: AppFlavor.current.slug,
                 request: UpdateUserProfileRequest(displayName: trimmed.isEmpty ? nil : trimmed)
             )
             appState.displayName = profile.displayName

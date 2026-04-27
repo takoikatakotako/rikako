@@ -27,11 +27,28 @@
 		17B40F5D2F65BCE3001A7DD8 /* Rikako.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rikako.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		17B40F6A2F65BCE4001A7DD8 /* RikakoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RikakoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		17B40F742F65BCE4001A7DD8 /* RikakoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RikakoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CF0000000000000000000001 /* ItPassportDev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ItPassportDev.xcconfig; sourceTree = "<group>"; };
+		CF0000000000000000000002 /* ItPassportStg.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ItPassportStg.xcconfig; sourceTree = "<group>"; };
+		CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HighSchoolChemistryDev.xcconfig; sourceTree = "<group>"; };
+		CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HighSchoolChemistryStg.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CF0000000000000000000006 /* Exceptions for "Rikako" folder in "Rikako" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 17B40F5C2F65BCE3001A7DD8 /* Rikako */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		17B40F5F2F65BCE3001A7DD8 /* Rikako */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CF0000000000000000000006 /* Exceptions for "Rikako" folder in "Rikako" target */,
+			);
 			path = Rikako;
 			sourceTree = "<group>";
 		};
@@ -75,6 +92,7 @@
 		17B40F542F65BCE3001A7DD8 = {
 			isa = PBXGroup;
 			children = (
+				CF0000000000000000000005 /* Configs */,
 				17B40F5F2F65BCE3001A7DD8 /* Rikako */,
 				17B40F6D2F65BCE4001A7DD8 /* RikakoTests */,
 				17B40F772F65BCE4001A7DD8 /* RikakoUITests */,
@@ -90,6 +108,17 @@
 				17B40F742F65BCE4001A7DD8 /* RikakoUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		CF0000000000000000000005 /* Configs */ = {
+			isa = PBXGroup;
+			children = (
+				CF0000000000000000000001 /* ItPassportDev.xcconfig */,
+				CF0000000000000000000002 /* ItPassportStg.xcconfig */,
+				CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */,
+				CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */,
+			);
+			path = Configs;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -395,14 +424,23 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				APP_DISPLAY_NAME = Rikako;
+				APP_SLUG = "high-school-chemistry";
+				API_BASE_URL = "https://api.dev.rikako.jp";
 				CODE_SIGN_STYLE = Automatic;
+				CONTENT_BASE_URL = "https://content.dev.rikako.jp/v1";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Rikako;
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "https://api.dev.rikako.jp";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "high-school-chemistry";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "https://content.dev.rikako.jp/v1";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -427,14 +465,23 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				APP_DISPLAY_NAME = Rikako;
+				APP_SLUG = "high-school-chemistry";
+				API_BASE_URL = "https://api.dev.rikako.jp";
 				CODE_SIGN_STYLE = Automatic;
+				CONTENT_BASE_URL = "https://content.dev.rikako.jp/v1";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Rikako;
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "https://api.dev.rikako.jp";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "high-school-chemistry";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "https://content.dev.rikako.jp/v1";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -538,6 +585,298 @@
 			};
 			name = Release;
 		};
+		CF0000000000000000000010 /* ItPassportDev Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "ItPassportDev Debug";
+		};
+		CF0000000000000000000011 /* ItPassportStg Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "ItPassportStg Debug";
+		};
+		CF0000000000000000000012 /* HighSchoolChemistryDev Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "HighSchoolChemistryDev Debug";
+		};
+		CF0000000000000000000013 /* HighSchoolChemistryStg Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "HighSchoolChemistryStg Debug";
+		};
+		CF0000000000000000000020 /* ItPassportDev Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CF0000000000000000000001 /* ItPassportDev.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "ItPassportDev Debug";
+		};
+		CF0000000000000000000021 /* ItPassportStg Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CF0000000000000000000002 /* ItPassportStg.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "ItPassportStg Debug";
+		};
+		CF0000000000000000000022 /* HighSchoolChemistryDev Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "HighSchoolChemistryDev Debug";
+		};
+		CF0000000000000000000023 /* HighSchoolChemistryStg Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Rikako/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
+				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = "HighSchoolChemistryStg Debug";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -546,6 +885,10 @@
 			buildConfigurations = (
 				17B40F7C2F65BCE4001A7DD8 /* Debug */,
 				17B40F7D2F65BCE4001A7DD8 /* Release */,
+				CF0000000000000000000010 /* ItPassportDev Debug */,
+				CF0000000000000000000011 /* ItPassportStg Debug */,
+				CF0000000000000000000012 /* HighSchoolChemistryDev Debug */,
+				CF0000000000000000000013 /* HighSchoolChemistryStg Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -555,6 +898,10 @@
 			buildConfigurations = (
 				17B40F7F2F65BCE4001A7DD8 /* Debug */,
 				17B40F802F65BCE4001A7DD8 /* Release */,
+				CF0000000000000000000020 /* ItPassportDev Debug */,
+				CF0000000000000000000021 /* ItPassportStg Debug */,
+				CF0000000000000000000022 /* HighSchoolChemistryDev Debug */,
+				CF0000000000000000000023 /* HighSchoolChemistryStg Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -26,6 +26,13 @@ type App struct {
 	CreatedAt sql.NullTime `json:"created_at"`
 }
 
+type AppCategory struct {
+	AppID      int64        `json:"app_id"`
+	CategoryID int64        `json:"category_id"`
+	SortOrder  int32        `json:"sort_order"`
+	CreatedAt  sql.NullTime `json:"created_at"`
+}
+
 type AppStatus struct {
 	ID                 bool      `json:"id"`
 	IsMaintenance      bool      `json:"is_maintenance"`

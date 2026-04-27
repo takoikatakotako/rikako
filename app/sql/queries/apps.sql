@@ -10,6 +10,21 @@ SELECT COUNT(*) FROM apps;
 -- name: GetAppByID :one
 SELECT id, slug, title, created_at FROM apps WHERE id = $1;
 
+-- name: ListAppCategoriesBySlug :many
+SELECT c.id, c.title, c.description, ac.sort_order
+FROM apps a
+JOIN app_categories ac ON ac.app_id = a.id
+JOIN categories c ON c.id = ac.category_id
+WHERE a.slug = $1
+ORDER BY ac.sort_order, c.id;
+
+-- name: ListAppCategoryIDsBySlug :many
+SELECT ac.category_id
+FROM apps a
+JOIN app_categories ac ON ac.app_id = a.id
+WHERE a.slug = $1
+ORDER BY ac.sort_order, ac.category_id;
+
 -- name: CreateApp :one
 INSERT INTO apps (slug, title) VALUES ($1, $2) RETURNING id;
 
