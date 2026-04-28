@@ -299,6 +299,42 @@ func (h *Handler) GetCategories(ctx context.Context, request api.GetCategoriesRe
 	}, nil
 }
 
+func (h *Handler) GetApp(ctx context.Context, request api.GetAppRequestObject) (api.GetAppResponseObject, error) {
+	app, err := h.queries.GetAppBySlug(ctx, request.AppSlug)
+	if err == sql.ErrNoRows {
+		return api.GetApp404JSONResponse{Code: "NOT_FOUND", Message: "app not found"}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to query app", "error", err, "app_slug", request.AppSlug)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListAppCategoriesBySlug(ctx, request.AppSlug)
+	if err != nil {
+		h.logger.Error("failed to query app categories", "error", err, "app_slug", request.AppSlug)
+		return nil, err
+	}
+
+	categories := []api.Category{}
+	for _, row := range rows {
+		c := api.Category{
+			Id:    row.ID,
+			Title: row.Title,
+		}
+		if row.Description.Valid {
+			c.Description = &row.Description.String
+		}
+		categories = append(categories, c)
+	}
+
+	return api.GetApp200JSONResponse{
+		Id:         app.ID,
+		Slug:       app.Slug,
+		Title:      app.Title,
+		Categories: categories,
+	}, nil
+}
+
 func (h *Handler) GetCategory(ctx context.Context, request api.GetCategoryRequestObject) (api.GetCategoryResponseObject, error) {
 	cat, err := h.queries.GetCategoryByID(ctx, request.CategoryId)
 	if err == sql.ErrNoRows {

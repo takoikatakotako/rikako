@@ -128,7 +128,7 @@ struct RootView: View {
 
     private func syncProfile() async {
         do {
-            let profile = try await AppContainer.shared.learningUseCases.fetchUserProfile.execute(appSlug: "chemistry")
+            let profile = try await AppContainer.shared.learningUseCases.fetchUserProfile.execute(appSlug: AppFlavor.current.slug)
             appState.userId = profile.userId
             appState.displayName = profile.displayName
             if let workbookId = profile.selectedWorkbookId {

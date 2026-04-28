@@ -78,6 +78,8 @@ type Querier interface {
 	ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error)
 	ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
+	ListAppCategoriesBySlug(ctx context.Context, slug string) ([]ListAppCategoriesBySlugRow, error)
+	ListAppCategoryIDsBySlug(ctx context.Context, slug string) ([]int64, error)
 	ListApps(ctx context.Context) ([]App, error)
 	ListCategories(ctx context.Context, arg ListCategoriesParams) ([]ListCategoriesRow, error)
 	ListLatestAnnouncements(ctx context.Context, limit int32) ([]Announcement, error)

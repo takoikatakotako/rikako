@@ -22,16 +22,16 @@ jobs:
         working-directory: ./ios
         run: |
           xcodebuild build \
-            -scheme Rikako \
+            -scheme high-school-chemistry-dev \
             -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug \
+            -configuration 'HighSchoolChemistryDev Debug' \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Build for testing
         working-directory: ./ios
         run: |
           xcodebuild build-for-testing \
-            -scheme Rikako \
+            -scheme high-school-chemistry-dev \
             -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug \
+            -configuration 'HighSchoolChemistryDev Debug' \
             CODE_SIGNING_ALLOWED=NO

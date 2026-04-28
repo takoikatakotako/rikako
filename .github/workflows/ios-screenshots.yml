@@ -27,11 +27,11 @@ jobs:
         working-directory: ./ios
         run: |
           xcodebuild test \
-            -scheme Rikako \
+            -scheme high-school-chemistry-dev \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -only-testing:RikakoTests/ScreenshotTests \
             -resultBundlePath build/screenshots.xcresult \
-            -configuration Debug \
+            -configuration 'HighSchoolChemistryDev Debug' \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Extract screenshots

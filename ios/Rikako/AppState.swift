@@ -70,7 +70,7 @@ final class AppState {
         selectedWorkbookID = workbookID
         Task {
             try? await AppContainer.shared.learningUseCases.updateUserProfile.execute(
-                appSlug: "chemistry",
+                appSlug: AppFlavor.current.slug,
                 request: UpdateUserProfileRequest(selectedWorkbookId: workbookID)
             )
         }

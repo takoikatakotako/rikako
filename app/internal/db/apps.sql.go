@@ -131,6 +131,81 @@ func (q *Queries) GetUserProfile(ctx context.Context, id int64) (GetUserProfileR
 	return i, err
 }
 
+const listAppCategoriesBySlug = `-- name: ListAppCategoriesBySlug :many
+SELECT c.id, c.title, c.description, ac.sort_order
+FROM apps a
+JOIN app_categories ac ON ac.app_id = a.id
+JOIN categories c ON c.id = ac.category_id
+WHERE a.slug = $1
+ORDER BY ac.sort_order, c.id
+`
+
+type ListAppCategoriesBySlugRow struct {
+	ID          int64          `json:"id"`
+	Title       string         `json:"title"`
+	Description sql.NullString `json:"description"`
+	SortOrder   int32          `json:"sort_order"`
+}
+
+func (q *Queries) ListAppCategoriesBySlug(ctx context.Context, slug string) ([]ListAppCategoriesBySlugRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAppCategoriesBySlug, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAppCategoriesBySlugRow{}
+	for rows.Next() {
+		var i ListAppCategoriesBySlugRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAppCategoryIDsBySlug = `-- name: ListAppCategoryIDsBySlug :many
+SELECT ac.category_id
+FROM apps a
+JOIN app_categories ac ON ac.app_id = a.id
+WHERE a.slug = $1
+ORDER BY ac.sort_order, ac.category_id
+`
+
+func (q *Queries) ListAppCategoryIDsBySlug(ctx context.Context, slug string) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listAppCategoryIDsBySlug, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var category_id int64
+		if err := rows.Scan(&category_id); err != nil {
+			return nil, err
+		}
+		items = append(items, category_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApps = `-- name: ListApps :many
 SELECT id, slug, title, created_at FROM apps ORDER BY id
 `

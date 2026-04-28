@@ -80,6 +80,14 @@ type AnswerLogsResponse struct {
 	Total int             `json:"total"`
 }
 
+// App defines model for App.
+type App struct {
+	Categories []Category `json:"categories"`
+	Id         int64      `json:"id"`
+	Slug       string     `json:"slug"`
+	Title      string     `json:"title"`
+}
+
 // AppStatusResponse defines model for AppStatusResponse.
 type AppStatusResponse struct {
 	// IsMaintenance メンテナンス中かどうか
@@ -349,6 +357,9 @@ type ServerInterface interface {
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx echo.Context, params SubmitAnswersParams) error
+	// アプリ詳細取得
+	// (GET /apps/{appSlug})
+	GetApp(ctx echo.Context, appSlug string) error
 	// 匿名サインイン
 	// (POST /auth/anonymous/sign-in)
 	AnonymousSignIn(ctx echo.Context) error
@@ -466,6 +477,22 @@ func (w *ServerInterfaceWrapper) SubmitAnswers(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.SubmitAnswers(ctx, params)
+	return err
+}
+
+// GetApp converts echo context to params.
+func (w *ServerInterfaceWrapper) GetApp(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "appSlug" -------------
+	var appSlug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "appSlug", ctx.Param("appSlug"), &appSlug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter appSlug: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetApp(ctx, appSlug)
 	return err
 }
 
@@ -934,6 +961,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
 	router.GET(baseURL+"/announcements/:announcementId", wrapper.GetAnnouncement)
 	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
+	router.GET(baseURL+"/apps/:appSlug", wrapper.GetApp)
 	router.POST(baseURL+"/auth/anonymous/sign-in", wrapper.AnonymousSignIn)
 	router.POST(baseURL+"/auth/anonymous/sign-out", wrapper.AnonymousSignOut)
 	router.GET(baseURL+"/categories", wrapper.GetCategories)
@@ -1034,6 +1062,32 @@ type SubmitAnswers400JSONResponse Error
 func (response SubmitAnswers400JSONResponse) VisitSubmitAnswersResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAppRequestObject struct {
+	AppSlug string `json:"appSlug"`
+}
+
+type GetAppResponseObject interface {
+	VisitGetAppResponse(w http.ResponseWriter) error
+}
+
+type GetApp200JSONResponse App
+
+func (response GetApp200JSONResponse) VisitGetAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetApp404JSONResponse Error
+
+func (response GetApp404JSONResponse) VisitGetAppResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1447,6 +1501,9 @@ type StrictServerInterface interface {
 	// 回答送信
 	// (POST /answers)
 	SubmitAnswers(ctx context.Context, request SubmitAnswersRequestObject) (SubmitAnswersResponseObject, error)
+	// アプリ詳細取得
+	// (GET /apps/{appSlug})
+	GetApp(ctx context.Context, request GetAppRequestObject) (GetAppResponseObject, error)
 	// 匿名サインイン
 	// (POST /auth/anonymous/sign-in)
 	AnonymousSignIn(ctx context.Context, request AnonymousSignInRequestObject) (AnonymousSignInResponseObject, error)
@@ -1605,6 +1662,31 @@ func (sh *strictHandler) SubmitAnswers(ctx echo.Context, params SubmitAnswersPar
 		return err
 	} else if validResponse, ok := response.(SubmitAnswersResponseObject); ok {
 		return validResponse.VisitSubmitAnswersResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetApp operation middleware
+func (sh *strictHandler) GetApp(ctx echo.Context, appSlug string) error {
+	var request GetAppRequestObject
+
+	request.AppSlug = appSlug
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetApp(ctx.Request().Context(), request.(GetAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAppResponseObject); ok {
+		return validResponse.VisitGetAppResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
