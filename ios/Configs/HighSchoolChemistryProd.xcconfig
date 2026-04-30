@@ -1,0 +1,5 @@
+APP_DISPLAY_NAME = Rikako Chemistry
+APP_SLUG = high-school-chemistry
+API_BASE_URL = https:/$()/api.rikako.jp
+CONTENT_BASE_URL = https:/$()/content.rikako.jp/v1
+PRODUCT_BUNDLE_IDENTIFIER = jp.conol.rikako
