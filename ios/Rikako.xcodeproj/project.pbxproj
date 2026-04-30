@@ -28,9 +28,9 @@
 		17B40F6A2F65BCE4001A7DD8 /* RikakoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RikakoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		17B40F742F65BCE4001A7DD8 /* RikakoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RikakoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CF0000000000000000000001 /* ItPassportDev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ItPassportDev.xcconfig; sourceTree = "<group>"; };
-		CF0000000000000000000002 /* ItPassportStg.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ItPassportStg.xcconfig; sourceTree = "<group>"; };
+		CF0000000000000000000002 /* ItPassportProd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ItPassportProd.xcconfig; sourceTree = "<group>"; };
 		CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HighSchoolChemistryDev.xcconfig; sourceTree = "<group>"; };
-		CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HighSchoolChemistryStg.xcconfig; sourceTree = "<group>"; };
+		CF0000000000000000000004 /* HighSchoolChemistryProd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = HighSchoolChemistryProd.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -114,9 +114,9 @@
 			isa = PBXGroup;
 			children = (
 				CF0000000000000000000001 /* ItPassportDev.xcconfig */,
-				CF0000000000000000000002 /* ItPassportStg.xcconfig */,
+				CF0000000000000000000002 /* ItPassportProd.xcconfig */,
 				CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */,
-				CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */,
+				CF0000000000000000000004 /* HighSchoolChemistryProd.xcconfig */,
 			);
 			path = Configs;
 			sourceTree = "<group>";
@@ -621,7 +621,7 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		CF0000000000000000000011 /* ItPassportStg Debug */ = {
+		CF0000000000000000000011 /* ItPassportProd Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -655,7 +655,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
-			name = "ItPassportStg Debug";
+			name = "ItPassportProd Debug";
 		};
 		CF0000000000000000000012 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -693,7 +693,7 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		CF0000000000000000000013 /* HighSchoolChemistryStg Debug */ = {
+		CF0000000000000000000013 /* HighSchoolChemistryProd Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -727,7 +727,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
-			name = "HighSchoolChemistryStg Debug";
+			name = "HighSchoolChemistryProd Debug";
 		};
 		CF0000000000000000000020 /* ItPassportDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -766,9 +766,9 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		CF0000000000000000000021 /* ItPassportStg Debug */ = {
+		CF0000000000000000000021 /* ItPassportProd Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CF0000000000000000000002 /* ItPassportStg.xcconfig */;
+			baseConfigurationReference = CF0000000000000000000002 /* ItPassportProd.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -801,7 +801,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = "ItPassportStg Debug";
+			name = "ItPassportProd Debug";
 		};
 		CF0000000000000000000022 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -840,9 +840,9 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		CF0000000000000000000023 /* HighSchoolChemistryStg Debug */ = {
+		CF0000000000000000000023 /* HighSchoolChemistryProd Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CF0000000000000000000004 /* HighSchoolChemistryStg.xcconfig */;
+			baseConfigurationReference = CF0000000000000000000004 /* HighSchoolChemistryProd.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -875,7 +875,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = "HighSchoolChemistryStg Debug";
+			name = "HighSchoolChemistryProd Debug";
 		};
 /* End XCBuildConfiguration section */
 
@@ -886,9 +886,9 @@
 				17B40F7C2F65BCE4001A7DD8 /* Debug */,
 				17B40F7D2F65BCE4001A7DD8 /* Release */,
 				CF0000000000000000000010 /* ItPassportDev Debug */,
-				CF0000000000000000000011 /* ItPassportStg Debug */,
+				CF0000000000000000000011 /* ItPassportProd Debug */,
 				CF0000000000000000000012 /* HighSchoolChemistryDev Debug */,
-				CF0000000000000000000013 /* HighSchoolChemistryStg Debug */,
+				CF0000000000000000000013 /* HighSchoolChemistryProd Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -899,9 +899,9 @@
 				17B40F7F2F65BCE4001A7DD8 /* Debug */,
 				17B40F802F65BCE4001A7DD8 /* Release */,
 				CF0000000000000000000020 /* ItPassportDev Debug */,
-				CF0000000000000000000021 /* ItPassportStg Debug */,
+				CF0000000000000000000021 /* ItPassportProd Debug */,
 				CF0000000000000000000022 /* HighSchoolChemistryDev Debug */,
-				CF0000000000000000000023 /* HighSchoolChemistryStg Debug */,
+				CF0000000000000000000023 /* HighSchoolChemistryProd Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

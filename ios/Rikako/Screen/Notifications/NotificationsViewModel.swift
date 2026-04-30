@@ -20,10 +20,10 @@ final class NotificationsViewModel {
 
     init(
         fetchAnnouncements: FetchAnnouncementsUseCase,
-        readStore: AnnouncementReadStore = AnnouncementReadStore()
+        readStore: AnnouncementReadStore? = nil
     ) {
         self.fetchAnnouncements = fetchAnnouncements
-        self.readStore = readStore
+        self.readStore = readStore ?? AnnouncementReadStore()
     }
 
     var unreadCount: Int {
