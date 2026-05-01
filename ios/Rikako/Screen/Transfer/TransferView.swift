@@ -54,7 +54,7 @@ private struct IssueTokenView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     if let expiresAt = viewModel.transferToken?.expiresAt {
-                        Text("有効期限: \(expiresAt.formatted(.dateTime.year().month().day().locale(Locale(identifier: "ja_JP"))))")
+                        Text("有効期限: \(expiresAt.formatted(.dateTime.year().month().day().hour().minute().locale(Locale(identifier: "ja_JP"))))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
