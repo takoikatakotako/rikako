@@ -81,7 +81,7 @@ private struct IssueTokenView: View {
                         .padding(.horizontal)
 
                     Button {
-                        Task { await saveQRToPhotos(scaledQRCode(qrImage)) }
+                        Task { await saveQRToPhotos(makeTransferCardImage(qrSource: qrImage, expiresAt: token.expiresAt)) }
                     } label: {
                         Label("写真に保存", systemImage: "photo.badge.plus")
                             .font(.subheadline)
@@ -249,11 +249,79 @@ private func generateQRCode(from string: String) -> UIImage? {
     return UIImage(cgImage: cgImage)
 }
 
-private func scaledQRCode(_ source: UIImage, size: CGFloat = 1024) -> UIImage {
-    let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date) -> UIImage {
+    let w: CGFloat = 800
+    let h: CGFloat = 1000
+    let accentColor = UIColor(named: "AccentColor") ?? .systemBlue
+
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
     return renderer.image { ctx in
-        ctx.cgContext.interpolationQuality = .none
-        source.draw(in: CGRect(origin: .zero, size: CGSize(width: size, height: size)))
+        let cg = ctx.cgContext
+
+        // 白背景
+        UIColor.white.setFill()
+        UIRectFill(CGRect(x: 0, y: 0, width: w, height: h))
+
+        // ── ヘッダー ─────────────────────────────────
+        let headerH: CGFloat = 190
+        accentColor.setFill()
+        UIRectFill(CGRect(x: 0, y: 0, width: w, height: headerH))
+
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Rikako"
+        let nameAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.boldSystemFont(ofSize: 46),
+            .foregroundColor: UIColor.white
+        ]
+        let nameStr = appName as NSString
+        let nameSize = nameStr.size(withAttributes: nameAttrs)
+        nameStr.draw(at: CGPoint(x: (w - nameSize.width) / 2, y: 48), withAttributes: nameAttrs)
+
+        let subAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 26),
+            .foregroundColor: UIColor.white.withAlphaComponent(0.88)
+        ]
+        let subStr = "データ引き継ぎQRコード" as NSString
+        let subSize = subStr.size(withAttributes: subAttrs)
+        subStr.draw(at: CGPoint(x: (w - subSize.width) / 2, y: 116), withAttributes: subAttrs)
+
+        // ── QRカード ─────────────────────────────────
+        let pad: CGFloat = 64
+        let qrSide = w - pad * 2   // 672
+        let qrY: CGFloat = headerH + 36
+
+        // 外枠（薄グレー）→ 内側白
+        let cardOuter = CGRect(x: pad - 16, y: qrY - 16, width: qrSide + 32, height: qrSide + 32)
+        UIColor(white: 0.92, alpha: 1).setFill()
+        UIBezierPath(roundedRect: cardOuter, cornerRadius: 24).fill()
+        UIColor.white.setFill()
+        UIBezierPath(roundedRect: cardOuter.insetBy(dx: 3, dy: 3), cornerRadius: 22).fill()
+
+        // QRコード描画
+        cg.interpolationQuality = .none
+        qrSource.draw(in: CGRect(x: pad, y: qrY, width: qrSide, height: qrSide))
+
+        // ── フッター ─────────────────────────────────
+        let footerY = qrY + qrSide + 44
+
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "ja_JP")
+        df.dateFormat = "yyyy年M月d日 HH:mm まで有効"
+
+        let expiresAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: 22, weight: .regular),
+            .foregroundColor: UIColor(white: 0.35, alpha: 1)
+        ]
+        let expiresStr = df.string(from: expiresAt) as NSString
+        let expiresSize = expiresStr.size(withAttributes: expiresAttrs)
+        expiresStr.draw(at: CGPoint(x: (w - expiresSize.width) / 2, y: footerY), withAttributes: expiresAttrs)
+
+        let instrAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 20),
+            .foregroundColor: UIColor(white: 0.6, alpha: 1)
+        ]
+        let instrStr = "新しいデバイスのカメラで読み取ってください" as NSString
+        let instrSize = instrStr.size(withAttributes: instrAttrs)
+        instrStr.draw(at: CGPoint(x: (w - instrSize.width) / 2, y: footerY + 36), withAttributes: instrAttrs)
     }
 }
 
