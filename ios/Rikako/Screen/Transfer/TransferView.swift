@@ -1,8 +1,8 @@
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 import PhotosUI
+import Photos
 import Vision
-import UniformTypeIdentifiers
 import AVFoundation
 
 struct TransferView: View {
@@ -44,6 +44,7 @@ struct TransferView: View {
 
 private struct IssueTokenView: View {
     var viewModel: TransferViewModel
+    @State private var saveMessage: String?
 
     var body: some View {
         ScrollView {
@@ -79,12 +80,17 @@ private struct IssueTokenView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
 
-                    ShareLink(
-                        item: QRCodePNG(image: scaledQRCode(qrImage)),
-                        preview: SharePreview("引き継ぎQRコード", image: Image(uiImage: qrImage))
-                    ) {
-                        Label("画像として書き出す", systemImage: "square.and.arrow.up")
+                    Button {
+                        Task { await saveQRToPhotos(scaledQRCode(qrImage)) }
+                    } label: {
+                        Label("写真に保存", systemImage: "photo.badge.plus")
                             .font(.subheadline)
+                    }
+
+                    if let msg = saveMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(msg.contains("失敗") ? .red : .green)
                     }
                 }
 
@@ -105,6 +111,22 @@ private struct IssueTokenView: View {
                 Spacer()
             }
             .padding()
+        }
+    }
+
+    private func saveQRToPhotos(_ image: UIImage) async {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            saveMessage = "写真への保存が許可されていません"
+            return
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+            saveMessage = "写真に保存しました"
+        } catch {
+            saveMessage = "保存に失敗しました"
         }
     }
 }
@@ -232,18 +254,6 @@ private func scaledQRCode(_ source: UIImage, size: CGFloat = 1024) -> UIImage {
     return renderer.image { ctx in
         ctx.cgContext.interpolationQuality = .none
         source.draw(in: CGRect(origin: .zero, size: CGSize(width: size, height: size)))
-    }
-}
-
-// MARK: - PNG書き出し用Transferable
-
-private struct QRCodePNG: Transferable {
-    let image: UIImage
-
-    static var transferRepresentation: some TransferRepresentation {
-        DataRepresentation(exportedContentType: .png) { item in
-            item.image.pngData() ?? Data()
-        }
     }
 }
 

@@ -24,6 +24,10 @@
 	<string>$(APP_SLUG)</string>
 	<key>RIKAKO_CONTENT_BASE_URL</key>
 	<string>$(CONTENT_BASE_URL)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>QRコードを読み取るためにカメラを使用します</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>引き継ぎQRコードを写真アプリに保存します</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
