@@ -56,6 +56,8 @@ final class TransferViewModel {
             let identityId = try await applyTokenUseCase.execute(token: token)
             deviceIdentityProvider.overrideIdentityId(identityId)
             transferCompleted = true
+        } catch APIError.sameDevice {
+            errorMessage = "このQRコードは同じデバイスで発行されています。別のデバイスのQRコードを読み取ってください"
         } catch {
             errorMessage = "引き継ぎに失敗しました。コードが正しいか確認してください"
         }
