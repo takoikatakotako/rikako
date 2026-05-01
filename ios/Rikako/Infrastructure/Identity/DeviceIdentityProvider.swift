@@ -3,6 +3,7 @@ import Security
 
 protocol DeviceIdentityProviding {
     func getIdentityId() async throws -> String
+    func overrideIdentityId(_ id: String)
 }
 
 final class CognitoDeviceIdentityProvider: DeviceIdentityProviding {
@@ -28,6 +29,11 @@ final class CognitoDeviceIdentityProvider: DeviceIdentityProviding {
         keychainStore.save(identityId)
         cachedIdentityId = identityId
         return identityId
+    }
+
+    func overrideIdentityId(_ id: String) {
+        keychainStore.save(id)
+        cachedIdentityId = id
     }
 
     private func fetchIdentityId() async throws -> String {

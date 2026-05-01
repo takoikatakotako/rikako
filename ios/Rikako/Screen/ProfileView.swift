@@ -43,6 +43,21 @@ struct ProfileView: View {
                 }
             }
 
+            Section("データ管理") {
+                NavigationLink {
+                    TransferView(
+                        viewModel: TransferViewModel(
+                            fetchTokenUseCase: AppContainer.shared.learningUseCases.fetchTransferToken,
+                            refreshTokenUseCase: AppContainer.shared.learningUseCases.refreshTransferToken,
+                            applyTokenUseCase: AppContainer.shared.learningUseCases.applyTransferToken,
+                            deviceIdentityProvider: AppContainer.shared.deviceIdentityProvider
+                        )
+                    )
+                } label: {
+                    Label("データ引き継ぎ", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+
             Section("学習記録") {
                 HStack {
                     Label("総解答数", systemImage: "number")

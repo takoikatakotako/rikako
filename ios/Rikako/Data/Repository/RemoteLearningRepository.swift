@@ -184,6 +184,54 @@ final class RemoteLearningRepository: LearningRepository {
         return try decoder.decode(T.self, from: data)
     }
 
+    func fetchTransferToken() async throws -> TransferToken {
+        let url = apiBaseURL.appendingPathComponent("transfer/token")
+        var request = URLRequest(url: url)
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+
+        struct Response: Decodable { let token: String; let expiresAt: Date }
+        let result = try decoder.decode(Response.self, from: data)
+        return TransferToken(token: result.token, expiresAt: result.expiresAt)
+    }
+
+    func refreshTransferToken() async throws -> TransferToken {
+        let url = apiBaseURL.appendingPathComponent("transfer/token")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+
+        struct Response: Decodable { let token: String; let expiresAt: Date }
+        let result = try decoder.decode(Response.self, from: data)
+        return TransferToken(token: result.token, expiresAt: result.expiresAt)
+    }
+
+    func applyTransferToken(_ token: String) async throws -> String {
+        let url = apiBaseURL.appendingPathComponent("transfer/apply")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        struct Body: Encodable { let token: String }
+        request.httpBody = try encoder.encode(Body(token: token))
+
+        let (data, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+
+        struct Response: Decodable { let identityId: String }
+        let result = try decoder.decode(Response.self, from: data)
+        return result.identityId
+    }
+
     private func validateResponse(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse

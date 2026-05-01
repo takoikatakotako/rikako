@@ -159,6 +159,24 @@ final class PreviewLearningRepository: LearningRepository {
     }
 }
 
+extension PreviewLearningRepository {
+    func fetchTransferToken() async throws -> TransferToken {
+        TransferToken(token: "preview-token-abcdef1234567890", expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600))
+    }
+    func refreshTransferToken() async throws -> TransferToken {
+        TransferToken(token: "preview-token-new-\(UUID().uuidString.prefix(8))", expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600))
+    }
+    func applyTransferToken(_ token: String) async throws -> String {
+        "preview-identity-id-from-transfer"
+    }
+}
+
+final class PreviewDeviceIdentityProvider: DeviceIdentityProviding {
+    private(set) var identityId = "preview-identity-id"
+    func getIdentityId() async throws -> String { identityId }
+    func overrideIdentityId(_ id: String) { identityId = id }
+}
+
 enum PreviewAppContainer {
     private static let learningUseCases = LearningUseCases(repository: PreviewLearningRepository())
 
