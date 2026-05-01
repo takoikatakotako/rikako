@@ -193,9 +193,12 @@ final class RemoteLearningRepository: LearningRepository {
         let (data, response) = try await httpClient.data(for: request)
         try validateResponse(response)
 
-        struct Response: Decodable { let token: String; let expiresAt: Date }
+        struct Response: Decodable {
+            let token: String
+            let expires_at: Date
+        }
         let result = try decoder.decode(Response.self, from: data)
-        return TransferToken(token: result.token, expiresAt: result.expiresAt)
+        return TransferToken(token: result.token, expiresAt: result.expires_at)
     }
 
     func refreshTransferToken() async throws -> TransferToken {
@@ -208,9 +211,12 @@ final class RemoteLearningRepository: LearningRepository {
         let (data, response) = try await httpClient.data(for: request)
         try validateResponse(response)
 
-        struct Response: Decodable { let token: String; let expiresAt: Date }
+        struct Response: Decodable {
+            let token: String
+            let expires_at: Date
+        }
         let result = try decoder.decode(Response.self, from: data)
-        return TransferToken(token: result.token, expiresAt: result.expiresAt)
+        return TransferToken(token: result.token, expiresAt: result.expires_at)
     }
 
     func applyTransferToken(_ token: String) async throws -> String {
@@ -227,9 +233,9 @@ final class RemoteLearningRepository: LearningRepository {
         let (data, response) = try await httpClient.data(for: request)
         try validateResponse(response)
 
-        struct Response: Decodable { let identityId: String }
+        struct Response: Decodable { let identity_id: String }
         let result = try decoder.decode(Response.self, from: data)
-        return result.identityId
+        return result.identity_id
     }
 
     private func validateResponse(_ response: URLResponse) throws {
