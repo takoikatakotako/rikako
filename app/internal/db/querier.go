@@ -30,7 +30,7 @@ type Querier interface {
 	CreateQuestion(ctx context.Context, type_ string) (int64, error)
 	CreateQuestionImage(ctx context.Context, arg CreateQuestionImageParams) error
 	CreateSingleChoice(ctx context.Context, arg CreateSingleChoiceParams) (int64, error)
-	CreateTransferToken(ctx context.Context, arg CreateTransferTokenParams) error
+	CreateTransferToken(ctx context.Context, arg CreateTransferTokenParams) (CreateTransferTokenRow, error)
 	CreateUserAnswer(ctx context.Context, arg CreateUserAnswerParams) error
 	CreateWorkbook(ctx context.Context, arg CreateWorkbookParams) (int64, error)
 	CreateWorkbookQuestion(ctx context.Context, arg CreateWorkbookQuestionParams) error
@@ -48,8 +48,10 @@ type Querier interface {
 	DeleteChoicesByQuestionID(ctx context.Context, questionID int64) error
 	DeleteQuestion(ctx context.Context, id int64) (sql.Result, error)
 	DeleteQuestionImages(ctx context.Context, questionID int64) error
+	DeleteTransferTokensByIdentityID(ctx context.Context, identityID string) error
 	DeleteWorkbook(ctx context.Context, id int64) (sql.Result, error)
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
+	GetActiveTransferToken(ctx context.Context, identityID string) (GetActiveTransferTokenRow, error)
 	GetAnnouncement(ctx context.Context, id int64) (Announcement, error)
 	GetAppByID(ctx context.Context, id int64) (App, error)
 	GetAppBySlug(ctx context.Context, slug string) (GetAppBySlugRow, error)

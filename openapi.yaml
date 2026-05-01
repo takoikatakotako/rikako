@@ -570,8 +570,35 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   /transfer/token:
+    get:
+      summary: 引き継ぎトークン取得（なければ自動発行）
+      operationId: getTransferToken
+      tags:
+        - Transfer
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '200':
+          description: 引き継ぎトークン
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTokenResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
-      summary: 引き継ぎトークン発行
+      summary: 引き継ぎトークン再発行（古いものを削除して新規発行）
       operationId: issueTransferToken
       tags:
         - Transfer

@@ -26,9 +26,10 @@ func (q *Queries) ConsumeTransferToken(ctx context.Context, token string) (strin
 	return identity_id, err
 }
 
-const createTransferToken = `-- name: CreateTransferToken :exec
+const createTransferToken = `-- name: CreateTransferToken :one
 INSERT INTO transfer_tokens (token, identity_id, expires_at)
 VALUES ($1, $2, $3)
+RETURNING token, expires_at
 `
 
 type CreateTransferTokenParams struct {
@@ -37,7 +38,44 @@ type CreateTransferTokenParams struct {
 	ExpiresAt  time.Time `json:"expires_at"`
 }
 
-func (q *Queries) CreateTransferToken(ctx context.Context, arg CreateTransferTokenParams) error {
-	_, err := q.db.ExecContext(ctx, createTransferToken, arg.Token, arg.IdentityID, arg.ExpiresAt)
+type CreateTransferTokenRow struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (q *Queries) CreateTransferToken(ctx context.Context, arg CreateTransferTokenParams) (CreateTransferTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, createTransferToken, arg.Token, arg.IdentityID, arg.ExpiresAt)
+	var i CreateTransferTokenRow
+	err := row.Scan(&i.Token, &i.ExpiresAt)
+	return i, err
+}
+
+const deleteTransferTokensByIdentityID = `-- name: DeleteTransferTokensByIdentityID :exec
+DELETE FROM transfer_tokens WHERE identity_id = $1
+`
+
+func (q *Queries) DeleteTransferTokensByIdentityID(ctx context.Context, identityID string) error {
+	_, err := q.db.ExecContext(ctx, deleteTransferTokensByIdentityID, identityID)
 	return err
+}
+
+const getActiveTransferToken = `-- name: GetActiveTransferToken :one
+SELECT token, expires_at FROM transfer_tokens
+WHERE identity_id = $1
+  AND used_at IS NULL
+  AND expires_at > CURRENT_TIMESTAMP
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type GetActiveTransferTokenRow struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (q *Queries) GetActiveTransferToken(ctx context.Context, identityID string) (GetActiveTransferTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getActiveTransferToken, identityID)
+	var i GetActiveTransferTokenRow
+	err := row.Scan(&i.Token, &i.ExpiresAt)
+	return i, err
 }

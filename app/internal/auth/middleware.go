@@ -37,6 +37,7 @@ var publicOperations = map[string]bool{
 	"AnonymousSignOut":    true,
 	"GetUserProfile":      true,
 	"UpdateUserProfile":   true,
+	"GetTransferToken":    true,
 	"IssueTransferToken":  true,
 	"ApplyTransferToken":  true,
 }

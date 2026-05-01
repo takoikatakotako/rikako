@@ -302,6 +302,12 @@ type ApplyTransferTokenParams struct {
 	XDeviceID DeviceID `json:"X-Device-ID"`
 }
 
+// GetTransferTokenParams defines parameters for GetTransferToken.
+type GetTransferTokenParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // IssueTransferTokenParams defines parameters for IssueTransferToken.
 type IssueTransferTokenParams struct {
 	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
@@ -413,7 +419,10 @@ type ServerInterface interface {
 	// 引き継ぎトークン適用
 	// (POST /transfer/apply)
 	ApplyTransferToken(ctx echo.Context, params ApplyTransferTokenParams) error
-	// 引き継ぎトークン発行
+	// 引き継ぎトークン取得（なければ自動発行）
+	// (GET /transfer/token)
+	GetTransferToken(ctx echo.Context, params GetTransferTokenParams) error
+	// 引き継ぎトークン再発行（古いものを削除して新規発行）
 	// (POST /transfer/token)
 	IssueTransferToken(ctx echo.Context, params IssueTransferTokenParams) error
 	// ユーザープロフィール取得
@@ -696,6 +705,37 @@ func (w *ServerInterfaceWrapper) ApplyTransferToken(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ApplyTransferToken(ctx, params)
+	return err
+}
+
+// GetTransferToken converts echo context to params.
+func (w *ServerInterfaceWrapper) GetTransferToken(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTransferTokenParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetTransferToken(ctx, params)
 	return err
 }
 
@@ -1065,6 +1105,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/questions/:questionId", wrapper.GetQuestion)
 	router.GET(baseURL+"/status", wrapper.GetAppStatus)
 	router.POST(baseURL+"/transfer/apply", wrapper.ApplyTransferToken)
+	router.GET(baseURL+"/transfer/token", wrapper.GetTransferToken)
 	router.POST(baseURL+"/transfer/token", wrapper.IssueTransferToken)
 	router.GET(baseURL+"/users/me", wrapper.GetUserProfile)
 	router.PUT(baseURL+"/users/me", wrapper.UpdateUserProfile)
@@ -1410,6 +1451,41 @@ func (response ApplyTransferToken500JSONResponse) VisitApplyTransferTokenRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetTransferTokenRequestObject struct {
+	Params GetTransferTokenParams
+}
+
+type GetTransferTokenResponseObject interface {
+	VisitGetTransferTokenResponse(w http.ResponseWriter) error
+}
+
+type GetTransferToken200JSONResponse TransferTokenResponse
+
+func (response GetTransferToken200JSONResponse) VisitGetTransferTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTransferToken400JSONResponse Error
+
+func (response GetTransferToken400JSONResponse) VisitGetTransferTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTransferToken500JSONResponse Error
+
+func (response GetTransferToken500JSONResponse) VisitGetTransferTokenResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type IssueTransferTokenRequestObject struct {
 	Params IssueTransferTokenParams
 }
@@ -1698,7 +1774,10 @@ type StrictServerInterface interface {
 	// 引き継ぎトークン適用
 	// (POST /transfer/apply)
 	ApplyTransferToken(ctx context.Context, request ApplyTransferTokenRequestObject) (ApplyTransferTokenResponseObject, error)
-	// 引き継ぎトークン発行
+	// 引き継ぎトークン取得（なければ自動発行）
+	// (GET /transfer/token)
+	GetTransferToken(ctx context.Context, request GetTransferTokenRequestObject) (GetTransferTokenResponseObject, error)
+	// 引き継ぎトークン再発行（古いものを削除して新規発行）
 	// (POST /transfer/token)
 	IssueTransferToken(ctx context.Context, request IssueTransferTokenRequestObject) (IssueTransferTokenResponseObject, error)
 	// ユーザープロフィール取得
@@ -2085,6 +2164,31 @@ func (sh *strictHandler) ApplyTransferToken(ctx echo.Context, params ApplyTransf
 		return err
 	} else if validResponse, ok := response.(ApplyTransferTokenResponseObject); ok {
 		return validResponse.VisitApplyTransferTokenResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetTransferToken operation middleware
+func (sh *strictHandler) GetTransferToken(ctx echo.Context, params GetTransferTokenParams) error {
+	var request GetTransferTokenRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTransferToken(ctx.Request().Context(), request.(GetTransferTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTransferToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetTransferTokenResponseObject); ok {
+		return validResponse.VisitGetTransferTokenResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
