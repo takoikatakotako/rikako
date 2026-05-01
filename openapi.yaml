@@ -569,6 +569,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /transfer/token:
+    get:
+      summary: 引き継ぎトークン取得（なければ自動発行）
+      operationId: getTransferToken
+      tags:
+        - Transfer
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '200':
+          description: 引き継ぎトークン
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTokenResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: 引き継ぎトークン再発行（古いものを削除して新規発行）
+      operationId: issueTransferToken
+      tags:
+        - Transfer
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '200':
+          description: 引き継ぎトークン
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferTokenResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transfer/apply:
+    post:
+      summary: 引き継ぎトークン適用
+      operationId: applyTransferToken
+      tags:
+        - Transfer
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyTransferTokenRequest'
+      responses:
+        '200':
+          description: 引き継ぎ成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyTransferTokenResponse'
+        '400':
+          description: トークン不正・期限切れ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   parameters:
     DeviceID:
@@ -1022,6 +1113,38 @@ components:
         total:
           type: integer
           description: 総件数
+
+    TransferTokenResponse:
+      type: object
+      required:
+        - token
+        - expires_at
+      properties:
+        token:
+          type: string
+          description: 引き継ぎトークン（15分有効）
+        expires_at:
+          type: string
+          format: date-time
+          description: トークン有効期限
+
+    ApplyTransferTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: 引き継ぎトークン
+
+    ApplyTransferTokenResponse:
+      type: object
+      required:
+        - identity_id
+      properties:
+        identity_id:
+          type: string
+          description: 引き継ぎ元の Identity ID（新端末がこれを使用する）
 
     Error:
       type: object
