@@ -226,7 +226,7 @@ private struct ScanTokenView: View {
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         try? handler.perform([request])
 
-        guard let token = (request.results as? [VNBarcodeObservation])?
+        guard let token = request.results?
             .first(where: { $0.symbology == .qr })?
             .payloadStringValue else {
             viewModel.errorMessage = "QRコードが見つかりませんでした"
@@ -390,6 +390,15 @@ private final class ScannerViewController: UIViewController, AVCaptureMetadataOu
         captureSession?.stopRunning()
         onScan(value)
     }
+}
+
+#Preview("保存カード") {
+    let qr = generateQRCode(from: "preview-token-abcdef1234567890") ?? UIImage()
+    let card = makeTransferCardImage(qrSource: qr, expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600))
+    Image(uiImage: card)
+        .resizable()
+        .scaledToFit()
+        .padding()
 }
 
 #Preview {
