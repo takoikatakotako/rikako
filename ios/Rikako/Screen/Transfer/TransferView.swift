@@ -252,7 +252,7 @@ private func generateQRCode(from string: String) -> UIImage? {
 private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date) -> UIImage {
     let w: CGFloat = 800
     let h: CGFloat = 1000
-    let accentColor = UIColor(named: "AccentColor") ?? .systemBlue
+    let accentColor = UIColor(named: "main") ?? .systemGreen
 
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
     return renderer.image { ctx in
