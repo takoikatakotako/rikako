@@ -392,13 +392,12 @@ private final class ScannerViewController: UIViewController, AVCaptureMetadataOu
     }
 }
 
-#Preview("保存カード") {
+#Preview("保存カード", traits: .fixedLayout(width: 400, height: 500)) {
     let qr = generateQRCode(from: "preview-token-abcdef1234567890") ?? UIImage()
     let card = makeTransferCardImage(qrSource: qr, expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600))
     Image(uiImage: card)
         .resizable()
         .scaledToFit()
-        .padding()
 }
 
 #Preview {
