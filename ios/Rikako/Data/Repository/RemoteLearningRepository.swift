@@ -232,8 +232,7 @@ final class RemoteLearningRepository: LearningRepository {
 
         let (data, response) = try await httpClient.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            struct ErrorResponse: Decodable { let code: String }
-            if let body = try? decoder.decode(ErrorResponse.self, from: data), body.code == "SAME_DEVICE" {
+            if (String(data: data, encoding: .utf8) ?? "").contains("SAME_DEVICE") {
                 throw APIError.sameDevice
             }
             throw APIError.httpError(http.statusCode)
