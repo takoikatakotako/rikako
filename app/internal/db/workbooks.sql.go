@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countPublishedWorkbooks = `-- name: CountPublishedWorkbooks :one
+SELECT COUNT(*) FROM workbooks WHERE is_published = true
+`
+
+func (q *Queries) CountPublishedWorkbooks(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPublishedWorkbooks)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countWorkbooks = `-- name: CountWorkbooks :one
 SELECT COUNT(*) FROM workbooks
 `
@@ -22,17 +33,23 @@ func (q *Queries) CountWorkbooks(ctx context.Context) (int64, error) {
 }
 
 const createWorkbook = `-- name: CreateWorkbook :one
-INSERT INTO workbooks (title, description, category_id) VALUES ($1, $2, $3) RETURNING id
+INSERT INTO workbooks (title, description, category_id, is_published) VALUES ($1, $2, $3, $4) RETURNING id
 `
 
 type CreateWorkbookParams struct {
 	Title       string         `json:"title"`
 	Description sql.NullString `json:"description"`
 	CategoryID  sql.NullInt64  `json:"category_id"`
+	IsPublished bool           `json:"is_published"`
 }
 
 func (q *Queries) CreateWorkbook(ctx context.Context, arg CreateWorkbookParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createWorkbook, arg.Title, arg.Description, arg.CategoryID)
+	row := q.db.QueryRowContext(ctx, createWorkbook,
+		arg.Title,
+		arg.Description,
+		arg.CategoryID,
+		arg.IsPublished,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -71,7 +88,7 @@ func (q *Queries) DeleteWorkbookQuestions(ctx context.Context, workbookID int64)
 }
 
 const getWorkbookByID = `-- name: GetWorkbookByID :one
-SELECT id, title, description, category_id FROM workbooks WHERE id = $1
+SELECT id, title, description, category_id, is_published FROM workbooks WHERE id = $1
 `
 
 type GetWorkbookByIDRow struct {
@@ -79,6 +96,7 @@ type GetWorkbookByIDRow struct {
 	Title       string         `json:"title"`
 	Description sql.NullString `json:"description"`
 	CategoryID  sql.NullInt64  `json:"category_id"`
+	IsPublished bool           `json:"is_published"`
 }
 
 func (q *Queries) GetWorkbookByID(ctx context.Context, id int64) (GetWorkbookByIDRow, error) {
@@ -89,6 +107,7 @@ func (q *Queries) GetWorkbookByID(ctx context.Context, id int64) (GetWorkbookByI
 		&i.Title,
 		&i.Description,
 		&i.CategoryID,
+		&i.IsPublished,
 	)
 	return i, err
 }
@@ -114,6 +133,7 @@ const listAllWorkbooks = `-- name: ListAllWorkbooks :many
 SELECT w.id, w.title, w.description, w.category_id,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
+WHERE w.is_published = true
 ORDER BY w.id
 `
 
@@ -139,6 +159,59 @@ func (q *Queries) ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, 
 			&i.Title,
 			&i.Description,
 			&i.CategoryID,
+			&i.QuestionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPublishedWorkbooks = `-- name: ListPublishedWorkbooks :many
+SELECT w.id, w.title, w.description, w.category_id, w.is_published,
+    (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+FROM workbooks w
+WHERE w.is_published = true
+ORDER BY w.id
+LIMIT $1 OFFSET $2
+`
+
+type ListPublishedWorkbooksParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListPublishedWorkbooksRow struct {
+	ID            int64          `json:"id"`
+	Title         string         `json:"title"`
+	Description   sql.NullString `json:"description"`
+	CategoryID    sql.NullInt64  `json:"category_id"`
+	IsPublished   bool           `json:"is_published"`
+	QuestionCount int64          `json:"question_count"`
+}
+
+func (q *Queries) ListPublishedWorkbooks(ctx context.Context, arg ListPublishedWorkbooksParams) ([]ListPublishedWorkbooksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublishedWorkbooks, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPublishedWorkbooksRow{}
+	for rows.Next() {
+		var i ListPublishedWorkbooksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.CategoryID,
+			&i.IsPublished,
 			&i.QuestionCount,
 		); err != nil {
 			return nil, err
@@ -243,7 +316,7 @@ func (q *Queries) ListQuestionsWithChoicesByWorkbook(ctx context.Context, workbo
 }
 
 const listWorkbooks = `-- name: ListWorkbooks :many
-SELECT w.id, w.title, w.description, w.category_id,
+SELECT w.id, w.title, w.description, w.category_id, w.is_published,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
 ORDER BY w.id
@@ -260,6 +333,7 @@ type ListWorkbooksRow struct {
 	Title         string         `json:"title"`
 	Description   sql.NullString `json:"description"`
 	CategoryID    sql.NullInt64  `json:"category_id"`
+	IsPublished   bool           `json:"is_published"`
 	QuestionCount int64          `json:"question_count"`
 }
 
@@ -277,6 +351,7 @@ func (q *Queries) ListWorkbooks(ctx context.Context, arg ListWorkbooksParams) ([
 			&i.Title,
 			&i.Description,
 			&i.CategoryID,
+			&i.IsPublished,
 			&i.QuestionCount,
 		); err != nil {
 			return nil, err
@@ -293,13 +368,14 @@ func (q *Queries) ListWorkbooks(ctx context.Context, arg ListWorkbooksParams) ([
 }
 
 const updateWorkbook = `-- name: UpdateWorkbook :exec
-UPDATE workbooks SET title = $1, description = $2, category_id = $3, updated_at = $4 WHERE id = $5
+UPDATE workbooks SET title = $1, description = $2, category_id = $3, is_published = $4, updated_at = $5 WHERE id = $6
 `
 
 type UpdateWorkbookParams struct {
 	Title       string         `json:"title"`
 	Description sql.NullString `json:"description"`
 	CategoryID  sql.NullInt64  `json:"category_id"`
+	IsPublished bool           `json:"is_published"`
 	UpdatedAt   sql.NullTime   `json:"updated_at"`
 	ID          int64          `json:"id"`
 }
@@ -309,6 +385,7 @@ func (q *Queries) UpdateWorkbook(ctx context.Context, arg UpdateWorkbookParams) 
 		arg.Title,
 		arg.Description,
 		arg.CategoryID,
+		arg.IsPublished,
 		arg.UpdatedAt,
 		arg.ID,
 	)

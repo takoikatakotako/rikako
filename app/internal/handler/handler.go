@@ -345,7 +345,7 @@ func (h *Handler) GetCategory(ctx context.Context, request api.GetCategoryReques
 		return nil, err
 	}
 
-	wbRows, err := h.queries.ListWorkbooksByCategory(ctx, sql.NullInt64{Int64: cat.ID, Valid: true})
+	wbRows, err := h.queries.ListPublishedWorkbooksByCategory(ctx, sql.NullInt64{Int64: cat.ID, Valid: true})
 	if err != nil {
 		h.logger.Error("failed to query category workbooks", "error", err, "category_id", cat.ID)
 		return nil, err
@@ -384,13 +384,13 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request api.GetWorkbooksRequ
 		return api.GetWorkbooks400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	total, err := h.queries.CountWorkbooks(ctx)
+	total, err := h.queries.CountPublishedWorkbooks(ctx)
 	if err != nil {
 		h.logger.Error("failed to count workbooks", "error", err)
 		return nil, err
 	}
 
-	rows, err := h.queries.ListWorkbooks(ctx, db.ListWorkbooksParams{
+	rows, err := h.queries.ListPublishedWorkbooks(ctx, db.ListPublishedWorkbooksParams{
 		Limit:  int32(limit),
 		Offset: int32(offset),
 	})
@@ -431,6 +431,9 @@ func (h *Handler) GetWorkbook(ctx context.Context, request api.GetWorkbookReques
 	if err != nil {
 		h.logger.Error("failed to query workbook", "error", err, "workbook_id", request.WorkbookId)
 		return nil, err
+	}
+	if !wb.IsPublished {
+		return api.GetWorkbook404JSONResponse{Code: "NOT_FOUND", Message: "workbook not found"}, nil
 	}
 
 	qRows, err := h.queries.ListQuestionsWithChoicesByWorkbook(ctx, wb.ID)

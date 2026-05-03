@@ -127,6 +127,7 @@ type Workbook struct {
 	CreatedAt   sql.NullTime   `json:"created_at"`
 	UpdatedAt   sql.NullTime   `json:"updated_at"`
 	CategoryID  sql.NullInt64  `json:"category_id"`
+	IsPublished bool           `json:"is_published"`
 }
 
 type WorkbookQuestion struct {

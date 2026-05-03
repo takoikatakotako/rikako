@@ -25,6 +25,7 @@ export function WorkbookTable({ workbooks }: WorkbookTableProps) {
           <TableHead>タイトル</TableHead>
           <TableHead>説明</TableHead>
           <TableHead className="w-24">問題数</TableHead>
+          <TableHead className="w-20">公開</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -45,6 +46,11 @@ export function WorkbookTable({ workbooks }: WorkbookTableProps) {
             </TableCell>
             <TableCell>
               <Badge variant="secondary">{wb.questionCount ?? 0}</Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant={wb.isPublished ? "default" : "outline"}>
+                {wb.isPublished ? "公開" : "非公開"}
+              </Badge>
             </TableCell>
           </TableRow>
         ))}

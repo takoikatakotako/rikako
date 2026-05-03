@@ -179,8 +179,51 @@ func (q *Queries) ListCategories(ctx context.Context, arg ListCategoriesParams) 
 	return items, nil
 }
 
-const listWorkbooksByCategory = `-- name: ListWorkbooksByCategory :many
+const listPublishedWorkbooksByCategory = `-- name: ListPublishedWorkbooksByCategory :many
 SELECT w.id, w.title, w.description,
+    (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+FROM workbooks w
+WHERE w.category_id = $1 AND w.is_published = true
+ORDER BY w.id
+`
+
+type ListPublishedWorkbooksByCategoryRow struct {
+	ID            int64          `json:"id"`
+	Title         string         `json:"title"`
+	Description   sql.NullString `json:"description"`
+	QuestionCount int64          `json:"question_count"`
+}
+
+func (q *Queries) ListPublishedWorkbooksByCategory(ctx context.Context, categoryID sql.NullInt64) ([]ListPublishedWorkbooksByCategoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPublishedWorkbooksByCategory, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPublishedWorkbooksByCategoryRow{}
+	for rows.Next() {
+		var i ListPublishedWorkbooksByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.QuestionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkbooksByCategory = `-- name: ListWorkbooksByCategory :many
+SELECT w.id, w.title, w.description, w.is_published,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
 WHERE w.category_id = $1
@@ -191,6 +234,7 @@ type ListWorkbooksByCategoryRow struct {
 	ID            int64          `json:"id"`
 	Title         string         `json:"title"`
 	Description   sql.NullString `json:"description"`
+	IsPublished   bool           `json:"is_published"`
 	QuestionCount int64          `json:"question_count"`
 }
 
@@ -207,6 +251,7 @@ func (q *Queries) ListWorkbooksByCategory(ctx context.Context, categoryID sql.Nu
 			&i.ID,
 			&i.Title,
 			&i.Description,
+			&i.IsPublished,
 			&i.QuestionCount,
 		); err != nil {
 			return nil, err

@@ -21,10 +21,17 @@ SELECT id, title, description FROM categories WHERE id = $1;
 SELECT title, description FROM categories WHERE id = $1;
 
 -- name: ListWorkbooksByCategory :many
-SELECT w.id, w.title, w.description,
+SELECT w.id, w.title, w.description, w.is_published,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
 WHERE w.category_id = $1
+ORDER BY w.id;
+
+-- name: ListPublishedWorkbooksByCategory :many
+SELECT w.id, w.title, w.description,
+    (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+FROM workbooks w
+WHERE w.category_id = $1 AND w.is_published = true
 ORDER BY w.id;
 
 -- name: CreateCategory :one

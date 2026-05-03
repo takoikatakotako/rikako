@@ -170,6 +170,7 @@ func (h *Handler) getCategoryDetail(ctx context.Context, categoryID int64) (*adm
 		w := adminapi.Workbook{
 			Id:            row.ID,
 			Title:         row.Title,
+			IsPublished:   row.IsPublished,
 			QuestionCount: &qc,
 			CategoryId:    &cat.ID,
 		}
@@ -628,6 +629,7 @@ func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbook
 		w := adminapi.Workbook{
 			Id:            row.ID,
 			Title:         row.Title,
+			IsPublished:   row.IsPublished,
 			QuestionCount: &qc,
 		}
 		if row.Description.Valid {
@@ -713,9 +715,10 @@ func (h *Handler) getWorkbookDetail(ctx context.Context, workbookID int64) (*adm
 	}
 
 	w := &adminapi.WorkbookDetail{
-		Id:        wb.ID,
-		Title:     wb.Title,
-		Questions: questions,
+		Id:          wb.ID,
+		Title:       wb.Title,
+		IsPublished: wb.IsPublished,
+		Questions:   questions,
 	}
 	if wb.Description.Valid {
 		w.Description = &wb.Description.String
@@ -759,10 +762,15 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 	if body.CategoryId != nil {
 		catID = sql.NullInt64{Int64: *body.CategoryId, Valid: true}
 	}
+	isPublished := true
+	if body.IsPublished != nil {
+		isPublished = *body.IsPublished
+	}
 	workbookID, err := qtx.CreateWorkbook(ctx, db.CreateWorkbookParams{
 		Title:       body.Title,
 		Description: desc,
 		CategoryID:  catID,
+		IsPublished: isPublished,
 	})
 	if err != nil {
 		h.logger.Error("failed to insert workbook", "error", err)
@@ -826,10 +834,15 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 	if body.CategoryId != nil {
 		catID = sql.NullInt64{Int64: *body.CategoryId, Valid: true}
 	}
+	isPublished := true
+	if body.IsPublished != nil {
+		isPublished = *body.IsPublished
+	}
 	err = qtx.UpdateWorkbook(ctx, db.UpdateWorkbookParams{
 		Title:       body.Title,
 		Description: desc,
 		CategoryID:  catID,
+		IsPublished: isPublished,
 		UpdatedAt:   sql.NullTime{Time: time.Now(), Valid: true},
 		ID:          request.WorkbookId,
 	})
