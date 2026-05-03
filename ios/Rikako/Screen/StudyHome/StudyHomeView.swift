@@ -4,7 +4,6 @@ struct StudyHomeView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: StudyHomeViewModel
     @State private var workbookProgress: [String: Bool] = [:]
-    @State private var isProgressLoading = true
     @State private var showingQuiz = false
     @State private var pendingQuizConfig: QuizLaunchConfig? = nil
     private let isPreview: Bool
@@ -37,7 +36,7 @@ struct StudyHomeView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.isLoading || isProgressLoading {
+                if viewModel.workbooks.isEmpty {
                     skeletonView
                 } else if let errorMessage = viewModel.errorMessage {
                     ContentUnavailableView {
@@ -104,13 +103,11 @@ struct StudyHomeView: View {
         }
         .task(id: appState.lastQuizCompletionID) {
             guard !isPreview, appState.lastQuizCompletionID > 0 else { return }
-            await loadWorkbookProgress(showLoading: false)
+            await loadWorkbookProgress()
         }
     }
 
-    private func loadWorkbookProgress(showLoading: Bool = true) async {
-        if showLoading && workbookProgress.isEmpty { isProgressLoading = true }
-        defer { isProgressLoading = false }
+    private func loadWorkbookProgress() async {
         guard let workbookId = appState.selectedWorkbookID else { return }
         let response = try? await AppContainer.shared.learningUseCases.fetchWorkbookProgress.execute(workbookId: workbookId)
         workbookProgress = Dictionary(uniqueKeysWithValues: (response?.results ?? []).map { (String($0.questionId), $0.isCorrect) })
