@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/adminapi"
 	"github.com/takoikatakotako/rikako/internal/db"
 )
@@ -602,6 +603,21 @@ func (h *Handler) DeleteQuestion(ctx context.Context, request adminapi.DeleteQue
 
 // --- Workbooks CRUD ---
 
+// bulkInsertWorkbookQuestions inserts all question IDs for a workbook in a single query.
+func bulkInsertWorkbookQuestions(ctx context.Context, tx *sql.Tx, workbookID int64, questionIDs []int64) error {
+	if len(questionIDs) == 0 {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx,
+		`INSERT INTO workbook_questions (workbook_id, question_id, order_index)
+		 SELECT $1, q, (row_number() OVER () - 1)::int
+		 FROM unnest($2::bigint[]) q`,
+		workbookID,
+		pq.Array(questionIDs),
+	)
+	return err
+}
+
 func (h *Handler) GetWorkbooks(ctx context.Context, request adminapi.GetWorkbooksRequestObject) (adminapi.GetWorkbooksResponseObject, error) {
 	limit, offset, err := validatePagination(request.Params.Limit, request.Params.Offset)
 	if err != nil {
@@ -778,16 +794,9 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 	}
 
 	if body.QuestionIds != nil {
-		for i, qID := range *body.QuestionIds {
-			err = qtx.CreateWorkbookQuestion(ctx, db.CreateWorkbookQuestionParams{
-				WorkbookID: workbookID,
-				QuestionID: qID,
-				OrderIndex: int32(i),
-			})
-			if err != nil {
-				h.logger.Error("failed to insert workbook question", "error", err, "question_id", qID)
-				return nil, err
-			}
+		if err := bulkInsertWorkbookQuestions(ctx, tx, workbookID, *body.QuestionIds); err != nil {
+			h.logger.Error("failed to insert workbook questions", "error", err)
+			return nil, err
 		}
 	}
 
@@ -857,16 +866,9 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 		return nil, err
 	}
 	if body.QuestionIds != nil {
-		for i, qID := range *body.QuestionIds {
-			err = qtx.CreateWorkbookQuestion(ctx, db.CreateWorkbookQuestionParams{
-				WorkbookID: request.WorkbookId,
-				QuestionID: qID,
-				OrderIndex: int32(i),
-			})
-			if err != nil {
-				h.logger.Error("failed to insert workbook question", "error", err, "question_id", qID)
-				return nil, err
-			}
+		if err := bulkInsertWorkbookQuestions(ctx, tx, request.WorkbookId, *body.QuestionIds); err != nil {
+			h.logger.Error("failed to insert workbook questions", "error", err)
+			return nil, err
 		}
 	}
 
