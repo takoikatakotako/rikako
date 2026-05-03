@@ -86,7 +86,12 @@ export function WorkbookDetail({ id }: { id: number }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>{workbook.title}</CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle>{workbook.title}</CardTitle>
+            <Badge variant={workbook.isPublished ? "default" : "outline"}>
+              {workbook.isPublished ? "公開中" : "非公開"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {workbook.description && (
