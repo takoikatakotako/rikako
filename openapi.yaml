@@ -163,6 +163,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /questions/{questionId}/chat:
+    post:
+      summary: AIチャット（問題への質問）
+      operationId: chatWithQuestion
+      tags:
+        - Questions
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: AIからの返答
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: パラメータ不正・ターン数上限超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 問題が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: レート制限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /categories:
     get:
       summary: カテゴリ一覧取得
@@ -1145,6 +1197,47 @@ components:
         identity_id:
           type: string
           description: 引き継ぎ元の Identity ID（新端末がこれを使用する）
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+        content:
+          type: string
+          maxLength: 2000
+
+    ChatRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          minItems: 1
+          maxItems: 20
+
+    ChatResponse:
+      type: object
+      required:
+        - reply
+        - turnCount
+        - remainingTurns
+      properties:
+        reply:
+          type: string
+        turnCount:
+          type: integer
+        remainingTurns:
+          type: integer
 
     Error:
       type: object
