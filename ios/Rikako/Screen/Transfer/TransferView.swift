@@ -81,7 +81,7 @@ private struct IssueTokenView: View {
                         .padding(.horizontal)
 
                     Button {
-                        Task { await saveQRToPhotos(makeTransferCardImage(qrSource: qrImage, expiresAt: token.expiresAt, identityId: viewModel.deviceIdentityId)) }
+                        Task { await saveQRToPhotos(makeTransferCardImage(qrSource: qrImage, expiresAt: token.expiresAt, userId: AppState.shared.userId)) }
                     } label: {
                         Label("写真に保存", systemImage: "photo.badge.plus")
                             .font(.subheadline)
@@ -249,7 +249,7 @@ private func generateQRCode(from string: String) -> UIImage? {
     return UIImage(cgImage: cgImage)
 }
 
-private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date, identityId: String?) -> UIImage {
+private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date, userId: Int64?) -> UIImage {
     let w: CGFloat = 800
     let h: CGFloat = 1060
     let accentColor = UIColor(named: "main") ?? .systemGreen
@@ -315,15 +315,12 @@ private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date, identityI
         let expiresSize = expiresStr.size(withAttributes: expiresAttrs)
         expiresStr.draw(at: CGPoint(x: (w - expiresSize.width) / 2, y: footerY), withAttributes: expiresAttrs)
 
-        if let id = identityId {
-            let masked = id.count > 14
-                ? "\(id.prefix(6))...\(id.suffix(6))"
-                : id
+        if let uid = userId {
             let idAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.monospacedSystemFont(ofSize: 18, weight: .regular),
+                .font: UIFont.monospacedDigitSystemFont(ofSize: 20, weight: .regular),
                 .foregroundColor: UIColor(white: 0.5, alpha: 1)
             ]
-            let idStr = "ユーザーID: \(masked)" as NSString
+            let idStr = "ユーザーID: \(uid)" as NSString
             let idSize = idStr.size(withAttributes: idAttrs)
             idStr.draw(at: CGPoint(x: (w - idSize.width) / 2, y: footerY + 34), withAttributes: idAttrs)
         }
@@ -407,7 +404,7 @@ private final class ScannerViewController: UIViewController, AVCaptureMetadataOu
 
 #Preview("保存カード", traits: .fixedLayout(width: 400, height: 500)) {
     let qr = generateQRCode(from: "preview-token-abcdef1234567890") ?? UIImage()
-    let card = makeTransferCardImage(qrSource: qr, expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600), identityId: "ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222")
+    let card = makeTransferCardImage(qrSource: qr, expiresAt: Date().addingTimeInterval(3 * 365 * 24 * 3600), userId: 12345)
     Image(uiImage: card)
         .resizable()
         .scaledToFit()

@@ -5,7 +5,6 @@ import Observation
 @MainActor
 final class TransferViewModel {
     var transferToken: TransferToken?
-    var deviceIdentityId: String?
     var isLoading = false
     var errorMessage: String?
     var transferCompleted = false
@@ -33,7 +32,6 @@ final class TransferViewModel {
         defer { isLoading = false }
         do {
             transferToken = try await fetchTokenUseCase.execute()
-            deviceIdentityId = try? await deviceIdentityProvider.getIdentityId()
         } catch {
             errorMessage = "引き継ぎコードの取得に失敗しました"
         }
