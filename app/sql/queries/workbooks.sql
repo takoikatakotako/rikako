@@ -1,10 +1,21 @@
 -- name: CountWorkbooks :one
 SELECT COUNT(*) FROM workbooks;
 
+-- name: CountPublishedWorkbooks :one
+SELECT COUNT(*) FROM workbooks WHERE is_published = true;
+
 -- name: ListWorkbooks :many
-SELECT w.id, w.title, w.description, w.category_id,
+SELECT w.id, w.title, w.description, w.category_id, w.is_published,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
+ORDER BY w.id
+LIMIT $1 OFFSET $2;
+
+-- name: ListPublishedWorkbooks :many
+SELECT w.id, w.title, w.description, w.category_id, w.is_published,
+    (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
+FROM workbooks w
+WHERE w.is_published = true
 ORDER BY w.id
 LIMIT $1 OFFSET $2;
 
@@ -12,10 +23,11 @@ LIMIT $1 OFFSET $2;
 SELECT w.id, w.title, w.description, w.category_id,
     (SELECT COUNT(*) FROM workbook_questions wq WHERE wq.workbook_id = w.id) as question_count
 FROM workbooks w
+WHERE w.is_published = true
 ORDER BY w.id;
 
 -- name: GetWorkbookByID :one
-SELECT id, title, description, category_id FROM workbooks WHERE id = $1;
+SELECT id, title, description, category_id, is_published FROM workbooks WHERE id = $1;
 
 -- name: GetWorkbookTitle :one
 SELECT title, description, category_id FROM workbooks WHERE id = $1;
@@ -42,10 +54,10 @@ ORDER BY wq.order_index, c.choice_index;
 SELECT EXISTS(SELECT 1 FROM workbooks WHERE id = $1);
 
 -- name: CreateWorkbook :one
-INSERT INTO workbooks (title, description, category_id) VALUES ($1, $2, $3) RETURNING id;
+INSERT INTO workbooks (title, description, category_id, is_published) VALUES ($1, $2, $3, $4) RETURNING id;
 
 -- name: UpdateWorkbook :exec
-UPDATE workbooks SET title = $1, description = $2, category_id = $3, updated_at = $4 WHERE id = $5;
+UPDATE workbooks SET title = $1, description = $2, category_id = $3, is_published = $4, updated_at = $5 WHERE id = $6;
 
 -- name: DeleteWorkbookQuestions :exec
 DELETE FROM workbook_questions WHERE workbook_id = $1;

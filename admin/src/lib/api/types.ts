@@ -68,6 +68,7 @@ export interface Workbook {
   description?: string;
   questionCount?: number;
   categoryId?: number;
+  isPublished: boolean;
 }
 
 export interface WorkbookDetail {
@@ -75,6 +76,7 @@ export interface WorkbookDetail {
   title: string;
   description?: string;
   categoryId?: number;
+  isPublished: boolean;
   questions: Question[];
 }
 
@@ -87,6 +89,7 @@ export interface CreateWorkbookRequest {
   title: string;
   description?: string;
   categoryId?: number;
+  isPublished?: boolean;
   questionIds?: number[];
 }
 
@@ -94,6 +97,7 @@ export interface UpdateWorkbookRequest {
   title: string;
   description?: string;
   categoryId?: number;
+  isPublished?: boolean;
   questionIds?: number[];
 }
 

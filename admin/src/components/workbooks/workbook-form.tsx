@@ -27,6 +27,7 @@ interface WorkbookFormProps {
     title: string;
     description?: string;
     categoryId?: number;
+    isPublished?: boolean;
     questionIds?: number[];
   }) => Promise<void>;
   submitLabel: string;
@@ -46,6 +47,9 @@ export function WorkbookForm({
   );
   const [categoryId, setCategoryId] = useState<number | undefined>(
     defaultCategoryId,
+  );
+  const [isPublished, setIsPublished] = useState<boolean>(
+    defaultValues?.isPublished ?? true,
   );
   const [submitting, setSubmitting] = useState(false);
   const { data: categoriesData } = useCategories(100, 0);
@@ -69,6 +73,7 @@ export function WorkbookForm({
         title: values.title,
         description: values.description || undefined,
         categoryId: categoryId,
+        isPublished: isPublished,
         questionIds: selectedIds.length > 0 ? selectedIds : undefined,
       });
     } finally {
@@ -117,6 +122,17 @@ export function WorkbookForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <input
+          id="isPublished"
+          type="checkbox"
+          checked={isPublished}
+          onChange={(e) => setIsPublished(e.target.checked)}
+          className="h-4 w-4 rounded border-input accent-primary"
+        />
+        <Label htmlFor="isPublished">公開する</Label>
       </div>
 
       <div className="space-y-2">
