@@ -27,4 +27,12 @@ protocol LearningRepository {
     func fetchUserProfile(appSlug: String) async throws -> UserProfile
     func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile
     func fetchAnnouncements() async throws -> [Announcement]
+    func fetchTransferToken() async throws -> TransferToken
+    func refreshTransferToken() async throws -> TransferToken
+    func applyTransferToken(_ token: String) async throws -> String
+}
+
+struct TransferToken {
+    let token: String
+    let expiresAt: Date
 }

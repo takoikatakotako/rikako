@@ -1,4 +1,4 @@
-APP_DISPLAY_NAME = Rikako Chemistry
+APP_DISPLAY_NAME = 4択化学
 APP_SLUG = high-school-chemistry
 API_BASE_URL = https:/$()/api.rikako.jp
 CONTENT_BASE_URL = https:/$()/content.rikako.jp/v1

@@ -64,6 +64,15 @@ func (h *Handler) ApplyTransferToken(ctx context.Context, request api.ApplyTrans
 		return api.ApplyTransferToken400JSONResponse{Code: "INVALID_PARAMETER", Message: "token is required"}, nil
 	}
 
+	// トークンの発行元 identity を確認（消費前にチェック）
+	sourceIdentityID, err := h.queries.GetTransferTokenIdentityID(ctx, request.Body.Token)
+	if err != nil {
+		return api.ApplyTransferToken400JSONResponse{Code: "INVALID_TOKEN", Message: "token is invalid or expired"}, nil
+	}
+	if sourceIdentityID == request.Params.XDeviceID {
+		return api.ApplyTransferToken400JSONResponse{Code: "SAME_DEVICE", Message: "cannot apply token issued by the same device"}, nil
+	}
+
 	identityID, err := h.queries.ConsumeTransferToken(ctx, request.Body.Token)
 	if err != nil {
 		return api.ApplyTransferToken400JSONResponse{Code: "INVALID_TOKEN", Message: "token is invalid or expired"}, nil

@@ -64,6 +64,7 @@ type Querier interface {
 	GetImageURLsByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetImageURLsByQuestionIDsRow, error)
 	GetQuestionByID(ctx context.Context, id int64) (GetQuestionByIDRow, error)
 	GetSingleChoiceID(ctx context.Context, questionID int64) (int64, error)
+	GetTransferTokenIdentityID(ctx context.Context, token string) (string, error)
 	GetUserAppSetting(ctx context.Context, arg GetUserAppSettingParams) (GetUserAppSettingRow, error)
 	GetUserByIdentityID(ctx context.Context, identityID string) (int64, error)
 	GetUserProfile(ctx context.Context, id int64) (GetUserProfileRow, error)

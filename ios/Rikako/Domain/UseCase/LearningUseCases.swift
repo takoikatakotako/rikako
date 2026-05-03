@@ -14,6 +14,9 @@ struct LearningUseCases {
     let fetchUserProfile: FetchUserProfileUseCase
     let updateUserProfile: UpdateUserProfileUseCase
     let fetchAnnouncements: FetchAnnouncementsUseCase
+    let fetchTransferToken: FetchTransferTokenUseCase
+    let refreshTransferToken: RefreshTransferTokenUseCase
+    let applyTransferToken: ApplyTransferTokenUseCase
 
     init(repository: LearningRepository) {
         self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
@@ -29,6 +32,33 @@ struct LearningUseCases {
         self.fetchUserProfile = FetchUserProfileUseCase(repository: repository)
         self.updateUserProfile = UpdateUserProfileUseCase(repository: repository)
         self.fetchAnnouncements = FetchAnnouncementsUseCase(repository: repository)
+        self.fetchTransferToken = FetchTransferTokenUseCase(repository: repository)
+        self.refreshTransferToken = RefreshTransferTokenUseCase(repository: repository)
+        self.applyTransferToken = ApplyTransferTokenUseCase(repository: repository)
+    }
+}
+
+struct FetchTransferTokenUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute() async throws -> TransferToken {
+        try await repository.fetchTransferToken()
+    }
+}
+
+struct RefreshTransferTokenUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute() async throws -> TransferToken {
+        try await repository.refreshTransferToken()
+    }
+}
+
+struct ApplyTransferTokenUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute(token: String) async throws -> String {
+        try await repository.applyTransferToken(token)
     }
 }
 

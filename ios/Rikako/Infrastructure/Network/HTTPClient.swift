@@ -20,6 +20,7 @@ struct URLSessionHTTPClient: HTTPClient {
 enum APIError: LocalizedError {
     case invalidResponse
     case httpError(Int)
+    case sameDevice
 
     var errorDescription: String? {
         switch self {
@@ -27,6 +28,8 @@ enum APIError: LocalizedError {
             return "サーバーからの応答が不正です"
         case .httpError(let code):
             return "サーバーエラー (HTTP \(code))"
+        case .sameDevice:
+            return "自分のデバイスのQRコードは使用できません"
         }
     }
 }

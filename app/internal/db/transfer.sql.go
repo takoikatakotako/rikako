@@ -79,3 +79,17 @@ func (q *Queries) GetActiveTransferToken(ctx context.Context, identityID string)
 	err := row.Scan(&i.Token, &i.ExpiresAt)
 	return i, err
 }
+
+const getTransferTokenIdentityID = `-- name: GetTransferTokenIdentityID :one
+SELECT identity_id FROM transfer_tokens
+WHERE token = $1
+  AND used_at IS NULL
+  AND expires_at > CURRENT_TIMESTAMP
+`
+
+func (q *Queries) GetTransferTokenIdentityID(ctx context.Context, token string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTransferTokenIdentityID, token)
+	var identity_id string
+	err := row.Scan(&identity_id)
+	return identity_id, err
+}
