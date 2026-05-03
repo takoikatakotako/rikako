@@ -816,21 +816,19 @@ func (h *Handler) CreateWorkbook(ctx context.Context, request adminapi.CreateWor
 
 func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWorkbookRequestObject) (adminapi.UpdateWorkbookResponseObject, error) {
 	body := request.Body
-	h.logger.Info("UpdateWorkbook: start", "workbook_id", request.WorkbookId)
 
 	tx, err := h.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
-		h.logger.Error("UpdateWorkbook: failed to begin transaction", "error", err)
+		h.logger.Error("failed to begin transaction", "error", err)
 		return nil, err
 	}
 	defer tx.Rollback()
 
 	qtx := h.queries.WithTx(tx)
 
-	h.logger.Info("UpdateWorkbook: checking existence", "workbook_id", request.WorkbookId)
 	exists, err := qtx.WorkbookExists(ctx, request.WorkbookId)
 	if err != nil {
-		h.logger.Error("UpdateWorkbook: failed to check workbook existence", "error", err)
+		h.logger.Error("failed to check workbook existence", "error", err)
 		return nil, err
 	}
 	if !exists {
@@ -849,7 +847,6 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 	if body.IsPublished != nil {
 		isPublished = *body.IsPublished
 	}
-	h.logger.Info("UpdateWorkbook: updating row", "workbook_id", request.WorkbookId, "is_published", isPublished)
 	err = qtx.UpdateWorkbook(ctx, db.UpdateWorkbookParams{
 		Title:       body.Title,
 		Description: desc,
@@ -859,40 +856,33 @@ func (h *Handler) UpdateWorkbook(ctx context.Context, request adminapi.UpdateWor
 		ID:          request.WorkbookId,
 	})
 	if err != nil {
-		h.logger.Error("UpdateWorkbook: failed to update workbook", "error", err)
+		h.logger.Error("failed to update workbook", "error", err)
 		return nil, err
 	}
 
-	h.logger.Info("UpdateWorkbook: deleting questions", "workbook_id", request.WorkbookId)
 	err = qtx.DeleteWorkbookQuestions(ctx, request.WorkbookId)
 	if err != nil {
-		h.logger.Error("UpdateWorkbook: failed to delete old workbook questions", "error", err)
+		h.logger.Error("failed to delete old workbook questions", "error", err)
 		return nil, err
 	}
-	questionCount := 0
 	if body.QuestionIds != nil {
-		questionCount = len(*body.QuestionIds)
 		if err := bulkInsertWorkbookQuestions(ctx, tx, request.WorkbookId, *body.QuestionIds); err != nil {
-			h.logger.Error("UpdateWorkbook: failed to insert workbook questions", "error", err)
+			h.logger.Error("failed to insert workbook questions", "error", err)
 			return nil, err
 		}
 	}
-	h.logger.Info("UpdateWorkbook: questions inserted", "count", questionCount)
 
-	h.logger.Info("UpdateWorkbook: committing")
 	if err := tx.Commit(); err != nil {
-		h.logger.Error("UpdateWorkbook: failed to commit transaction", "error", err)
+		h.logger.Error("failed to commit transaction", "error", err)
 		return nil, err
 	}
 
-	h.logger.Info("UpdateWorkbook: fetching detail", "workbook_id", request.WorkbookId)
 	w, err := h.getWorkbookDetail(ctx, request.WorkbookId)
 	if err != nil {
-		h.logger.Error("UpdateWorkbook: failed to get updated workbook", "error", err)
+		h.logger.Error("failed to get updated workbook", "error", err)
 		return nil, err
 	}
 
-	h.logger.Info("UpdateWorkbook: done", "workbook_id", request.WorkbookId)
 	return adminapi.UpdateWorkbook200JSONResponse(*w), nil
 }
 
