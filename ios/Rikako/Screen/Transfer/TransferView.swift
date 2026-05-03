@@ -323,7 +323,7 @@ private func makeTransferCardImage(qrSource: UIImage, expiresAt: Date, identityI
                 .font: UIFont.monospacedSystemFont(ofSize: 18, weight: .regular),
                 .foregroundColor: UIColor(white: 0.5, alpha: 1)
             ]
-            let idStr = "ID: \(masked)" as NSString
+            let idStr = "ユーザーID: \(masked)" as NSString
             let idSize = idStr.size(withAttributes: idAttrs)
             idStr.draw(at: CGPoint(x: (w - idSize.width) / 2, y: footerY + 34), withAttributes: idAttrs)
         }
