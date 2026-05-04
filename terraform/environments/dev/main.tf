@@ -1,3 +1,16 @@
+# =============================================================================
+# OpenAI APIキー
+# =============================================================================
+# 事前準備: OpenAI APIキーを SSM Parameter Store に SecureString で保存
+#   aws ssm put-parameter --name /rikako/development/openai-api-key \
+#     --value 'sk-...' --type SecureString
+# =============================================================================
+
+data "aws_ssm_parameter" "openai_api_key" {
+  name            = "/${local.project}/${local.environment}/openai-api-key"
+  with_decryption = true
+}
+
 # Lambda Function (Public API)
 module "lambda" {
   source = "../../modules/lambda"
@@ -23,6 +36,7 @@ module "lambda" {
     COGNITO_IDENTITY_POOL_ID         = module.cognito_identity.identity_pool_id
     MINIMUM_VERSION                  = "1.0.0"
     LATEST_VERSION                   = "1.0.0"
+    OPENAI_API_KEY                   = data.aws_ssm_parameter.openai_api_key.value
   }
 
   create_function_url = false

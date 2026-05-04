@@ -17,6 +17,7 @@ struct LearningUseCases {
     let fetchTransferToken: FetchTransferTokenUseCase
     let refreshTransferToken: RefreshTransferTokenUseCase
     let applyTransferToken: ApplyTransferTokenUseCase
+    let chatWithQuestion: ChatWithQuestionUseCase
 
     init(repository: LearningRepository) {
         self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
@@ -35,6 +36,7 @@ struct LearningUseCases {
         self.fetchTransferToken = FetchTransferTokenUseCase(repository: repository)
         self.refreshTransferToken = RefreshTransferTokenUseCase(repository: repository)
         self.applyTransferToken = ApplyTransferTokenUseCase(repository: repository)
+        self.chatWithQuestion = ChatWithQuestionUseCase(repository: repository)
     }
 }
 
@@ -71,6 +73,14 @@ struct FetchAnnouncementsUseCase {
 
     func execute() async throws -> [Announcement] {
         try await repository.fetchAnnouncements()
+    }
+}
+
+struct ChatWithQuestionUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
+        try await repository.chatWithQuestion(questionId: questionId, messages: messages, selectedChoice: selectedChoice)
     }
 }
 

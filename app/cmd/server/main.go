@@ -16,6 +16,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/handler"
 	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/logging"
+	"github.com/takoikatakotako/rikako/internal/openai"
 )
 
 func main() {
@@ -94,8 +95,12 @@ func main() {
 		middlewares = append(middlewares, auth.NewAuthMiddleware(cognitoRegion, cognitoUserPoolID))
 	}
 
+	// OpenAI クライアント
+	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
+	openaiClient := openai.NewClient(openaiAPIKey)
+
 	// ハンドラー登録
-	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider)
+	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider, openaiClient)
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 

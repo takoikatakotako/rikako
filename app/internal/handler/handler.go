@@ -9,6 +9,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/db"
 	"github.com/takoikatakotako/rikako/internal/identity"
+	"github.com/takoikatakotako/rikako/internal/openai"
 )
 
 type Handler struct {
@@ -18,9 +19,10 @@ type Handler struct {
 	latestVersion    string
 	logger           *slog.Logger
 	identityProvider identity.Provider
+	openaiClient     *openai.Client
 }
 
-func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider) *Handler {
+func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider, openaiClient *openai.Client) *Handler {
 	return &Handler{
 		queries:          db.New(d),
 		imageBaseURL:     imageBaseURL,
@@ -28,6 +30,7 @@ func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion st
 		latestVersion:    latestVersion,
 		logger:           logger,
 		identityProvider: identityProvider,
+		openaiClient:     openaiClient,
 	}
 }
 
