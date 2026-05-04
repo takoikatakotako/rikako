@@ -10,6 +10,7 @@ struct QuizView: View {
     @State private var isNextButtonVisible = false
     @State private var scrollViewHeight: CGFloat = 0
     @State private var showExitConfirmation = false
+    @State private var showAIChat = false
 
     private let choiceLabels = ["A", "B", "C", "D"]
 
@@ -205,10 +206,26 @@ struct QuizView: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
+
+            Button {
+                showAIChat = true
+            } label: {
+                Label("AIに質問する", systemImage: "bubble.left.and.sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color(.main).opacity(0.1))
+                    .foregroundStyle(Color(.main))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.top, 4)
         }
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 18))
+        .navigationDestination(isPresented: $showAIChat) {
+            AIChatView(question: viewModel.currentQuestion)
+        }
     }
 
     private func nextButton(scrollProxy proxy: ScrollViewProxy) -> some View {
