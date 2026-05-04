@@ -230,6 +230,8 @@ final class RemoteLearningRepository: LearningRepository {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         request.httpBody = try encoder.encode(Body(subject: subject, body: body))
         let (_, response) = try await httpClient.data(for: request)
         try validateResponse(response)

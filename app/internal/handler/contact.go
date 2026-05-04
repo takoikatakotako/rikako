@@ -12,6 +12,10 @@ import (
 )
 
 func (h *Handler) SubmitContact(ctx context.Context, request api.SubmitContactRequestObject) (api.SubmitContactResponseObject, error) {
+	if string(request.Params.XDeviceID) == "" {
+		return api.SubmitContact400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+
 	if request.Body == nil || strings.TrimSpace(request.Body.Body) == "" {
 		return api.SubmitContact400JSONResponse{Code: "INVALID_PARAMETER", Message: "body is required"}, nil
 	}

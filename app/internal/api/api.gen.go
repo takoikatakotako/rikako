@@ -355,6 +355,12 @@ type GetCategoriesParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// SubmitContactParams defines parameters for SubmitContact.
+type SubmitContactParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
 // GetQuestionsParams defines parameters for GetQuestions.
 type GetQuestionsParams struct {
 	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -483,7 +489,7 @@ type ServerInterface interface {
 	GetCategory(ctx echo.Context, categoryId int64) error
 	// お問い合わせ送信
 	// (POST /contact)
-	SubmitContact(ctx echo.Context) error
+	SubmitContact(ctx echo.Context, params SubmitContactParams) error
 	// ヘルスチェック
 	// (GET /health)
 	HealthCheck(ctx echo.Context) error
@@ -705,8 +711,30 @@ func (w *ServerInterfaceWrapper) GetCategory(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) SubmitContact(ctx echo.Context) error {
 	var err error
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SubmitContactParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.SubmitContact(ctx)
+	err = w.Handler.SubmitContact(ctx, params)
 	return err
 }
 
@@ -1466,7 +1494,8 @@ func (response GetCategory404JSONResponse) VisitGetCategoryResponse(w http.Respo
 }
 
 type SubmitContactRequestObject struct {
-	Body *SubmitContactJSONRequestBody
+	Params SubmitContactParams
+	Body   *SubmitContactJSONRequestBody
 }
 
 type SubmitContactResponseObject interface {
@@ -2273,8 +2302,10 @@ func (sh *strictHandler) GetCategory(ctx echo.Context, categoryId int64) error {
 }
 
 // SubmitContact operation middleware
-func (sh *strictHandler) SubmitContact(ctx echo.Context) error {
+func (sh *strictHandler) SubmitContact(ctx echo.Context, params SubmitContactParams) error {
 	var request SubmitContactRequestObject
+
+	request.Params = params
 
 	var body SubmitContactJSONRequestBody
 	if err := ctx.Bind(&body); err != nil {
