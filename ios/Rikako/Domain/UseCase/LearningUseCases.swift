@@ -18,6 +18,7 @@ struct LearningUseCases {
     let refreshTransferToken: RefreshTransferTokenUseCase
     let applyTransferToken: ApplyTransferTokenUseCase
     let chatWithQuestion: ChatWithQuestionUseCase
+    let submitContact: SubmitContactUseCase
 
     init(repository: LearningRepository) {
         self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
@@ -37,6 +38,7 @@ struct LearningUseCases {
         self.refreshTransferToken = RefreshTransferTokenUseCase(repository: repository)
         self.applyTransferToken = ApplyTransferTokenUseCase(repository: repository)
         self.chatWithQuestion = ChatWithQuestionUseCase(repository: repository)
+        self.submitContact = SubmitContactUseCase(repository: repository)
     }
 }
 
@@ -81,6 +83,14 @@ struct ChatWithQuestionUseCase {
     init(repository: LearningRepository) { self.repository = repository }
     func execute(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
         try await repository.chatWithQuestion(questionId: questionId, messages: messages, selectedChoice: selectedChoice)
+    }
+}
+
+struct SubmitContactUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+    func execute(subject: String?, body: String, email: String?, userId: String?, deviceModel: String?, osVersion: String?, appVersion: String?) async throws {
+        try await repository.submitContact(subject: subject, body: body, email: email, userId: userId, deviceModel: deviceModel, osVersion: osVersion, appVersion: appVersion)
     }
 }
 

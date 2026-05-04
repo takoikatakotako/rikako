@@ -11,6 +11,19 @@ data "aws_ssm_parameter" "openai_api_key" {
   with_decryption = true
 }
 
+# =============================================================================
+# Slack Webhook URL（お問い合わせ通知用）
+# =============================================================================
+# 事前準備: Slack Webhook URLを SSM Parameter Store に SecureString で保存
+#   aws ssm put-parameter --name /rikako/development/slack-contact-webhook-url \
+#     --value 'https://hooks.slack.com/services/...' --type SecureString
+# =============================================================================
+
+data "aws_ssm_parameter" "slack_contact_webhook_url" {
+  name            = "/${local.project}/${local.environment}/slack-contact-webhook-url"
+  with_decryption = true
+}
+
 # Lambda Function (Public API)
 module "lambda" {
   source = "../../modules/lambda"
@@ -37,6 +50,7 @@ module "lambda" {
     MINIMUM_VERSION                  = "1.0.0"
     LATEST_VERSION                   = "1.0.0"
     OPENAI_API_KEY                   = data.aws_ssm_parameter.openai_api_key.value
+    SLACK_WEBHOOK_URL                = data.aws_ssm_parameter.slack_contact_webhook_url.value
   }
 
   create_function_url = false

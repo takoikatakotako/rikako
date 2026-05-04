@@ -2,12 +2,12 @@
 # Slack 通知
 # =============================================================================
 # 事前準備: Slack Incoming Webhook URL を SSM Parameter Store に SecureString で保存
-#   aws ssm put-parameter --name /rikako/development/slack-webhook-url \
+#   aws ssm put-parameter --name /rikako/development/slack-alert-webhook-url \
 #     --value 'https://hooks.slack.com/services/...' --type SecureString
 # =============================================================================
 
-data "aws_ssm_parameter" "slack_webhook_url" {
-  name            = "/${local.project}/${local.environment}/slack-webhook-url"
+data "aws_ssm_parameter" "slack_alert_webhook_url" {
+  name            = "/${local.project}/${local.environment}/slack-alert-webhook-url"
   with_decryption = true
 }
 
@@ -63,7 +63,7 @@ resource "aws_lambda_function" "slack_notifier" {
 
   environment {
     variables = {
-      SLACK_WEBHOOK_URL = data.aws_ssm_parameter.slack_webhook_url.value
+      SLACK_WEBHOOK_URL = data.aws_ssm_parameter.slack_alert_webhook_url.value
     }
   }
 

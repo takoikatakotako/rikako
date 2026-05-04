@@ -31,6 +31,7 @@ protocol LearningRepository {
     func refreshTransferToken() async throws -> TransferToken
     func applyTransferToken(_ token: String) async throws -> String
     func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse
+    func submitContact(subject: String?, body: String, email: String?, userId: String?, deviceModel: String?, osVersion: String?, appVersion: String?) async throws
 }
 
 struct TransferToken {

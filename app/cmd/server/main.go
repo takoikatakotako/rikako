@@ -99,8 +99,10 @@ func main() {
 	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
 	openaiClient := openai.NewClient(openaiAPIKey)
 
+	slackWebhookURL := os.Getenv("SLACK_WEBHOOK_URL")
+
 	// ハンドラー登録
-	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider, openaiClient)
+	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider, openaiClient, slackWebhookURL)
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 
