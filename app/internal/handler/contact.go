@@ -30,7 +30,29 @@ func (h *Handler) SubmitContact(ctx context.Context, request api.SubmitContactRe
 		subject = *request.Body.Subject
 	}
 
-	text := fmt.Sprintf("【お問い合わせ】\n件名: %s\n内容:\n%s", subject, request.Body.Body)
+	email := "(希望なし)"
+	if request.Body.Email != nil && strings.TrimSpace(*request.Body.Email) != "" {
+		email = *request.Body.Email
+	}
+
+	userId := string(request.Params.XDeviceID)
+	if request.Body.UserId != nil && strings.TrimSpace(*request.Body.UserId) != "" {
+		userId = *request.Body.UserId
+	}
+
+	deviceInfo := ""
+	if request.Body.DeviceModel != nil {
+		deviceInfo += fmt.Sprintf("端末: %s", *request.Body.DeviceModel)
+	}
+	if request.Body.OsVersion != nil {
+		deviceInfo += fmt.Sprintf(" / OS: %s", *request.Body.OsVersion)
+	}
+	if request.Body.AppVersion != nil {
+		deviceInfo += fmt.Sprintf(" / App: %s", *request.Body.AppVersion)
+	}
+
+	text := fmt.Sprintf("【お問い合わせ】\n件名: %s\n返信先: %s\nユーザーID: %s\n環境: %s\n\n内容:\n%s",
+		subject, email, userId, deviceInfo, request.Body.Body)
 	payload, err := json.Marshal(map[string]string{"text": text})
 	if err != nil {
 		h.logger.Error("failed to marshal slack payload", "error", err)

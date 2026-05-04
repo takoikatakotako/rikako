@@ -89,8 +89,8 @@ struct ChatWithQuestionUseCase {
 struct SubmitContactUseCase {
     private let repository: LearningRepository
     init(repository: LearningRepository) { self.repository = repository }
-    func execute(subject: String?, body: String) async throws {
-        try await repository.submitContact(subject: subject, body: body)
+    func execute(subject: String?, body: String, email: String?, userId: String?, deviceModel: String?, osVersion: String?, appVersion: String?) async throws {
+        try await repository.submitContact(subject: subject, body: body, email: email, userId: userId, deviceModel: deviceModel, osVersion: osVersion, appVersion: appVersion)
     }
 }
 

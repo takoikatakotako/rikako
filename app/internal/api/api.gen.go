@@ -189,11 +189,26 @@ type ChatResponse struct {
 
 // ContactRequest defines model for ContactRequest.
 type ContactRequest struct {
+	// AppVersion アプリバージョン
+	AppVersion *string `json:"appVersion,omitempty"`
+
 	// Body お問い合わせ内容
 	Body string `json:"body"`
 
+	// DeviceModel 端末モデル
+	DeviceModel *string `json:"deviceModel,omitempty"`
+
+	// Email 返信先メールアドレス（任意）
+	Email *string `json:"email,omitempty"`
+
+	// OsVersion OSバージョン
+	OsVersion *string `json:"osVersion,omitempty"`
+
 	// Subject 件名
 	Subject *string `json:"subject,omitempty"`
+
+	// UserId ユーザーID（Identity ID）
+	UserId *string `json:"userId,omitempty"`
 }
 
 // Error defines model for Error.

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HelpAndSupportView: View {
     @State private var showContactForm = false
@@ -43,12 +44,16 @@ private struct ContactFormView: View {
 
     @State private var subject = ""
     @State private var messageBody = ""
+    @State private var wantsReply = false
+    @State private var email = ""
     @State private var isSending = false
     @State private var showSuccessAlert = false
     @State private var errorMessage: String?
 
     private var canSend: Bool {
-        !messageBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
+        let bodyOk = !messageBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let emailOk = !wantsReply || !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return bodyOk && emailOk && !isSending
     }
 
     var body: some View {
@@ -61,6 +66,16 @@ private struct ContactFormView: View {
                 Section("お問い合わせ内容") {
                     TextEditor(text: $messageBody)
                         .frame(minHeight: 160)
+                }
+
+                Section {
+                    Toggle("返信を希望する", isOn: $wantsReply)
+                    if wantsReply {
+                        TextField("メールアドレス", text: $email)
+                            .keyboardType(.emailAddress)
+                            .textContentType(.emailAddress)
+                            .autocapitalization(.none)
+                    }
                 }
 
                 if let errorMessage {
@@ -89,7 +104,7 @@ private struct ContactFormView: View {
             .alert("送信完了", isPresented: $showSuccessAlert) {
                 Button("OK") { dismiss() }
             } message: {
-                Text("お問い合わせを受け付けました。内容を確認の上、ご連絡いたします。")
+                Text(wantsReply ? "お問い合わせを受け付けました。ご入力のメールアドレスに返信いたします。" : "お問い合わせを受け付けました。")
             }
         }
     }
@@ -97,15 +112,27 @@ private struct ContactFormView: View {
     private func sendContact() {
         let trimmedSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedBody = messageBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let device = UIDevice.current
+        let deviceModel = device.model
+        let osVersion = "\(device.systemName) \(device.systemVersion)"
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 
         isSending = true
         errorMessage = nil
 
         Task {
             do {
+                let userId = try? await AppContainer.shared.deviceIdentityProvider.getIdentityId()
                 try await AppContainer.shared.learningUseCases.submitContact.execute(
                     subject: trimmedSubject.isEmpty ? nil : trimmedSubject,
-                    body: trimmedBody
+                    body: trimmedBody,
+                    email: wantsReply && !trimmedEmail.isEmpty ? trimmedEmail : nil,
+                    userId: userId,
+                    deviceModel: deviceModel,
+                    osVersion: osVersion,
+                    appVersion: appVersion
                 )
                 await MainActor.run {
                     isSending = false
