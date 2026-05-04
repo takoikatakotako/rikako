@@ -114,6 +114,9 @@ struct AIChatView: View {
             Text("この問題についてAIに質問できます")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+            Text("AIの回答は誤りを含む場合があります")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -135,44 +138,37 @@ struct AIChatView: View {
     }
 
     private var inputArea: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 10) {
-                if viewModel.remainingTurns == 0 {
-                    Text("最大回数に達しました")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                } else {
-                    TextField("質問を入力...", text: $viewModel.inputText, axis: .vertical)
-                        .lineLimit(1...4)
-                        .padding(10)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .focused($isInputFocused)
-                        .onSubmit {
-                            guard viewModel.canSend else { return }
-                            Task { await viewModel.sendMessage() }
-                        }
-
-                    Button {
+        HStack(spacing: 10) {
+            if viewModel.remainingTurns == 0 {
+                Text("最大回数に達しました")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            } else {
+                TextField("質問を入力...", text: $viewModel.inputText, axis: .vertical)
+                    .lineLimit(1...4)
+                    .padding(10)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .focused($isInputFocused)
+                    .onSubmit {
+                        guard viewModel.canSend else { return }
                         Task { await viewModel.sendMessage() }
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(viewModel.canSend ? Color(.main) : Color(.systemGray3))
                     }
-                    .disabled(!viewModel.canSend)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
 
-            Text("AIの回答は誤りを含む場合があります")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.bottom, 6)
+                Button {
+                    Task { await viewModel.sendMessage() }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(viewModel.canSend ? Color(.main) : Color(.systemGray3))
+                }
+                .disabled(!viewModel.canSend)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 }
 
