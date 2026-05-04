@@ -4,8 +4,11 @@ struct AIChatView: View {
     @State private var viewModel: AIChatViewModel
     @FocusState private var isInputFocused: Bool
 
-    init(question: Question) {
+    private let selectedChoice: Int
+
+    init(question: Question, selectedChoice: Int) {
         _viewModel = State(initialValue: AIChatViewModel(question: question))
+        self.selectedChoice = selectedChoice
     }
 
     var body: some View {
@@ -54,7 +57,9 @@ struct AIChatView: View {
             }
             .onChange(of: viewModel.messages.count) {
                 withAnimation {
-                    proxy.scrollTo(viewModel.messages.last?.id ?? "typing", anchor: .bottom)
+                    if let lastId = viewModel.messages.last?.id {
+                        proxy.scrollTo(lastId, anchor: .bottom)
+                    }
                 }
             }
             .onChange(of: viewModel.isLoading) {
@@ -66,17 +71,68 @@ struct AIChatView: View {
     }
 
     private var questionBubble: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("この問題について質問できます")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(viewModel.question.text)
-                .font(.subheadline)
+        let q = viewModel.question
+        let isCorrect = selectedChoice == q.correctIndex
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(q.text)
+                .font(.subheadline.weight(.semibold))
+                .lineSpacing(3)
+
+            Divider()
+
+            if !isCorrect, selectedChoice < q.choices.count {
+                answerRow(
+                    label: "あなたの回答",
+                    text: q.choices[selectedChoice],
+                    color: Color(.correctPink)
+                )
+            }
+
+            if q.correctIndex < q.choices.count {
+                answerRow(
+                    label: "正解",
+                    text: q.choices[q.correctIndex],
+                    color: Color(.main)
+                )
+            }
+
+            if let explanation = q.explanation, !explanation.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("解説")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(explanation)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(3)
+                }
+            }
+
+            Divider()
+
+            Text("この問題についてAIに質問できます")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.main).opacity(0.08))
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func answerRow(label: String, text: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 80, alignment: .leading)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var inputArea: some View {
@@ -158,6 +214,6 @@ private struct TypingIndicator: View {
 
 #Preview {
     NavigationStack {
-        AIChatView(question: MockData.questions[0])
+        AIChatView(question: MockData.questions[0], selectedChoice: 1)
     }
 }

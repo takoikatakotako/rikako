@@ -224,7 +224,7 @@ struct QuizView: View {
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .navigationDestination(isPresented: $showAIChat) {
-            AIChatView(question: viewModel.currentQuestion)
+            AIChatView(question: viewModel.currentQuestion, selectedChoice: viewModel.selectedChoice ?? viewModel.currentQuestion.correctIndex)
         }
     }
 
