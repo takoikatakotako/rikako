@@ -60,7 +60,11 @@ func (h *Handler) ChatWithQuestion(ctx context.Context, request api.ChatWithQues
 	}
 
 	// システムプロンプト構築
-	systemPrompt := buildSystemPrompt(row.Text, choices, correctIndex, row.Explanation)
+	selectedChoice := -1
+	if request.Body.SelectedChoice != nil {
+		selectedChoice = *request.Body.SelectedChoice
+	}
+	systemPrompt := buildSystemPrompt(row.Text, choices, correctIndex, selectedChoice, row.Explanation)
 
 	// OpenAI API呼び出し
 	apiMessages := []openai.Message{{Role: "system", Content: systemPrompt}}
@@ -85,7 +89,7 @@ func (h *Handler) ChatWithQuestion(ctx context.Context, request api.ChatWithQues
 	}, nil
 }
 
-func buildSystemPrompt(text string, choices []string, correctIndex int, explanation sql.NullString) string {
+func buildSystemPrompt(text string, choices []string, correctIndex int, selectedChoice int, explanation sql.NullString) string {
 	var sb strings.Builder
 	sb.WriteString("あなたは問題集アプリのAI家庭教師です。以下の問題についてのみ回答してください。\n\n")
 	sb.WriteString(fmt.Sprintf("【問題】\n%s\n\n", text))
@@ -102,6 +106,10 @@ func buildSystemPrompt(text string, choices []string, correctIndex int, explanat
 	}
 	sb.WriteString(fmt.Sprintf("【正解】\n選択肢 %d (%s)\n\n", correctIndex, correctText))
 
+	if selectedChoice >= 0 && selectedChoice != correctIndex && selectedChoice < len(choices) {
+		sb.WriteString(fmt.Sprintf("【ユーザーが選んだ回答】\n選択肢 %d (%s)（不正解）\n\n", selectedChoice, choices[selectedChoice]))
+	}
+
 	if explanation.Valid && explanation.String != "" {
 		exp := explanation.String
 		if len([]rune(exp)) > maxExplanationLen {
@@ -111,6 +119,6 @@ func buildSystemPrompt(text string, choices []string, correctIndex int, explanat
 		sb.WriteString(fmt.Sprintf("【解説】\n%s\n\n", exp))
 	}
 
-	sb.WriteString("ユーザーがこの問題を理解できるよう、丁寧に説明してください。\n問題と無関係な質問には「この問題に関する質問にお答えします」と返してください。")
+	sb.WriteString("ユーザーがこの問題を理解できるよう、丁寧に説明してください。\nユーザーが間違えた選択肢を選んだ理由に寄り添いながら、なぜ正解でないかを解説してください。\n問題と無関係な質問には「この問題に関する質問にお答えします」と返してください。")
 	return sb.String()
 }

@@ -7,7 +7,7 @@ struct AIChatView: View {
     private let selectedChoice: Int
 
     init(question: Question, selectedChoice: Int) {
-        _viewModel = State(initialValue: AIChatViewModel(question: question))
+        _viewModel = State(initialValue: AIChatViewModel(question: question, selectedChoice: selectedChoice))
         self.selectedChoice = selectedChoice
     }
 

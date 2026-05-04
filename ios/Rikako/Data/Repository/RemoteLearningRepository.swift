@@ -219,9 +219,9 @@ final class RemoteLearningRepository: LearningRepository {
         return TransferToken(token: result.token, expiresAt: result.expires_at)
     }
 
-    func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest]) async throws -> ChatResponse {
+    func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
         let url = apiBaseURL.appendingPathComponent("questions/\(questionId)/chat")
-        return try await postJSON(url: url, body: ChatRequest(messages: messages), authenticated: true)
+        return try await postJSON(url: url, body: ChatRequest(messages: messages, selectedChoice: selectedChoice), authenticated: true)
     }
 
     func applyTransferToken(_ token: String) async throws -> String {

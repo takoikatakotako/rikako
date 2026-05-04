@@ -79,8 +79,8 @@ struct FetchAnnouncementsUseCase {
 struct ChatWithQuestionUseCase {
     private let repository: LearningRepository
     init(repository: LearningRepository) { self.repository = repository }
-    func execute(questionId: Int64, messages: [ChatMessageRequest]) async throws -> ChatResponse {
-        try await repository.chatWithQuestion(questionId: questionId, messages: messages)
+    func execute(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
+        try await repository.chatWithQuestion(questionId: questionId, messages: messages, selectedChoice: selectedChoice)
     }
 }
 

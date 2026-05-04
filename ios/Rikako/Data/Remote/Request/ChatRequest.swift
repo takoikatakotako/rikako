@@ -7,4 +7,5 @@ struct ChatMessageRequest: Encodable {
 
 struct ChatRequest: Encodable {
     let messages: [ChatMessageRequest]
+    let selectedChoice: Int?
 }

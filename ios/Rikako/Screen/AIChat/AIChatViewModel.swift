@@ -15,6 +15,7 @@ struct AIChatMessage: Identifiable {
 @MainActor
 final class AIChatViewModel {
     let question: Question
+    let selectedChoice: Int
     private(set) var messages: [AIChatMessage] = []
     private(set) var remainingTurns: Int = 10
     private(set) var isLoading = false
@@ -23,8 +24,9 @@ final class AIChatViewModel {
 
     private var apiMessages: [ChatMessageRequest] = []
 
-    init(question: Question) {
+    init(question: Question, selectedChoice: Int) {
         self.question = question
+        self.selectedChoice = selectedChoice
     }
 
     var canSend: Bool {
@@ -48,7 +50,8 @@ final class AIChatViewModel {
         do {
             let response = try await AppContainer.shared.learningUseCases.chatWithQuestion.execute(
                 questionId: question.id,
-                messages: apiMessages
+                messages: apiMessages,
+                selectedChoice: selectedChoice
             )
             let assistantMessage = AIChatMessage(role: .assistant, content: response.reply)
             messages.append(assistantMessage)

@@ -153,6 +153,9 @@ type ChatMessageRole string
 // ChatRequest defines model for ChatRequest.
 type ChatRequest struct {
 	Messages []ChatMessage `json:"messages"`
+
+	// SelectedChoice ユーザーが選択した選択肢のインデックス（0始まり）
+	SelectedChoice *int `json:"selectedChoice,omitempty"`
 }
 
 // ChatResponse defines model for ChatResponse.

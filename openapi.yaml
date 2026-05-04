@@ -1224,6 +1224,9 @@ components:
             $ref: '#/components/schemas/ChatMessage'
           minItems: 1
           maxItems: 20
+        selectedChoice:
+          type: integer
+          description: ユーザーが選択した選択肢のインデックス（0始まり）
 
     ChatResponse:
       type: object
