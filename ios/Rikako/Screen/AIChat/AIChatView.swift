@@ -165,7 +165,12 @@ struct AIChatView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.top, 10)
+
+        Text("AIの回答は誤りを含む場合があります")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .padding(.bottom, 6)
     }
 }
 
