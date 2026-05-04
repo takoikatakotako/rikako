@@ -124,12 +124,12 @@ private struct ContactFormView: View {
 
         Task {
             do {
-                let userId = try? await AppContainer.shared.deviceIdentityProvider.getIdentityId()
+                let userIdString = AppContainer.shared.appState.userId.map { String($0) }
                 try await AppContainer.shared.learningUseCases.submitContact.execute(
                     subject: trimmedSubject.isEmpty ? nil : trimmedSubject,
                     body: trimmedBody,
                     email: wantsReply && !trimmedEmail.isEmpty ? trimmedEmail : nil,
-                    userId: userId,
+                    userId: userIdString,
                     deviceModel: deviceModel,
                     osVersion: osVersion,
                     appVersion: appVersion
