@@ -210,7 +210,7 @@ struct QuizView: View {
             Button {
                 showAIChat = true
             } label: {
-                Label("AIに質問する", systemImage: "bubble.left.and.sparkles")
+                Label("AIに質問する", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
