@@ -20,9 +20,10 @@ type Handler struct {
 	logger           *slog.Logger
 	identityProvider identity.Provider
 	openaiClient     *openai.Client
+	slackWebhookURL  string
 }
 
-func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider, openaiClient *openai.Client) *Handler {
+func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider, openaiClient *openai.Client, slackWebhookURL string) *Handler {
 	return &Handler{
 		queries:          db.New(d),
 		imageBaseURL:     imageBaseURL,
@@ -31,6 +32,7 @@ func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion st
 		logger:           logger,
 		identityProvider: identityProvider,
 		openaiClient:     openaiClient,
+		slackWebhookURL:  slackWebhookURL,
 	}
 }
 

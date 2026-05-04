@@ -224,6 +224,17 @@ final class RemoteLearningRepository: LearningRepository {
         return try await postJSON(url: url, body: ChatRequest(messages: messages, selectedChoice: selectedChoice), authenticated: true)
     }
 
+    func submitContact(subject: String?, body: String) async throws {
+        let url = apiBaseURL.appendingPathComponent("contact")
+        struct Body: Encodable { let subject: String?; let body: String }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(Body(subject: subject, body: body))
+        let (_, response) = try await httpClient.data(for: request)
+        try validateResponse(response)
+    }
+
     func applyTransferToken(_ token: String) async throws -> String {
         let url = apiBaseURL.appendingPathComponent("transfer/apply")
         var request = URLRequest(url: url)

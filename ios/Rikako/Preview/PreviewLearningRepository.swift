@@ -172,6 +172,8 @@ extension PreviewLearningRepository {
     func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
         ChatResponse(reply: "これはプレビュー用の回答です。正解は選択肢2です。", turnCount: messages.filter { $0.role == "user" }.count, remainingTurns: 10 - messages.filter { $0.role == "user" }.count)
     }
+
+    func submitContact(subject: String?, body: String) async throws {}
 }
 
 final class PreviewDeviceIdentityProvider: DeviceIdentityProviding {

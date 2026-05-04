@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HelpAndSupportView: View {
+    @State private var showContactForm = false
+
     var body: some View {
         List {
             Section("よくある質問") {
@@ -10,12 +12,18 @@ struct HelpAndSupportView: View {
             }
 
             Section("お問い合わせ") {
-                LabeledContent("メール", value: "support@rikako.jp")
-                LabeledContent("受付時間", value: "平日 10:00 - 18:00")
+                Button {
+                    showContactForm = true
+                } label: {
+                    Label("お問い合わせフォーム", systemImage: "envelope")
+                }
             }
         }
         .navigationTitle("よくある質問・お問い合わせ")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showContactForm) {
+            ContactFormView()
+        }
     }
 
     private func faqRow(question: String, answer: String) -> some View {
@@ -27,6 +35,89 @@ struct HelpAndSupportView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct ContactFormView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var subject = ""
+    @State private var messageBody = ""
+    @State private var isSending = false
+    @State private var showSuccessAlert = false
+    @State private var errorMessage: String?
+
+    private var canSend: Bool {
+        !messageBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("件名（任意）") {
+                    TextField("件名を入力", text: $subject)
+                }
+
+                Section("お問い合わせ内容") {
+                    TextEditor(text: $messageBody)
+                        .frame(minHeight: 160)
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                    }
+                }
+            }
+            .navigationTitle("お問い合わせ")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if isSending {
+                        ProgressView()
+                    } else {
+                        Button("送信") { sendContact() }
+                            .disabled(!canSend)
+                    }
+                }
+            }
+            .alert("送信完了", isPresented: $showSuccessAlert) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("お問い合わせを受け付けました。内容を確認の上、ご連絡いたします。")
+            }
+        }
+    }
+
+    private func sendContact() {
+        let trimmedSubject = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = messageBody.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        isSending = true
+        errorMessage = nil
+
+        Task {
+            do {
+                try await AppContainer.shared.learningUseCases.submitContact.execute(
+                    subject: trimmedSubject.isEmpty ? nil : trimmedSubject,
+                    body: trimmedBody
+                )
+                await MainActor.run {
+                    isSending = false
+                    showSuccessAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSending = false
+                    errorMessage = "送信に失敗しました。時間をおいて再度お試しください。"
+                }
+            }
+        }
     }
 }
 

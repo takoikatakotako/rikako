@@ -621,6 +621,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /contact:
+    post:
+      summary: お問い合わせ送信
+      operationId: submitContact
+      tags:
+        - Contact
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+      responses:
+        '204':
+          description: 送信成功
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /transfer/token:
     get:
       summary: 引き継ぎトークン取得（なければ自動発行）
@@ -1241,6 +1270,21 @@ components:
           type: integer
         remainingTurns:
           type: integer
+
+    ContactRequest:
+      type: object
+      required:
+        - body
+      properties:
+        subject:
+          type: string
+          maxLength: 200
+          description: 件名
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: お問い合わせ内容
 
     Error:
       type: object
