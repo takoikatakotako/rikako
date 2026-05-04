@@ -223,8 +223,15 @@ struct QuizView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 18))
-        .navigationDestination(isPresented: $showAIChat) {
-            AIChatView(question: viewModel.currentQuestion, selectedChoice: viewModel.selectedChoice ?? viewModel.currentQuestion.correctIndex)
+        .sheet(isPresented: $showAIChat) {
+            NavigationStack {
+                AIChatView(question: viewModel.currentQuestion, selectedChoice: viewModel.selectedChoice ?? viewModel.currentQuestion.correctIndex)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("閉じる") { showAIChat = false }
+                        }
+                    }
+            }
         }
     }
 

@@ -30,7 +30,6 @@ struct AIChatView: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .tabBar)
     }
 
     private var messageList: some View {

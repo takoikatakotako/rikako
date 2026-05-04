@@ -119,6 +119,6 @@ func buildSystemPrompt(text string, choices []string, correctIndex int, selected
 		sb.WriteString(fmt.Sprintf("【解説】\n%s\n\n", exp))
 	}
 
-	sb.WriteString("ユーザーがこの問題を理解できるよう、丁寧に説明してください。\nユーザーが間違えた選択肢を選んだ理由に寄り添いながら、なぜ正解でないかを解説してください。\n問題と無関係な質問には「この問題に関する質問にお答えします」と返してください。")
+	sb.WriteString("ユーザーがこの問題を理解できるよう、丁寧に説明してください。\nユーザーが間違えた選択肢を選んだ場合は、その選択肢を選んだ理由に寄り添いながら、なぜ正解でないかを解説してください。\n問題の理解に役立つ関連知識の説明も積極的に行ってください。")
 	return sb.String()
 }
