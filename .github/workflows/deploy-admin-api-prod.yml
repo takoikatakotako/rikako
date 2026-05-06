@@ -1,0 +1,103 @@
+name: Deploy Admin API Prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+  ENVIRONMENT: prod
+
+jobs:
+  build-and-push:
+    name: Build and Push Admin API Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: "579039992557"
+
+      - name: Extract metadata for Docker
+        id: meta
+        run: |
+          ECR_REGISTRY=579039992557.dkr.ecr.ap-northeast-1.amazonaws.com
+          ECR_REPOSITORY=rikako-admin-api
+          IMAGE_TAG=${{ env.ENVIRONMENT }}
+          echo "tags=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Build and push Docker image
+        run: |
+          docker build -f app/Dockerfile.admin -t ${{ steps.meta.outputs.tags }} .
+          docker push ${{ steps.meta.outputs.tags }}
+
+      - name: Update Lambda function
+        env:
+          FUNCTION_NAME: rikako-admin-api-production
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --image-uri "${{ steps.meta.outputs.tags }}" \
+            --publish
+
+          echo "Waiting for function update to complete..."
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME"
+
+      - name: Smoke tests
+        env:
+          ADMIN_API_URL: https://admin.rikako.jp/api
+        run: |
+          ADMIN_BASIC_AUTH_USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
+          ADMIN_BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
+          FAILED=0
+
+          check_endpoint() {
+            local name="$1"
+            local url="$2"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -L \
+              -u "${ADMIN_BASIC_AUTH_USER}:${ADMIN_BASIC_AUTH_PASSWORD}" \
+              "$url")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ $name (HTTP $STATUS)"
+            else
+              echo "❌ $name (HTTP $STATUS)"
+              FAILED=1
+            fi
+          }
+
+          echo "Running smoke tests..."
+          check_endpoint "Admin API /health" "${ADMIN_API_URL}/health"
+          check_endpoint "Admin API /categories" "${ADMIN_API_URL}/categories"
+          check_endpoint "Admin API /workbooks" "${ADMIN_API_URL}/workbooks"
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::Smoke tests failed"
+            exit 1
+          fi
+          echo "All smoke tests passed"
+
+      - name: Print summary
+        run: |
+          echo "## Deploy Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Lambda Function:** rikako-admin-api-production" >> $GITHUB_STEP_SUMMARY
