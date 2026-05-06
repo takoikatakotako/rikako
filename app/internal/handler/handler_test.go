@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRoot(t *testing.T) {
-	h := New(testDB, "https://example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 	resp, err := h.Root(context.Background(), api.RootRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -53,7 +53,7 @@ func TestRoot(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	h := New(testDB, "https://example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 	resp, err := h.HealthCheck(context.Background(), api.HealthCheckRequestObject{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -69,7 +69,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestGetQuestions(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 
 	t.Run("default pagination", func(t *testing.T) {
 		resp, err := h.GetQuestions(context.Background(), api.GetQuestionsRequestObject{})
@@ -173,7 +173,7 @@ func TestGetQuestions(t *testing.T) {
 }
 
 func TestGetQuestion(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 
 	t.Run("existing question", func(t *testing.T) {
 		var dbID int64
@@ -223,7 +223,7 @@ func TestGetQuestion(t *testing.T) {
 }
 
 func TestGetWorkbooks(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 
 	t.Run("default", func(t *testing.T) {
 		resp, err := h.GetWorkbooks(context.Background(), api.GetWorkbooksRequestObject{})
@@ -268,7 +268,7 @@ func TestGetWorkbooks(t *testing.T) {
 }
 
 func TestGetWorkbook(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 
 	t.Run("existing workbook", func(t *testing.T) {
 		var dbID int64
@@ -315,7 +315,7 @@ func TestGetWorkbook(t *testing.T) {
 }
 
 func TestGetQuestionsWithImages(t *testing.T) {
-	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""))
+	h := New(testDB, "https://cdn.example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 
 	// Fetch enough questions to find some with images
 	limit := 100
