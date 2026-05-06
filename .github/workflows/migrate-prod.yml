@@ -1,15 +1,8 @@
-name: Run Database Migration
+name: Run Database Migration (Prod)
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to run migration'
-        required: true
-        type: choice
-        options:
-          - dev
-          - prod
       direction:
         description: 'Migration direction'
         required: true
@@ -41,7 +34,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
@@ -52,7 +45,7 @@ jobs:
 
       - name: Get database connection string
         id: db-config
-        working-directory: terraform/environments/${{ github.event.inputs.environment }}
+        working-directory: terraform/environments/prod
         env:
           TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
         run: |
@@ -81,7 +74,7 @@ jobs:
         run: |
           echo "## Migration Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** prod" >> $GITHUB_STEP_SUMMARY
           echo "**Direction:** ${{ github.event.inputs.direction }}" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ github.event.inputs.steps }}" ]; then
             echo "**Steps:** ${{ github.event.inputs.steps }}" >> $GITHUB_STEP_SUMMARY
