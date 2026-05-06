@@ -131,6 +131,27 @@ data "aws_iam_policy_document" "github_actions_admin_frontend" {
   }
 }
 
+# Terraform state read access (for migration workflow)
+resource "aws_iam_role_policy" "github_actions_terraform_state" {
+  name   = "terraform-state-read"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_terraform_state.json
+}
+
+data "aws_iam_policy_document" "github_actions_terraform_state" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      "arn:aws:s3:::rikako-prod-terraform-state",
+      "arn:aws:s3:::rikako-prod-terraform-state/*",
+    ]
+  }
+}
+
 # SSM read access (for smoke tests)
 resource "aws_iam_role_policy" "github_actions_ssm" {
   name   = "ssm-read-access"
