@@ -83,7 +83,7 @@ func (q *Queries) DeleteAllWorkbooks(ctx context.Context) error {
 }
 
 const importCategory = `-- name: ImportCategory :exec
-INSERT INTO categories (id, title, description) VALUES ($1, $2, $3)
+INSERT INTO categories (id, title, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type ImportCategoryParams struct {
@@ -99,7 +99,7 @@ func (q *Queries) ImportCategory(ctx context.Context, arg ImportCategoryParams) 
 
 const importChoice = `-- name: ImportChoice :exec
 INSERT INTO questions_single_choice_choices (single_choice_id, choice_index, text, is_correct)
-VALUES ($1, $2, $3, $4)
+VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
 `
 
 type ImportChoiceParams struct {
@@ -120,7 +120,7 @@ func (q *Queries) ImportChoice(ctx context.Context, arg ImportChoiceParams) erro
 }
 
 const importImage = `-- name: ImportImage :exec
-INSERT INTO images (id, path) VALUES ($1, $2)
+INSERT INTO images (id, path) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
 type ImportImageParams struct {
@@ -134,7 +134,7 @@ func (q *Queries) ImportImage(ctx context.Context, arg ImportImageParams) error 
 }
 
 const importQuestion = `-- name: ImportQuestion :exec
-INSERT INTO questions (id, type) VALUES ($1, $2)
+INSERT INTO questions (id, type) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
 type ImportQuestionParams struct {
@@ -148,7 +148,7 @@ func (q *Queries) ImportQuestion(ctx context.Context, arg ImportQuestionParams) 
 }
 
 const importQuestionImage = `-- name: ImportQuestionImage :exec
-INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3)
+INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type ImportQuestionImageParams struct {
@@ -164,7 +164,9 @@ func (q *Queries) ImportQuestionImage(ctx context.Context, arg ImportQuestionIma
 
 const importSingleChoice = `-- name: ImportSingleChoice :one
 INSERT INTO questions_single_choice (question_id, text, explanation)
-VALUES ($1, $2, $3) RETURNING id
+VALUES ($1, $2, $3)
+ON CONFLICT (question_id) DO UPDATE SET text = EXCLUDED.text, explanation = EXCLUDED.explanation
+RETURNING id
 `
 
 type ImportSingleChoiceParams struct {
@@ -181,7 +183,7 @@ func (q *Queries) ImportSingleChoice(ctx context.Context, arg ImportSingleChoice
 }
 
 const importWorkbook = `-- name: ImportWorkbook :exec
-INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3)
+INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type ImportWorkbookParams struct {
@@ -196,7 +198,7 @@ func (q *Queries) ImportWorkbook(ctx context.Context, arg ImportWorkbookParams) 
 }
 
 const importWorkbookQuestion = `-- name: ImportWorkbookQuestion :exec
-INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3)
+INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type ImportWorkbookQuestionParams struct {

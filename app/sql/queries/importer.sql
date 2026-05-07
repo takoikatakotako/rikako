@@ -23,30 +23,32 @@ DELETE FROM questions;
 DELETE FROM images;
 
 -- name: ImportImage :exec
-INSERT INTO images (id, path) VALUES ($1, $2);
+INSERT INTO images (id, path) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
 -- name: ImportQuestion :exec
-INSERT INTO questions (id, type) VALUES ($1, $2);
+INSERT INTO questions (id, type) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
 -- name: ImportSingleChoice :one
 INSERT INTO questions_single_choice (question_id, text, explanation)
-VALUES ($1, $2, $3) RETURNING id;
+VALUES ($1, $2, $3)
+ON CONFLICT (question_id) DO UPDATE SET text = EXCLUDED.text, explanation = EXCLUDED.explanation
+RETURNING id;
 
 -- name: ImportChoice :exec
 INSERT INTO questions_single_choice_choices (single_choice_id, choice_index, text, is_correct)
-VALUES ($1, $2, $3, $4);
+VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;
 
 -- name: ImportQuestionImage :exec
-INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3);
+INSERT INTO question_images (question_id, image_id, order_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
 
 -- name: ImportWorkbook :exec
-INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3);
+INSERT INTO workbooks (id, title, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
 
 -- name: ImportWorkbookQuestion :exec
-INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3);
+INSERT INTO workbook_questions (workbook_id, question_id, order_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
 
 -- name: ImportCategory :exec
-INSERT INTO categories (id, title, description) VALUES ($1, $2, $3);
+INSERT INTO categories (id, title, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
 
 -- name: SetWorkbookCategory :exec
 UPDATE workbooks SET category_id = $1 WHERE id = $2;
