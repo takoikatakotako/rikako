@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/importer"
@@ -13,6 +14,7 @@ import (
 func main() {
 	dataDir := flag.String("data", "data", "データディレクトリのパス")
 	checkOnly := flag.Bool("check-only", false, "データベースの問題数を確認するのみ")
+	workbooksOnly := flag.Bool("workbooks-only", false, "workbooks/categoriesのみインポート（問題は既存のものを使用）")
 	flag.Parse()
 
 	// DB接続
@@ -26,6 +28,11 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
+
+	// Neon のコネクションプロキシがアイドル接続をリセットするため短めに設定
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxLifetime(30 * time.Second)
+	db.SetConnMaxIdleTime(10 * time.Second)
 
 	if err := db.Ping(); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)
@@ -44,8 +51,14 @@ func main() {
 
 	// インポート実行
 	imp := importer.New(db, *dataDir)
-	if err := imp.Run(); err != nil {
-		log.Fatalf("Import failed: %v", err)
+	var importErr error
+	if *workbooksOnly {
+		importErr = imp.RunWorkbooksOnly()
+	} else {
+		importErr = imp.Run()
+	}
+	if importErr != nil {
+		log.Fatalf("Import failed: %v", importErr)
 	}
 
 	log.Println("Import completed successfully!")
