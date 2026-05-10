@@ -1,4 +1,4 @@
-name: Deploy LP Prod
+name: Deploy LP
 
 on:
   push:
