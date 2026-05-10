@@ -130,7 +130,7 @@ resource "aws_cloudfront_distribution" "admin" {
   is_ipv6_enabled     = true
   comment             = "Admin (frontend + API) for ${local.project}-${local.environment}"
   default_root_object = "index.html"
-  aliases             = ["admin.dev.rikako.jp"]
+  aliases             = ["admin.dev.rikako.org"]
 
   # Default: S3 frontend
   default_cache_behavior {

@@ -12,7 +12,7 @@ output "connection_string" {
 
 output "api_endpoint" {
   description = "URL of the public API"
-  value       = "https://api.rikako.jp"
+  value       = "https://api.rikako.org"
 }
 
 output "api_gateway_id" {
@@ -61,7 +61,3 @@ output "admin_frontend_bucket" {
   value       = module.admin_s3.bucket_id
 }
 
-output "prod_zone_name_servers" {
-  description = "Name servers for rikako.jp (set these as NS records at domain registrar if not managed by Route 53)"
-  value       = aws_route53_zone.prod.name_servers
-}

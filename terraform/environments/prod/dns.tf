@@ -1,11 +1,9 @@
 # =============================================================================
-# Route 53 Hosted Zone for rikako.jp
-# 注意: rikako.jp ゾーンがすでに存在する場合は import が必要:
-#   terraform import aws_route53_zone.prod <ZONE_ID>
+# Cloudflare Zone
 # =============================================================================
 
-resource "aws_route53_zone" "prod" {
-  name = "rikako.jp"
+data "cloudflare_zone" "rikako" {
+  name = "rikako.org"
 }
 
 # =============================================================================
@@ -14,7 +12,7 @@ resource "aws_route53_zone" "prod" {
 
 resource "aws_acm_certificate" "wildcard" {
   provider          = aws.us_east_1
-  domain_name       = "*.rikako.jp"
+  domain_name       = "*.rikako.org"
   validation_method = "DNS"
 
   tags = {
@@ -26,28 +24,6 @@ resource "aws_acm_certificate" "wildcard" {
   lifecycle {
     create_before_destroy = true
   }
-}
-
-resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.wildcard.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  }
-
-  zone_id = aws_route53_zone.prod.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  ttl     = 300
-  records = [each.value.record]
-}
-
-resource "aws_acm_certificate_validation" "wildcard" {
-  provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.wildcard.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
 # =============================================================================
@@ -55,7 +31,7 @@ resource "aws_acm_certificate_validation" "wildcard" {
 # =============================================================================
 
 resource "aws_acm_certificate" "wildcard_regional" {
-  domain_name       = "*.rikako.jp"
+  domain_name       = "*.rikako.org"
   validation_method = "DNS"
 
   tags = {
@@ -69,63 +45,78 @@ resource "aws_acm_certificate" "wildcard_regional" {
   }
 }
 
+# =============================================================================
+# Cloudflare DNS Records for ACM Certificate Validation
+# =============================================================================
+
+resource "cloudflare_record" "cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.wildcard.domain_validation_options : dvo.domain_name => {
+      name    = dvo.resource_record_name
+      content = dvo.resource_record_value
+      type    = dvo.resource_record_type
+    }
+  }
+
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = each.value.name
+  content = each.value.content
+  type    = each.value.type
+  ttl     = 300
+  proxied = false
+}
+
+resource "aws_acm_certificate_validation" "wildcard" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.wildcard.arn
+  validation_record_fqdns = [for record in cloudflare_record.cert_validation : record.hostname]
+}
+
 resource "aws_acm_certificate_validation" "wildcard_regional" {
   certificate_arn         = aws_acm_certificate.wildcard_regional.arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+  validation_record_fqdns = [for record in cloudflare_record.cert_validation : record.hostname]
 }
 
 # =============================================================================
-# Route 53 Records
+# Cloudflare DNS Records
 # =============================================================================
 
-# api.rikako.jp → API Gateway
-resource "aws_route53_record" "api" {
-  zone_id = aws_route53_zone.prod.zone_id
-  name    = "api.rikako.jp"
-  type    = "A"
-
-  alias {
-    name                   = module.api_gateway.custom_domain_target
-    zone_id                = module.api_gateway.custom_domain_hosted_zone_id
-    evaluate_target_health = false
-  }
+# api.rikako.org → API Gateway
+resource "cloudflare_record" "api" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "api"
+  content = module.api_gateway.custom_domain_target
+  type    = "CNAME"
+  ttl     = 1
+  proxied = false
 }
 
-# image.rikako.jp → Image CDN CloudFront
-resource "aws_route53_record" "image" {
-  zone_id = aws_route53_zone.prod.zone_id
-  name    = "image.rikako.jp"
-  type    = "A"
-
-  alias {
-    name                   = module.image_cloudfront.domain_name
-    zone_id                = "Z2FDTNDATAQYW2" # CloudFront global hosted zone ID
-    evaluate_target_health = false
-  }
+# image.rikako.org → Image CDN CloudFront
+resource "cloudflare_record" "image" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "image"
+  content = module.image_cloudfront.domain_name
+  type    = "CNAME"
+  ttl     = 1
+  proxied = false
 }
 
-# content.rikako.jp → Content CDN CloudFront
-resource "aws_route53_record" "content" {
-  zone_id = aws_route53_zone.prod.zone_id
-  name    = "content.rikako.jp"
-  type    = "A"
-
-  alias {
-    name                   = module.content_cloudfront.domain_name
-    zone_id                = "Z2FDTNDATAQYW2" # CloudFront global hosted zone ID
-    evaluate_target_health = false
-  }
+# content.rikako.org → Content CDN CloudFront
+resource "cloudflare_record" "content" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "content"
+  content = module.content_cloudfront.domain_name
+  type    = "CNAME"
+  ttl     = 1
+  proxied = false
 }
 
-# admin.rikako.jp → Admin Frontend CloudFront
-resource "aws_route53_record" "admin" {
-  zone_id = aws_route53_zone.prod.zone_id
-  name    = "admin.rikako.jp"
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.admin.domain_name
-    zone_id                = aws_cloudfront_distribution.admin.hosted_zone_id
-    evaluate_target_health = false
-  }
+# admin.rikako.org → Admin Frontend CloudFront
+resource "cloudflare_record" "admin" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "admin"
+  content = aws_cloudfront_distribution.admin.domain_name
+  type    = "CNAME"
+  ttl     = 1
+  proxied = false
 }

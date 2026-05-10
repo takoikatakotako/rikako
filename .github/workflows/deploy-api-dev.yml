@@ -65,8 +65,8 @@ jobs:
 
       - name: Smoke tests
         env:
-          API_URL: https://api.dev.rikako.jp
-          CONTENT_URL: https://content.dev.rikako.jp
+          API_URL: https://api.dev.rikako.org
+          CONTENT_URL: https://content.dev.rikako.org
         run: |
           FAILED=0
 

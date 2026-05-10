@@ -62,7 +62,7 @@ jobs:
 
       - name: Smoke tests
         env:
-          ADMIN_API_URL: https://admin.rikako.jp/api
+          ADMIN_API_URL: https://admin.rikako.org/api
         run: |
           ADMIN_BASIC_AUTH_USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
           ADMIN_BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
