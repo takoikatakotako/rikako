@@ -61,3 +61,18 @@ output "admin_frontend_bucket" {
   value       = module.admin_s3.bucket_id
 }
 
+output "lp_url" {
+  description = "URL of the LP"
+  value       = "https://rikako.org"
+}
+
+output "lp_distribution_id" {
+  description = "CloudFront distribution ID for LP"
+  value       = aws_cloudfront_distribution.lp.id
+}
+
+output "lp_bucket" {
+  description = "S3 bucket for LP"
+  value       = module.lp_s3.bucket_id
+}
+
