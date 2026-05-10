@@ -228,15 +228,15 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 ### 環境
 
 - **Dev環境**
-  - 公開API: https://api.dev.rikako.jp/
-  - 管理画面: https://admin.dev.rikako.jp/ （Basic Auth）
-  - 管理API: https://admin.dev.rikako.jp/api （CloudFront→Lambda、OAC認証）
+  - 公開API: https://api.dev.rikako.org/
+  - 管理画面: https://admin.dev.rikako.org/ （Basic Auth）
+  - 管理API: https://admin.dev.rikako.org/api （CloudFront→Lambda、OAC認証）
   - Lambda Function URL（公開API）: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
   - Lambda関数名（公開API）: rikako-api-development
   - Lambda関数名（管理API）: rikako-admin-api-development
   - ECRリポジトリ（管理API）: 579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api
-  - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
-  - Content CDN: https://content.dev.rikako.jp/ （静的JSON配信）
+  - Image CDN: https://image.dev.rikako.org/
+  - Content CDN: https://content.dev.rikako.org/ （静的JSON配信）
   - Content S3: rikako-content-development
   - Image S3: rikako-images-development
   - Neon DB: muddy-tree-64549662 (ap-southeast-1)
@@ -253,7 +253,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 2. **deploy-admin-api-dev.yml** - Dev管理APIデプロイ
    - 管理APIのDockerイメージをビルド → ECRにプッシュ → Lambda関数を更新
-   - スモークテスト: https://admin.dev.rikako.jp/api
+   - スモークテスト: https://admin.dev.rikako.org/api
 
 3. **plan-terraform.yml** - Terraform Plan CI
    - PRでterraform/以下の変更時に自動実行
@@ -281,7 +281,7 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 ### 配信フロー
 1. `data/` のYAMLを編集
 2. `cd app && go run ./cmd/importer -data ../data` でDBに同期
-3. `curl -X POST https://admin.dev.rikako.jp/publish` でDB → S3にJSON書き出し
+3. `curl -X POST https://admin.dev.rikako.org/publish` でDB → S3にJSON書き出し
 4. CloudFrontが60秒以内に新JSONを配信
 
 ### S3上のJSON構造

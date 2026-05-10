@@ -10,8 +10,8 @@ struct AppFlavor {
     init(bundle: Bundle) {
         let info = bundle.infoDictionary ?? [:]
         self.slug = info["RIKAKO_APP_SLUG"] as? String ?? "high-school-chemistry"
-        self.apiBaseURL = AppFlavor.urlValue(info["RIKAKO_API_BASE_URL"], fallback: "https://api.dev.rikako.jp")
-        self.contentBaseURL = AppFlavor.urlValue(info["RIKAKO_CONTENT_BASE_URL"], fallback: "https://content.dev.rikako.jp/v1")
+        self.apiBaseURL = AppFlavor.urlValue(info["RIKAKO_API_BASE_URL"], fallback: "https://api.dev.rikako.org")
+        self.contentBaseURL = AppFlavor.urlValue(info["RIKAKO_CONTENT_BASE_URL"], fallback: "https://content.dev.rikako.org/v1")
     }
 
     private static func urlValue(_ value: Any?, fallback: String) -> URL {

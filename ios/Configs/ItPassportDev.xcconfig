@@ -1,5 +1,5 @@
 APP_DISPLAY_NAME = Rikako IT Dev
 APP_SLUG = it-passport
-API_BASE_URL = https:/$()/api.dev.rikako.jp
-CONTENT_BASE_URL = https:/$()/content.dev.rikako.jp/v1
+API_BASE_URL = https:/$()/api.dev.rikako.org
+CONTENT_BASE_URL = https:/$()/content.dev.rikako.org/v1
 PRODUCT_BUNDLE_IDENTIFIER = jp.conol.rikako.itpassport.dev
