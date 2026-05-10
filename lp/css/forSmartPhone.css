@@ -1,0 +1,259 @@
+/*PC用の設定*/
+@charset "UTF-8";
+
+html{
+  font-size: 62.5%;
+  padding: 0px;
+  margin: 0px;
+}
+
+
+body{
+  padding: 0;
+  margin: 0;
+  
+  font-family: メイリオ;
+  font-size: 1.0rem;
+
+  z-index: 1;
+}
+
+
+header{ 
+  /*トップ見出しの設定です。*/
+/*
+  background: url(../images/RikakoGohst.png);
+  background-repeat: no-repeat;
+  background-size: 60%;*/
+    background-color:#fb526e;
+}
+
+
+#header-in{
+  color: white;
+  height: 100%;
+}
+
+#header-left{
+  width: 100%;
+  text-align: center; 
+}
+
+#header-left h1{
+  margin: 0;
+  padding-top: 50px;
+  font-size: 2.8rem;
+}
+
+#header-left p{
+  margin: 0;
+  margin-top: 20px;
+  font-size: 1.3rem;
+}
+
+#store{
+  margin-top: 30px;
+  width: 70%;
+}
+
+#storeGoogle{
+  margin-top: 20px;
+  width: 70%;
+}
+
+
+#header-right{
+
+  background: url(../images/iPhone.png);
+  background-repeat: no-repeat;
+
+  width: 100%;
+
+  background-size: 67%;
+  background-position: center bottom;
+
+}
+
+
+#social{
+  margin-top: 15px;
+}
+
+#social img{
+  width: 15%;
+}
+
+
+
+#twitter{
+  padding-left: 30%;
+  padding-right: 10%;
+}
+
+#facebook{
+}
+
+
+#iPhoneScreen{
+
+  width: 57%;
+  display: block;
+  margin: 0 auto;
+  margin-top: 80px;
+}
+
+
+/*ここから下, トップのメニューです。*/
+
+#functions{
+  /*トップ見出しの設定です。*/
+  
+  background-color:white;
+  text-align: center;
+
+  color: gray;
+
+  /*paddingの変更*/
+
+  padding: 0px;
+  margin: 0 auto;
+}
+
+
+#functions-in{  
+
+}
+
+#functions-in>h1{
+  padding-top: 20px;
+  font-size: 2.3rem;
+}
+
+#functions-in>h1>span{
+  color: #50a900;
+}
+
+
+
+#functions-in>div{
+  width: 100%;
+  padding-top: 10px;
+  background-repeat: no-repeat;
+  background-size: 100px 100px;
+  background-position: top center;
+  margin-top: 20px;
+}
+
+
+#functions-in div p{
+  margin: 0;
+  padding: 0;
+  font-size: 1.3rem;
+}
+
+#functions-in div h3{
+  margin: 0;
+  padding: 0;
+  margin-top: 110px;
+  color: #000;
+}
+
+#question{    
+
+  background: url(../images/question.png);
+
+}
+
+#explanation{
+
+  background: url(../images/explanation.png);
+}
+
+#weakpoint{
+
+  background: url(../images/weakpoint.png);
+}
+
+#database{
+
+  background: url(../images/database.png);
+}
+
+#social2{
+
+}
+
+#social2 img{
+}
+
+#store2{
+  width: 80%;
+  margin-left: 10%;
+  margin-right: 10%;
+
+}
+
+#facebook2{
+  width: 15%;
+  padding-left: 10%;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+#twitter2{
+  width: 15%;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+
+/*ここから下, トップのメニューです。*/
+
+footer{
+  /*トップ見出しの設定です。*/
+  
+  background-color:#2e2e38;
+  text-align: center;
+
+  color: white;
+
+
+  /*paddingの変更*/
+  
+  font-size: 1.0rem;
+  padding-bottom: 20px;
+}
+
+footer h2{
+  padding: 20px 0px 0px;
+  margin: 0px;
+}
+
+footer p{
+  padding: 0;
+  margin: 0;
+}
+
+a{/*リンクされた文字*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:link {/*未訪問のリンク*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:visited {/*訪問後のリンク*/
+    color:#fff;
+    text-decoration:underline;
+}
+a:hover {/*マウスをのせたとき*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:active {/*クリック中*/
+    text-decoration:none;
+}
+

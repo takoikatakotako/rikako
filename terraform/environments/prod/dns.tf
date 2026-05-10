@@ -46,35 +46,19 @@ resource "aws_acm_certificate" "wildcard_regional" {
 }
 
 # =============================================================================
-# Cloudflare DNS Records for ACM Certificate Validation
+# ACM Certificate Validation
+# *.rikako.org と rikako.org は同じ検証 CNAME を共有するため lp_cert_validation を参照
 # =============================================================================
-
-resource "cloudflare_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.wildcard.domain_validation_options : dvo.domain_name => {
-      name    = dvo.resource_record_name
-      content = dvo.resource_record_value
-      type    = dvo.resource_record_type
-    }
-  }
-
-  zone_id = data.cloudflare_zone.rikako.id
-  name    = each.value.name
-  content = each.value.content
-  type    = each.value.type
-  ttl     = 300
-  proxied = false
-}
 
 resource "aws_acm_certificate_validation" "wildcard" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.wildcard.arn
-  validation_record_fqdns = [for record in cloudflare_record.cert_validation : record.hostname]
+  validation_record_fqdns = [for record in cloudflare_record.lp_cert_validation : record.hostname]
 }
 
 resource "aws_acm_certificate_validation" "wildcard_regional" {
   certificate_arn         = aws_acm_certificate.wildcard_regional.arn
-  validation_record_fqdns = [for record in cloudflare_record.cert_validation : record.hostname]
+  validation_record_fqdns = [for record in cloudflare_record.lp_cert_validation : record.hostname]
 }
 
 # =============================================================================

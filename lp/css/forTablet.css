@@ -1,0 +1,278 @@
+/*PC用の設定*/
+@charset "UTF-8";
+
+
+html{
+  font-size: 62.5%;
+  padding: 0px;
+  margin: 0px;
+}
+
+
+body{
+  padding: 0;
+  margin: 0;
+  
+  font-family: メイリオ;
+  font-size: 1.0rem;
+
+  z-index: 1;
+}
+
+header{ 
+  /*トップ見出しの設定です。*/
+/*
+  background: url(../images/RikakoGohst.png);
+  background-repeat: no-repeat;
+  background-size: 60%;*/
+  background-color:#fb526e;
+
+/*background-color: black;*/
+
+
+}
+
+
+#header-in{
+  color: white;
+  height: 100%;
+}
+
+#header-left{
+  width: 100%;
+  text-align: center; 
+}
+
+#header-left h1{
+  margin: 0;
+  padding-top: 50px;
+  font-size: 3.2rem;
+}
+
+#header-left p{
+  margin: 0;
+  margin-top: 20px;
+  font-size: 1.5rem;
+}
+
+#store{
+  margin-top: 30px;
+  width: 50%;
+}
+
+
+#storeGoogle{
+  margin-top: 20px;
+  width: 50%;
+}
+
+#header-right{
+
+  background: url(../images/iPhone.png);
+  background-repeat: no-repeat;
+
+  width: 100%;
+
+  background-size: 67%;
+  background-position: center bottom;
+
+}
+
+
+#social{
+  margin-top: 15px;
+  position: static;
+}
+
+#social img{
+  width: 10%;
+}
+
+#twitter{
+  padding-left: 35%;
+  padding-right: 10%;
+}
+
+#facebook{
+}
+
+
+#iPhoneScreen{
+
+  width: 57%;
+  display: block;
+  margin: 0 auto;
+  margin-top: 190px;
+}
+
+
+@media screen and (max-width: 420px) {
+   /* 表示領域が320px以下の場合に適用するスタイル */
+   #iPhoneScreen { margin-top: 100px; }
+}
+/*
+@media screen and (min-width: 421px) {
+   /* 表示領域が800px以上の場合に適用するスタイル */
+   /*
+   #iPhoneScreen { margin-top: 180px; }
+}
+*/
+
+
+
+
+
+/*ここから下, トップのメニューです。*/
+
+#functions{
+  /*トップ見出しの設定です。*/
+  
+  background-color:white;
+  text-align: center;
+
+  color: gray;
+
+  /*paddingの変更*/
+
+  padding: 0px;
+  margin: 0 auto;
+}
+
+
+#functions-in{  
+
+
+}
+
+#functions-in>h1{
+  padding-top: 20px;
+  font-size: 30px;
+}
+
+#functions-in>h1>span{
+  color: #50a900;
+}
+
+
+
+#functions-in>div{
+  width: 100%;
+  padding-top: 10px;
+  background-repeat: no-repeat;
+  background-size: 100px 100px;
+  background-position: top center;
+}
+
+
+#functions-in div p{
+  margin: 0;
+  padding: 0;
+  padding-bottom: 20px;
+}
+
+#functions-in div h3{
+  margin: 0;
+  padding: 0;
+  margin-top: 100px;
+  color: #000;
+}
+
+#question{    
+
+  background: url(../images/question.png);
+
+}
+
+#explanation{
+
+  background: url(../images/explanation.png);
+}
+
+#weakpoint{
+
+  background: url(../images/weakpoint.png);
+}
+
+#database{
+
+  background: url(../images/database.png);
+}
+
+
+#social2{
+  display: block;
+
+}
+
+#social2 img{
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+#store2{
+  width: 60%;
+  margin-left: 20%;
+  margin-right: 20%;
+
+}
+
+#facebook2{
+  width: 10%;
+  padding-left: 10%;
+}
+
+#twitter2{
+  width: 10%;
+}
+
+/*ここから下, トップのメニューです。*/
+
+footer{
+  /*トップ見出しの設定です。*/
+  
+  background-color:#2e2e38;
+  text-align: center;
+  padding-bottom: 20px;
+
+  color: white;
+
+
+  /*paddingの変更*/
+  
+  font-size: 12px;
+}
+
+footer h2{
+  padding: 20px 0px 0px;
+  margin: 0px;
+}
+
+footer p{
+  padding: 0;
+  margin: 0;
+}
+
+
+a{/*リンクされた文字*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:link {/*未訪問のリンク*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:visited {/*訪問後のリンク*/
+    color:#fff;
+    text-decoration:underline;
+}
+a:hover {/*マウスをのせたとき*/
+    color:#fff;
+    font-style:normal;
+    text-decoration:underline;
+}
+a:active {/*クリック中*/
+    text-decoration:none;
+}
+
