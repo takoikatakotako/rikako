@@ -1,6 +1,6 @@
 output "api_endpoint" {
   description = "URL of the public API"
-  value       = "https://api.dev.rikako.jp"
+  value       = "https://api.dev.rikako.org"
 }
 
 output "api_gateway_id" {
@@ -60,7 +60,3 @@ output "admin_frontend_bucket" {
   value       = module.admin_s3.bucket_id
 }
 
-output "dev_zone_name_servers" {
-  description = "Name servers for dev.rikako.jp (set these as NS records at parent domain)"
-  value       = aws_route53_zone.dev.name_servers
-}

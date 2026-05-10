@@ -70,7 +70,7 @@ module "api_gateway" {
   name                 = "${local.project}-api-${local.environment}"
   lambda_function_name = module.lambda.function_name
   lambda_invoke_arn    = module.lambda.invoke_arn
-  custom_domain_name   = "api.dev.rikako.jp"
+  custom_domain_name   = "api.dev.rikako.org"
   acm_certificate_arn  = aws_acm_certificate_validation.wildcard_regional.certificate_arn
   throttle_burst_limit = 100
   throttle_rate_limit  = 50
@@ -100,7 +100,7 @@ module "lambda_admin" {
     IMAGE_BASE_URL                   = "https://${module.image_cloudfront.domain_name}"
     IMAGE_S3_BUCKET                  = local.image_bucket_name
     CONTENT_S3_BUCKET                = local.content_bucket_name
-    CONTENT_BASE_URL                 = "https://content.dev.rikako.jp"
+    CONTENT_BASE_URL                 = "https://content.dev.rikako.org"
     AWS_LWA_READINESS_CHECK_PROTOCOL = "http"
     AWS_LWA_READINESS_CHECK_PORT     = "8080"
     AWS_LWA_READINESS_CHECK_PATH     = "/health"

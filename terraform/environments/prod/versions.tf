@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.4"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 }
 
@@ -33,4 +37,12 @@ data "aws_ssm_parameter" "neon_api_key" {
 
 provider "neon" {
   api_key = data.aws_ssm_parameter.neon_api_key.value
+}
+
+data "aws_ssm_parameter" "cloudflare_api_token" {
+  name = "/rikako/cloudflare-api-token"
+}
+
+provider "cloudflare" {
+  api_token = data.aws_ssm_parameter.cloudflare_api_token.value
 }
