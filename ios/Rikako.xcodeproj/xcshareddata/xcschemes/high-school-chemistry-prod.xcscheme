@@ -31,7 +31,7 @@
       shouldAutocreateTestPlan = "YES">
    </TestAction>
    <LaunchAction
-      buildConfiguration = "HighSchoolChemistryProd Debug"
+      buildConfiguration = "HighSchoolChemistryProd Release"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
@@ -52,17 +52,17 @@
       </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
-      buildConfiguration = "HighSchoolChemistryProd Debug"
+      buildConfiguration = "HighSchoolChemistryProd Release"
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
    </ProfileAction>
    <AnalyzeAction
-      buildConfiguration = "HighSchoolChemistryProd Debug">
+      buildConfiguration = "HighSchoolChemistryProd Release">
    </AnalyzeAction>
    <ArchiveAction
-      buildConfiguration = "HighSchoolChemistryProd Debug"
+      buildConfiguration = "HighSchoolChemistryProd Release"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>

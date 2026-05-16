@@ -420,6 +420,7 @@ struct StudyHomeView: View {
         .environment(AppState.shared)
 }
 
+#if DEBUG
 #Preview("読み込み中") {
     StudyHomeView(viewModel: .previewLoading())
         .environment(AppState.shared)
@@ -429,3 +430,4 @@ struct StudyHomeView: View {
     StudyHomeView(viewModel: .previewError())
         .environment(AppState.shared)
 }
+#endif

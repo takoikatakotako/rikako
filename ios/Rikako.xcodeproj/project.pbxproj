@@ -305,12 +305,12 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		177B9F912FA428E000678E20 /* ItPassportProd Debug */ = {
+		177B9F912FA428E000678E20 /* ItPassportProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = RikakoTests;
 			};
-			name = "ItPassportProd Debug";
+			name = "ItPassportProd Release";
 		};
 		177B9F922FA428E000678E20 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -319,12 +319,12 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		177B9F932FA428E000678E20 /* HighSchoolChemistryProd Debug */ = {
+		177B9F932FA428E000678E20 /* HighSchoolChemistryProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = RikakoTests;
 			};
-			name = "HighSchoolChemistryProd Debug";
+			name = "HighSchoolChemistryProd Release";
 		};
 		177B9F942FA428E000678E20 /* ItPassportDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -333,12 +333,12 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		177B9F952FA428E000678E20 /* ItPassportProd Debug */ = {
+		177B9F952FA428E000678E20 /* ItPassportProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = RikakoUITests;
 			};
-			name = "ItPassportProd Debug";
+			name = "ItPassportProd Release";
 		};
 		177B9F962FA428E000678E20 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -347,12 +347,12 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		177B9F972FA428E000678E20 /* HighSchoolChemistryProd Debug */ = {
+		177B9F972FA428E000678E20 /* HighSchoolChemistryProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = RikakoUITests;
 			};
-			name = "HighSchoolChemistryProd Debug";
+			name = "HighSchoolChemistryProd Release";
 		};
 		17B40F7C2F65BCE4001A7DD8 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -481,7 +481,6 @@
 				API_BASE_URL = "https://api.dev.rikako.org";
 				APP_DISPLAY_NAME = Rikako;
 				APP_SLUG = "high-school-chemistry";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
@@ -491,6 +490,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Rikako;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "https://api.dev.rikako.org";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "high-school-chemistry";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
@@ -503,7 +503,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.conol.rikako;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -522,7 +522,6 @@
 				API_BASE_URL = "https://api.dev.rikako.org";
 				APP_DISPLAY_NAME = Rikako;
 				APP_SLUG = "high-school-chemistry";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
@@ -532,6 +531,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Rikako;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "https://api.dev.rikako.org";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "high-school-chemistry";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
@@ -544,7 +544,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.conol.rikako;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -566,7 +566,7 @@
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swiswiswift.RikakoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -588,7 +588,7 @@
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swiswiswift.RikakoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -608,7 +608,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swiswiswift.RikakoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -628,7 +628,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swiswiswift.RikakoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -677,7 +677,7 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		CF0000000000000000000011 /* ItPassportProd Debug */ = {
+		CF0000000000000000000011 /* ItPassportProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -689,29 +689,22 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
 			};
-			name = "ItPassportProd Debug";
+			name = "ItPassportProd Release";
 		};
 		CF0000000000000000000012 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
@@ -749,7 +742,7 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		CF0000000000000000000013 /* HighSchoolChemistryProd Debug */ = {
+		CF0000000000000000000013 /* HighSchoolChemistryProd Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -761,43 +754,37 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5RH346BQ66;
+				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
 			};
-			name = "HighSchoolChemistryProd Debug";
+			name = "HighSchoolChemistryProd Release";
 		};
 		CF0000000000000000000020 /* ItPassportDev Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CF0000000000000000000001 /* ItPassportDev.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleDisplayName = "4択IT（Dev）";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
@@ -810,7 +797,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -822,11 +809,10 @@
 			};
 			name = "ItPassportDev Debug";
 		};
-		CF0000000000000000000021 /* ItPassportProd Debug */ = {
+		CF0000000000000000000021 /* ItPassportProd Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CF0000000000000000000002 /* ItPassportProd.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -834,7 +820,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleDisplayName = "4択IT";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
@@ -847,7 +834,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -857,21 +844,22 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = "ItPassportProd Debug";
+			name = "ItPassportProd Release";
 		};
 		CF0000000000000000000022 /* HighSchoolChemistryDev Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CF0000000000000000000003 /* HighSchoolChemistryDev.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleDisplayName = "4択化学（Dev）";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
@@ -884,7 +872,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -896,11 +884,10 @@
 			};
 			name = "HighSchoolChemistryDev Debug";
 		};
-		CF0000000000000000000023 /* HighSchoolChemistryProd Debug */ = {
+		CF0000000000000000000023 /* HighSchoolChemistryProd Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CF0000000000000000000004 /* HighSchoolChemistryProd.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -908,7 +895,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Rikako/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "$(APP_DISPLAY_NAME)";
+				INFOPLIST_KEY_CFBundleDisplayName = "4択化学";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
@@ -921,7 +909,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -931,7 +919,7 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
-			name = "HighSchoolChemistryProd Debug";
+			name = "HighSchoolChemistryProd Release";
 		};
 /* End XCBuildConfiguration section */
 
@@ -942,9 +930,9 @@
 				17B40F7C2F65BCE4001A7DD8 /* Debug */,
 				17B40F7D2F65BCE4001A7DD8 /* Release */,
 				CF0000000000000000000010 /* ItPassportDev Debug */,
-				CF0000000000000000000011 /* ItPassportProd Debug */,
+				CF0000000000000000000011 /* ItPassportProd Release */,
 				CF0000000000000000000012 /* HighSchoolChemistryDev Debug */,
-				CF0000000000000000000013 /* HighSchoolChemistryProd Debug */,
+				CF0000000000000000000013 /* HighSchoolChemistryProd Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -955,9 +943,9 @@
 				17B40F7F2F65BCE4001A7DD8 /* Debug */,
 				17B40F802F65BCE4001A7DD8 /* Release */,
 				CF0000000000000000000020 /* ItPassportDev Debug */,
-				CF0000000000000000000021 /* ItPassportProd Debug */,
+				CF0000000000000000000021 /* ItPassportProd Release */,
 				CF0000000000000000000022 /* HighSchoolChemistryDev Debug */,
-				CF0000000000000000000023 /* HighSchoolChemistryProd Debug */,
+				CF0000000000000000000023 /* HighSchoolChemistryProd Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -968,9 +956,9 @@
 				17B40F822F65BCE4001A7DD8 /* Debug */,
 				17B40F832F65BCE4001A7DD8 /* Release */,
 				177B9F902FA428E000678E20 /* ItPassportDev Debug */,
-				177B9F912FA428E000678E20 /* ItPassportProd Debug */,
+				177B9F912FA428E000678E20 /* ItPassportProd Release */,
 				177B9F922FA428E000678E20 /* HighSchoolChemistryDev Debug */,
-				177B9F932FA428E000678E20 /* HighSchoolChemistryProd Debug */,
+				177B9F932FA428E000678E20 /* HighSchoolChemistryProd Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -981,9 +969,9 @@
 				17B40F852F65BCE4001A7DD8 /* Debug */,
 				17B40F862F65BCE4001A7DD8 /* Release */,
 				177B9F942FA428E000678E20 /* ItPassportDev Debug */,
-				177B9F952FA428E000678E20 /* ItPassportProd Debug */,
+				177B9F952FA428E000678E20 /* ItPassportProd Release */,
 				177B9F962FA428E000678E20 /* HighSchoolChemistryDev Debug */,
-				177B9F972FA428E000678E20 /* HighSchoolChemistryProd Debug */,
+				177B9F972FA428E000678E20 /* HighSchoolChemistryProd Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
