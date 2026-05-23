@@ -20,6 +20,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>RIKAKO_API_BASE_URL</key>
 	<string>$(API_BASE_URL)</string>
 	<key>RIKAKO_APP_SLUG</key>
