@@ -32,7 +32,7 @@ type Querier interface {
 	CreateQuestionImage(ctx context.Context, arg CreateQuestionImageParams) error
 	CreateSingleChoice(ctx context.Context, arg CreateSingleChoiceParams) (int64, error)
 	CreateTransferToken(ctx context.Context, arg CreateTransferTokenParams) (CreateTransferTokenRow, error)
-	CreateUserAnswer(ctx context.Context, arg CreateUserAnswerParams) error
+	CreateUserAnswers(ctx context.Context, arg CreateUserAnswersParams) error
 	CreateWorkbook(ctx context.Context, arg CreateWorkbookParams) (int64, error)
 	CreateWorkbookQuestion(ctx context.Context, arg CreateWorkbookQuestionParams) error
 	DeleteAllCategories(ctx context.Context) error
