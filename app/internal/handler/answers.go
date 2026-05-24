@@ -51,24 +51,27 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 		correctMap[row.QuestionID] = row.ChoiceIndex
 	}
 
+	selectedChoices := make([]int32, len(request.Body.Answers))
+	isCorrects := make([]bool, len(request.Body.Answers))
 	correctCount := 0
-	for _, answer := range request.Body.Answers {
+	for i, answer := range request.Body.Answers {
 		isCorrect := correctMap[answer.QuestionId] == int32(answer.SelectedChoice)
 		if isCorrect {
 			correctCount++
 		}
+		selectedChoices[i] = int32(answer.SelectedChoice)
+		isCorrects[i] = isCorrect
+	}
 
-		err = h.queries.CreateUserAnswer(ctx, db.CreateUserAnswerParams{
-			UserID:         userID,
-			QuestionID:     answer.QuestionId,
-			WorkbookID:     request.Body.WorkbookId,
-			SelectedChoice: int32(answer.SelectedChoice),
-			IsCorrect:      isCorrect,
-		})
-		if err != nil {
-			h.logger.Error("failed to insert answer", "error", err, "question_id", answer.QuestionId)
-			return nil, err
-		}
+	if err := h.queries.CreateUserAnswers(ctx, db.CreateUserAnswersParams{
+		UserID:          userID,
+		QuestionIds:     questionIDs,
+		WorkbookID:      request.Body.WorkbookId,
+		SelectedChoices: selectedChoices,
+		IsCorrects:      isCorrects,
+	}); err != nil {
+		h.logger.Error("failed to batch insert user answers", "error", err)
+		return nil, err
 	}
 
 	return api.SubmitAnswers200JSONResponse{

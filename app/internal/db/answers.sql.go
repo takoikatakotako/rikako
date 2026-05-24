@@ -72,26 +72,31 @@ func (q *Queries) CountWrongAnswers(ctx context.Context, userID int64) (int64, e
 	return count, err
 }
 
-const createUserAnswer = `-- name: CreateUserAnswer :exec
+const createUserAnswers = `-- name: CreateUserAnswers :exec
 INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-VALUES ($1, $2, $3, $4, $5)
+SELECT
+    $1::bigint,
+    unnest($2::bigint[]),
+    $3::bigint,
+    unnest($4::int[]),
+    unnest($5::bool[])
 `
 
-type CreateUserAnswerParams struct {
-	UserID         int64 `json:"user_id"`
-	QuestionID     int64 `json:"question_id"`
-	WorkbookID     int64 `json:"workbook_id"`
-	SelectedChoice int32 `json:"selected_choice"`
-	IsCorrect      bool  `json:"is_correct"`
+type CreateUserAnswersParams struct {
+	UserID          int64   `json:"user_id"`
+	QuestionIds     []int64 `json:"question_ids"`
+	WorkbookID      int64   `json:"workbook_id"`
+	SelectedChoices []int32 `json:"selected_choices"`
+	IsCorrects      []bool  `json:"is_corrects"`
 }
 
-func (q *Queries) CreateUserAnswer(ctx context.Context, arg CreateUserAnswerParams) error {
-	_, err := q.db.ExecContext(ctx, createUserAnswer,
+func (q *Queries) CreateUserAnswers(ctx context.Context, arg CreateUserAnswersParams) error {
+	_, err := q.db.ExecContext(ctx, createUserAnswers,
 		arg.UserID,
-		arg.QuestionID,
+		pq.Array(arg.QuestionIds),
 		arg.WorkbookID,
-		arg.SelectedChoice,
-		arg.IsCorrect,
+		pq.Array(arg.SelectedChoices),
+		pq.Array(arg.IsCorrects),
 	)
 	return err
 }

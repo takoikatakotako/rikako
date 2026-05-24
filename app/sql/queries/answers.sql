@@ -15,9 +15,14 @@ SELECT EXISTS(
       AND c.is_correct = true
 );
 
--- name: CreateUserAnswer :exec
+-- name: CreateUserAnswers :exec
 INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-VALUES ($1, $2, $3, $4, $5);
+SELECT
+    sqlc.arg(user_id)::bigint,
+    unnest(sqlc.arg(question_ids)::bigint[]),
+    sqlc.arg(workbook_id)::bigint,
+    unnest(sqlc.arg(selected_choices)::int[]),
+    unnest(sqlc.arg(is_corrects)::bool[]);
 
 -- name: CountWrongAnswers :one
 SELECT COUNT(*) FROM (
