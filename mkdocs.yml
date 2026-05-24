@@ -20,6 +20,7 @@ nav:
   - データ同期: datasync.md
   - プライバシーポリシー: privacy.md
   - 運用ランブック: runbook.md
+  - 負荷テスト計画: load-test.md
   - DBスキーマ:
       - 概要: schema/README.md
       - questions: schema/public.questions.md
