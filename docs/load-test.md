@@ -81,8 +81,6 @@ Artillery は YAML で書きやすいが分散実行が有料、Locust は Pytho
 
 ## 結果記録
 
-実施後に追記する。
-
 | 実施日 | シナリオ | p95 | エラー率 | 備考 |
 |---|---|---|---|---|
-| - | - | - | - | - |
+| 2026-05-31 | スパイク（dev / 0→100 RPS / 2m sustain） | 603ms | 46.6%（全件 429） | API Gateway の `throttle_rate_limit=50` に頭打ち。通過分（実効 ~50 RPS）のレイテンシは健全で Lambda/Neon は無傷。prod は `rate_limit=100`（burst 200）に設定済みで、想定 1万 MAU・ピーク 200 同時に対し十分なマージン。Lambda/Neon 自身の限界探索はポストリリースで実施。 |
