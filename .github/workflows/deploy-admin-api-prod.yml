@@ -51,10 +51,13 @@ jobs:
         env:
           FUNCTION_NAME: rikako-admin-api-production
         run: |
-          aws lambda update-function-code \
+          # 注: 出力には Environment.Variables が含まれるため、Version だけ取り出してログ露出を防ぐ
+          VERSION=$(aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --image-uri "${{ steps.meta.outputs.tags }}" \
-            --publish
+            --publish \
+            --output text --query 'Version')
+          echo "Published version: $VERSION"
 
           echo "Waiting for function update to complete..."
           aws lambda wait function-updated \
