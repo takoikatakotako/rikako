@@ -21,6 +21,9 @@ k6 run scenarios/answers.js
 
 # RPS と継続時間を変えて流す（例: 50 RPS × 5 分）
 RATE=50 DURATION=5m k6 run scenarios/answers.js
+
+# スパイク（0 → 100 RPS を 30 秒で立ち上げ、2 分維持）
+k6 run scenarios/spike.js
 ```
 
 ### 環境変数
@@ -32,7 +35,10 @@ RATE=50 DURATION=5m k6 run scenarios/answers.js
 | `WORKBOOK_ID` | `3` | 負荷をかける workbookId（令和7年度 ITパスポート） |
 | `RATE` | `20`（answers のみ） | 1 秒あたりのリクエスト数 |
 | `DURATION` | `2m`（answers のみ） | テスト継続時間 |
-| `ANSWERS_PER_REQUEST` | `3`（answers のみ） | 1 リクエストに含める解答数 |
+| `TARGET_RATE` | `100`（spike のみ） | ピーク時の RPS |
+| `RAMP_DURATION` | `30s`（spike のみ） | 0 → `TARGET_RATE` に到達するまでの時間 |
+| `SUSTAIN_DURATION` | `2m`（spike のみ） | ピーク RPS を維持する時間 |
+| `ANSWERS_PER_REQUEST` | `3`（answers / spike） | 1 リクエストに含める解答数 |
 
 例: ローカル API に対して実行する場合
 
