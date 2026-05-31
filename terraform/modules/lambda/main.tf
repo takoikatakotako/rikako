@@ -70,6 +70,24 @@ resource "aws_iam_role_policy" "lambda_cognito_identity" {
   })
 }
 
+# SSM Parameter Store read access (for app-side env resolution; internal/secrets.Resolve)
+resource "aws_iam_role_policy" "lambda_ssm" {
+  count = length(var.ssm_parameter_arns) > 0 ? 1 : 0
+  name  = "ssm-parameter-read"
+  role  = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters", "ssm:GetParameter"]
+        Resource = var.ssm_parameter_arns
+      }
+    ]
+  })
+}
+
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${var.function_name}"

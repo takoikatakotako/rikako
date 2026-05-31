@@ -56,6 +56,12 @@ variable "cognito_identity_pool_arn" {
   default     = ""
 }
 
+variable "ssm_parameter_arns" {
+  description = "List of SSM Parameter ARNs the Lambda is allowed to read at startup (used by internal/secrets.Resolve)"
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
