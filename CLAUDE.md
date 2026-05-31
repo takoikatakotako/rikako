@@ -19,12 +19,16 @@ Rikako - 問題集アプリ
 ### AWS環境
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
-- **HTTPアクセス**: Lambda Function URL
+- **HTTPアクセス**:
+  - 公開API: API Gateway HTTP API（`api.dev.rikako.org` / `api.rikako.org`）
+  - 管理API: CloudFront + Basic Auth → Lambda Function URL (AWS_IAM + OAC)（`admin.dev.rikako.org/api` / `admin.rikako.org/api`）
 - **画像配信**: S3 + CloudFront (OAC)
+- **コンテンツ配信**: S3 + CloudFront（静的JSON）
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
-- **シークレット管理**: AWS SSM Parameter Store (SecureString)
+- **シークレット管理**: AWS SSM Parameter Store (SecureString)。Lambda 環境変数には `ssm:/path` 形式の参照のみを保存し、アプリ起動時に `app/internal/secrets.Resolve` が実値を取得して `os.Setenv` で展開する
 - **認証（API）**: Amazon Cognito User Pool（JWT検証）+ Cognito Identity Pool（匿名認証）
 - **認証（CI/CD）**: GitHub Actions OIDC
+- **アラート**: CloudWatch Alarm → SNS → Lambda (Python slack_notifier) → Slack
 - **IaC**: Terraform (Neon Provider使用、S3ネイティブロック)
 - **CI/CD**: GitHub Actions (tfcmt連携)
 
@@ -45,6 +49,7 @@ Rikako - 問題集アプリ
 │   │   ├── db/             # sqlc生成コード（編集禁止）
 │   │   ├── handler/        # 公開APIハンドラー実装
 │   │   ├── admin/          # 管理APIハンドラー実装
+│   │   ├── secrets/        # Lambda 環境変数の SSM Parameter Store 自動解決
 │   │   └── importer/       # インポーター実装
 │   ├── Dockerfile.lambda   # Lambda用Dockerイメージ（公開API）
 │   └── Dockerfile.admin    # Lambda用Dockerイメージ（管理API）
@@ -217,32 +222,52 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 - **State管理**: 各環境のAWSアカウントにS3バケットで管理（S3ネイティブロック使用）
 - **Shared環境** (AWSアカウント: 579039992557)
   - ECR（全環境で共有）
-  - リポジトリ: `rikako-api`
-- **Dev環境** (AWSアカウント: 197865631794)
-  - Lambda Function + Function URL
+  - リポジトリ: `rikako-api`, `rikako-admin-api`
+- **Dev環境** (AWSアカウント: 197865631794) — `apply-terraform-dev.yml` で main push 時に自動 apply
+  - Lambda Function（公開API: API Gateway 経由、管理API: Function URL + OAC）
   - Neon PostgreSQL
-  - S3 + CloudFront（画像配信）
+  - S3 + CloudFront（画像配信 / コンテンツ配信）
   - OIDC Provider + IAM Role（GitHub Actions用）
-  - Neon APIキーはAWS SSM Parameter Store（SecureString）で管理
+  - CloudWatch アラーム + SNS + Python Lambda（slack_notifier）
+- **Prod環境** (AWSアカウント: 211125415945) — 手動で `terraform apply`
+  - Dev と同じリソース構成（カスタムドメインだけ rikako.org 配下に変更）
+  - スロットリング: API Gateway HTTP API で `rate_limit=100, burst_limit=200`
+- **SSM Parameter Store でのシークレット管理**:
+  - `/rikako/<env>/openai-api-key`、`/rikako/<env>/slack-contact-webhook-url`、`/rikako/<env>/slack-alert-webhook-url` は手動で `aws ssm put-parameter --type SecureString` で登録
+  - `/rikako/<env>/database-url` は Terraform が Neon の connection_uri から SecureString として登録
+  - `/rikako/neon-api-key` は Terraform Provider 用、手動登録
+  - Lambda 環境変数は `ssm:/rikako/<env>/...` のリテラル参照のみ。`app/internal/secrets.Resolve` および Python `_resolve_ssm` が起動時に実値を取得
 
 ### 環境
 
-- **Dev環境**
-  - 公開API: https://api.dev.rikako.org/
-  - 管理画面: https://admin.dev.rikako.org/ （Basic Auth）
-  - 管理API: https://admin.dev.rikako.org/api （CloudFront→Lambda、OAC認証）
-  - Lambda Function URL（公開API）: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
-  - Lambda関数名（公開API）: rikako-api-development
-  - Lambda関数名（管理API）: rikako-admin-api-development
-  - ECRリポジトリ（管理API）: 579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-admin-api
-  - Image CDN: https://image.dev.rikako.org/
-  - Content CDN: https://content.dev.rikako.org/ （静的JSON配信）
-  - Content S3: rikako-content-development
-  - Image S3: rikako-images-development
-  - Neon DB: muddy-tree-64549662 (ap-southeast-1)
-  - Cognito User Pool: Terraform管理（rikako-development）
-  - Cognito Identity Pool: ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222
-  - Terraform State: s3://rikako-dev-terraform-state
+- **Dev環境** (AWSアカウント: 197865631794)
+  - LP: https://rikako.org/ ※ LP は prod アカウントから配信
+  - 公開API: https://api.dev.rikako.org/ （API Gateway HTTP API、rate=50/burst=100）
+  - 管理画面: https://admin.dev.rikako.org/ （CloudFront + Basic Auth）
+  - 管理API: https://admin.dev.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）
+  - Lambda関数名: `rikako-api-development` / `rikako-admin-api-development` / `rikako-slack-notifier-development`
+  - Image CDN: https://image.dev.rikako.org/ (S3: `rikako-images-development`)
+  - Content CDN: https://content.dev.rikako.org/ (S3: `rikako-content-development`)
+  - Neon DB: `muddy-tree-64549662` (ap-southeast-1)
+  - Cognito User Pool: `ap-northeast-1_DvsZzCoJw`
+  - Cognito Identity Pool: `ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222`
+  - Terraform State: `s3://rikako-dev-terraform-state`
+
+- **Prod環境** (AWSアカウント: 211125415945)
+  - LP: https://rikako.org/
+  - 公開API: https://api.rikako.org/ （API Gateway HTTP API、rate=100/burst=200）
+  - 管理画面: https://admin.rikako.org/ （CloudFront + Basic Auth）
+  - 管理API: https://admin.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）
+  - Lambda関数名: `rikako-api-production` / `rikako-admin-api-production` / `rikako-slack-notifier-production`
+  - Image CDN: https://image.rikako.org/ (S3: `rikako-images-production`)
+  - Content CDN: https://content.rikako.org/ (S3: `rikako-content-production`)
+  - Neon DB: `ep-misty-unit-aoxkoz1d` (ap-southeast-1)
+  - Cognito User Pool: `ap-northeast-1_d8LkqgsJU`
+  - Terraform State: `s3://rikako-prod-terraform-state`
+  - 自動 apply 無し、ローカルから `AWS_PROFILE=rikako-production-sso terraform apply` で反映
+
+- **Shared環境** (AWSアカウント: 579039992557)
+  - ECR: `rikako-api` / `rikako-admin-api`
 
 ### GitHub Actions ワークフロー
 

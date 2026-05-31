@@ -13,14 +13,19 @@ graph TB
         AdminClient[Admin Client]
     end
 
-    subgraph AWS - Dev Account
-        FURL[Lambda Function URL<br/>公開API]
+    subgraph AWS Account
+        APIGW[API Gateway HTTP API<br/>api.rikako.org]
         Lambda[Lambda + Web Adapter<br/>公開API]
-        AdminFURL[Lambda Function URL<br/>管理API]
+        AdminCF[CloudFront + Basic Auth<br/>admin.rikako.org]
+        AdminFURL[Lambda Function URL<br/>AWS_IAM + OAC]
         AdminLambda[Lambda + Web Adapter<br/>管理API]
-        S3[S3 Bucket<br/>rikako-images-development]
-        CF[CloudFront<br/>OAC]
-        SSM[SSM Parameter Store<br/>Neon API Key]
+        S3[S3 Bucket<br/>rikako-images-*]
+        CF[CloudFront<br/>OAC<br/>image.rikako.org]
+        ContentCF[CloudFront<br/>content.rikako.org]
+        ContentS3[S3 Bucket<br/>rikako-content-*]
+        SlackNotifier[Lambda<br/>slack_notifier]
+        SNS[SNS<br/>rikako-alerts]
+        SSM["SSM Parameter Store<br/>(OPENAI/SLACK/DATABASE/Neon API key)"]
     end
 
     subgraph Neon
@@ -28,7 +33,7 @@ graph TB
     end
 
     subgraph AWS - Shared Account
-        ECR[ECR<br/>rikako-api]
+        ECR[ECR<br/>rikako-api / rikako-admin-api]
     end
 
     subgraph GitHub
@@ -36,17 +41,26 @@ graph TB
         Actions[GitHub Actions]
     end
 
-    iOS --> FURL
-    Android --> FURL
+    iOS --> APIGW
+    Android --> APIGW
     iOS --> CF
     Android --> CF
-    FURL --> Lambda
+    iOS --> ContentCF
+    Android --> ContentCF
+    APIGW --> Lambda
     Lambda --> DB
-    AdminClient --> AdminFURL
+    Lambda -.->|起動時に解決| SSM
+    AdminClient --> AdminCF
+    AdminCF --> AdminFURL
     AdminFURL --> AdminLambda
     AdminLambda --> DB
+    AdminLambda -.->|起動時に解決| SSM
     AdminLambda -->|Presigned URL| S3
+    AdminLambda -->|publish| ContentS3
     CF --> S3
+    ContentCF --> ContentS3
+    SNS --> SlackNotifier
+    SlackNotifier -.->|起動時に解決| SSM
 
     Actions -->|OIDC| ECR
     Actions -->|OIDC| Lambda
@@ -56,6 +70,8 @@ graph TB
     Repo --> Actions
 ```
 
+> **シークレットの扱い**: Lambda 環境変数には実値を持たず `ssm:/path` 形式の参照だけを設定し、アプリ起動時に `app/internal/secrets.Resolve` が SSM Parameter Store から実値を取得して `os.Setenv` で展開する（Python slack_notifier も同じ規約）。`aws lambda update-function-code` のレスポンス経由でシークレットが露出することを防ぐ仕組み。詳細は [Issue #199](https://github.com/takoikatakotako/rikako/issues/199) 参照。
+
 ## デプロイフロー
 
 ```mermaid
@@ -64,17 +80,18 @@ sequenceDiagram
     participant GH as GitHub
     participant GA as GitHub Actions
     participant ECR as ECR (Shared)
-    participant Lambda as Lambda (Dev)
-    participant FURL as Function URL
+    participant Lambda as Lambda
+    participant APIGW as API Gateway
 
     Dev->>GH: Push to main
     GH->>GA: Trigger deploy-api-dev.yml
     GA->>GA: Docker Build
     GA->>ECR: Push Image (OIDC)
-    GA->>Lambda: Update Function Code (OIDC)
-    GA->>Lambda: Wait for Update
-    GA->>FURL: Health Check (/health)
-    FURL-->>GA: 200 OK
+    GA->>Lambda: UpdateFunctionCode (OIDC)
+    GA->>Lambda: Wait for Update (GetFunctionConfiguration)
+    GA->>APIGW: Health Check (/health)
+    APIGW->>Lambda: Forward
+    Lambda-->>GA: 200 OK
 ```
 
 ## 画像配信
@@ -140,15 +157,17 @@ graph LR
 
 | リソース | 用途 | 環境 |
 |---------|------|------|
-| Lambda + Web Adapter | 公開APIサーバー | Dev |
-| Lambda + Web Adapter | 管理APIサーバー | Dev |
-| Lambda Function URL | HTTP エンドポイント | Dev |
-| Neon PostgreSQL | データベース | External |
-| S3 | 画像ストレージ | Dev |
-| CloudFront (OAC) | 画像 CDN | Dev |
-| ECR | コンテナレジストリ | Shared |
-| SSM Parameter Store | シークレット管理 | Dev |
-| S3 | Terraform State | Shared / Dev |
+| Lambda + Web Adapter | 公開APIサーバー / 管理APIサーバー | Dev / Prod |
+| API Gateway HTTP API | 公開APIエンドポイント (`api.dev.rikako.org` / `api.rikako.org`) | Dev / Prod |
+| Lambda Function URL + CloudFront (OAC) | 管理APIエンドポイント (`admin.dev.rikako.org/api` / `admin.rikako.org/api`) | Dev / Prod |
+| Neon PostgreSQL | データベース | External (ap-southeast-1) |
+| S3 + CloudFront (OAC) | 画像 CDN (`image.dev.rikako.org` / `image.rikako.org`) | Dev / Prod |
+| S3 + CloudFront | コンテンツ CDN (`content.dev.rikako.org` / `content.rikako.org`) | Dev / Prod |
+| ECR | コンテナレジストリ (`rikako-api`, `rikako-admin-api`) | Shared |
+| SSM Parameter Store | シークレット管理 (`OPENAI_API_KEY` / `SLACK_WEBHOOK_URL` / `DATABASE_URL` / Neon API key) | Dev / Prod |
+| SNS + Lambda (Python) | CloudWatch アラーム → Slack 通知 | Dev / Prod |
+| Cognito User Pool / Identity Pool | 認証（永続）/ 匿名認証 | Dev / Prod |
+| S3 | Terraform State | Shared / Dev / Prod |
 
 ## Terraform モジュール
 
@@ -158,7 +177,8 @@ graph LR
 |-----------|------|
 | `modules/s3` | S3 バケット + パブリックアクセスブロック |
 | `modules/cloudfront` | CloudFront ディストリビューション + OAC |
-| `modules/lambda` | Lambda + IAM Role + CloudWatch Logs + Function URL |
+| `modules/lambda` | Lambda + IAM Role + CloudWatch Logs + Function URL (optional) + SSM 読み取りポリシー (optional) |
+| `modules/api_gateway` | API Gateway HTTP API + カスタムドメイン + スロットリング |
 | `modules/ecr` | ECR リポジトリ + ライフサイクルポリシー |
 | `modules/cognito` | Cognito User Pool + Client |
 | `modules/cognito_identity` | Cognito Identity Pool + IAM Role (unauthenticated) |

@@ -147,20 +147,30 @@ docker run --rm \
 
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
 - **データベース**: Neon PostgreSQL (Serverless)
-- **画像配信**: S3 + CloudFront (OAC)
+- **公開API**: API Gateway HTTP API
+- **管理API**: CloudFront + Basic Auth → Lambda Function URL (AWS_IAM + OAC)
+- **画像配信 / コンテンツ配信**: S3 + CloudFront (OAC)
 - **コンテナレジストリ**: Amazon ECR (shared環境で管理)
-- **シークレット管理**: AWS SSM Parameter Store (SecureString)
+- **シークレット管理**: AWS SSM Parameter Store (SecureString)。Lambda 環境変数には `ssm:/path` 形式の参照だけを保存し、アプリ起動時に `app/internal/secrets.Resolve` が実値を取得する
+- **アラート通知**: CloudWatch Alarm → SNS → Python Lambda (slack_notifier) → Slack
 - **認証**: GitHub Actions OIDC
 - **IaC**: Terraform (S3ネイティブロック)
 - **CI/CD**: GitHub Actions (tfcmt連携)
 
 ### 環境
 
-- **Dev環境**
-  - Function URL: https://umay5vbvquds44pubogp2jpaky0okiaj.lambda-url.ap-northeast-1.on.aws/
-  - Image CDN: https://d1ovm6exq28tn1.cloudfront.net/
-  - Shared AWSアカウント: 579039992557 (ECR)
-  - Dev AWSアカウント: 197865631794 (Lambda, Neon, S3, CloudFront)
+- **Dev環境** (AWSアカウント: 197865631794)
+  - 公開API: https://api.dev.rikako.org/
+  - 管理画面: https://admin.dev.rikako.org/
+  - Image CDN: https://image.dev.rikako.org/
+  - Content CDN: https://content.dev.rikako.org/
+- **Prod環境** (AWSアカウント: 211125415945)
+  - LP: https://rikako.org/
+  - 公開API: https://api.rikako.org/
+  - 管理画面: https://admin.rikako.org/
+  - Image CDN: https://image.rikako.org/
+  - Content CDN: https://content.rikako.org/
+- **Shared環境** (AWSアカウント: 579039992557): ECR (`rikako-api`, `rikako-admin-api`)
 
 ### 初回セットアップ
 
@@ -188,16 +198,32 @@ aws s3api create-bucket \
 
 https://console.neon.tech/app/settings/api-keys でAPIキーを作成します。
 
-#### 3. Neon API Keyの登録
+#### 3. シークレットを SSM Parameter Store に登録
 
-SSM Parameter Storeに登録します：
+SecureString として登録します（Terraform apply の前提）：
 
 ```bash
-aws ssm put-parameter \
-  --name "/rikako/neon-api-key" \
-  --value "$NEON_API_KEY" \
-  --type SecureString
+# Neon API Key（Terraform Provider が利用）
+aws ssm put-parameter --name "/rikako/neon-api-key" \
+  --value "$NEON_API_KEY" --type SecureString
+
+# 各環境の OpenAI API Key
+aws ssm put-parameter --name "/rikako/development/openai-api-key" \
+  --value "$OPENAI_API_KEY_DEV" --type SecureString
+aws ssm put-parameter --name "/rikako/production/openai-api-key" \
+  --value "$OPENAI_API_KEY_PROD" --type SecureString
+
+# 各環境の Slack Webhook URL（お問い合わせ通知用 / アラート通知用）
+aws ssm put-parameter --name "/rikako/development/slack-contact-webhook-url" \
+  --value "$SLACK_CONTACT_WEBHOOK_DEV" --type SecureString
+aws ssm put-parameter --name "/rikako/development/slack-alert-webhook-url" \
+  --value "$SLACK_ALERT_WEBHOOK_DEV" --type SecureString
+# prod も同様
 ```
+
+> `DATABASE_URL` は Terraform が Neon の connection_uri から自動で SecureString として登録するため手動登録は不要。
+>
+> Lambda 環境変数には `ssm:/rikako/<env>/...` のリテラル参照のみが保存され、アプリ起動時に `app/internal/secrets.Resolve` が実値を取得します（[Issue #199](https://github.com/takoikatakotako/rikako/issues/199)）。
 
 > GitHub SecretsへのAWSキー登録は不要です（OIDC認証を使用）。
 
@@ -213,18 +239,27 @@ terraform apply
 
 ```bash
 cd terraform/environments/dev
-terraform init
-terraform apply
+AWS_PROFILE=rikako-development-sso terraform init
+AWS_PROFILE=rikako-development-sso terraform apply
 ```
 
-> Neon APIキーはSSM Parameter Storeから自動取得されます。
+#### 6. Prod環境のデプロイ（手動のみ）
+
+```bash
+cd terraform/environments/prod
+AWS_PROFILE=rikako-production-sso terraform init
+AWS_PROFILE=rikako-production-sso terraform apply
+```
+
+> Neon APIキーは SSM Parameter Store から Terraform Provider が自動取得します。Lambda 実行時のシークレットは `app/internal/secrets` パッケージが起動時に SSM から取得します。
 
 ### 以降のデプロイ
 
 GitHub ActionsのDeployワークフローを実行するだけでOK:
 
-- **自動デプロイ**: `main`ブランチへのpushで自動実行
-- **手動デプロイ**: Actions → Deploy to AWS → Run workflow
+- **Dev**: `main` ブランチへの push で自動実行（`deploy-api-dev.yml` / `deploy-admin-api-dev.yml`）
+- **Prod**: 手動 dispatch のみ（`deploy-api-prod.yml` / `deploy-admin-api-prod.yml`）
+- **Terraform**: Dev は main push で `apply-terraform-dev.yml` が自動 apply、Prod はローカルから手動 `terraform apply`
 
 ### デプロイフロー
 
@@ -242,11 +277,12 @@ Actions → Run Database Migration → Run workflow
 - **Direction**: `up` または `down`
 - **Steps**: 空欄（すべて）または数値（ステップ数）
 
-### Function URLの確認
+### エンドポイントの確認
 
 ```bash
 cd terraform/environments/dev
-terraform output function_url
+terraform output api_endpoint           # 公開API（API Gateway）
+terraform output admin_function_url     # 管理APIの Function URL（CloudFront 経由）
 ```
 
 ### コスト見積もり
