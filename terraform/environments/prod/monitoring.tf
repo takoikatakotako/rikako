@@ -1,14 +1,16 @@
 # =============================================================================
 # Slack 通知
 # =============================================================================
-# 事前準備: Slack Incoming Webhook URL を SSM Parameter Store に SecureString で保存
+# Slack Webhook URL は Lambda env に "ssm:..." 形式で参照を入れ、起動時に
+# slack_notifier の _resolve_ssm が SSM から実値を取得する。
+#
+# 事前準備（手動）:
 #   aws ssm put-parameter --name /rikako/production/slack-alert-webhook-url \
 #     --value 'https://hooks.slack.com/services/...' --type SecureString
 # =============================================================================
 
-data "aws_ssm_parameter" "slack_alert_webhook_url" {
-  name            = "/${local.project}/${local.environment}/slack-alert-webhook-url"
-  with_decryption = true
+locals {
+  slack_alert_webhook_url_param_name = "/${local.project}/${local.environment}/slack-alert-webhook-url"
 }
 
 resource "aws_sns_topic" "alerts" {
@@ -46,6 +48,20 @@ resource "aws_iam_role_policy_attachment" "slack_notifier_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy" "slack_notifier_ssm" {
+  name = "ssm-parameter-read"
+  role = aws_iam_role.slack_notifier.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = "${local.ssm_param_arn_prefix}${local.slack_alert_webhook_url_param_name}"
+    }]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "slack_notifier" {
   name              = "/aws/lambda/${local.project}-slack-notifier-${local.environment}"
   retention_in_days = 30
@@ -63,7 +79,7 @@ resource "aws_lambda_function" "slack_notifier" {
 
   environment {
     variables = {
-      SLACK_WEBHOOK_URL = data.aws_ssm_parameter.slack_alert_webhook_url.value
+      SLACK_WEBHOOK_URL = "ssm:${local.slack_alert_webhook_url_param_name}"
     }
   }
 

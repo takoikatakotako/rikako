@@ -3,7 +3,25 @@ import json
 import os
 import urllib.request
 
-WEBHOOK_URL = os.environ["SLACK_WEBHOOK_URL"]
+import boto3
+
+
+def _resolve_ssm(env_name: str) -> str:
+    """環境変数の値が "ssm:" プレフィックス付きなら SSM から実値を取得する。
+
+    Lambda 環境変数に値を直接書くと update-function-code のレスポンス JSON 経由で
+    ログに露出するため、参照のみを env に置いて起動時に SSM から取得する。
+    """
+    val = os.environ[env_name]
+    if val.startswith("ssm:"):
+        path = val[len("ssm:"):]
+        client = boto3.client("ssm")
+        resp = client.get_parameter(Name=path, WithDecryption=True)
+        return resp["Parameter"]["Value"]
+    return val
+
+
+WEBHOOK_URL = _resolve_ssm("SLACK_WEBHOOK_URL")
 
 
 def handler(event, _context):

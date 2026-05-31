@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"log/slog"
@@ -17,10 +18,16 @@ import (
 	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/logging"
 	"github.com/takoikatakotako/rikako/internal/openai"
+	"github.com/takoikatakotako/rikako/internal/secrets"
 )
 
 func main() {
 	logger := logging.NewLogger()
+
+	if err := secrets.Resolve(context.Background()); err != nil {
+		logger.Error("failed to resolve SSM secrets", "error", err)
+		os.Exit(1)
+	}
 
 	// DB接続
 	dsn := os.Getenv("DATABASE_URL")

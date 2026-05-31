@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"log"
@@ -9,6 +10,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/importer"
+	"github.com/takoikatakotako/rikako/internal/secrets"
 )
 
 func main() {
@@ -16,6 +18,10 @@ func main() {
 	checkOnly := flag.Bool("check-only", false, "データベースの問題数を確認するのみ")
 	workbooksOnly := flag.Bool("workbooks-only", false, "workbooks/categoriesのみインポート（問題は既存のものを使用）")
 	flag.Parse()
+
+	if err := secrets.Resolve(context.Background()); err != nil {
+		log.Fatalf("Failed to resolve SSM secrets: %v", err)
+	}
 
 	// DB接続
 	dsn := os.Getenv("DATABASE_URL")

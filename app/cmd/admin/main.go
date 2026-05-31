@@ -17,10 +17,16 @@ import (
 	"github.com/takoikatakotako/rikako/internal/admin"
 	"github.com/takoikatakotako/rikako/internal/adminapi"
 	"github.com/takoikatakotako/rikako/internal/logging"
+	"github.com/takoikatakotako/rikako/internal/secrets"
 )
 
 func main() {
 	logger := logging.NewLogger()
+
+	if err := secrets.Resolve(context.Background()); err != nil {
+		logger.Error("failed to resolve SSM secrets", "error", err)
+		os.Exit(1)
+	}
 
 	// DB接続
 	dsn := os.Getenv("DATABASE_URL")
