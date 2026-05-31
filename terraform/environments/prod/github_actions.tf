@@ -90,6 +90,7 @@ data "aws_iam_policy_document" "github_actions_lambda_deploy" {
     actions = [
       "lambda:UpdateFunctionCode",
       "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration", # aws lambda wait function-updated
     ]
     resources = [
       "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:function:${local.project}-api-${local.environment}",

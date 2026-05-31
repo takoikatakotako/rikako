@@ -54,13 +54,12 @@ jobs:
         env:
           FUNCTION_NAME: rikako-admin-api-development
         run: |
-          # 注: 出力には Environment.Variables が含まれるため、Version だけ取り出してログ露出を防ぐ
-          VERSION=$(aws lambda update-function-code \
+          # シークレット系の env は全て ssm:... リテラル経由（internal/secrets.Resolve が起動時に解決）
+          # のため、デフォルト JSON 出力でも実値が露出することはない。
+          aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --image-uri "${{ steps.meta.outputs.tags }}" \
-            --publish \
-            --output text --query 'Version')
-          echo "Published version: $VERSION"
+            --publish
 
           echo "Waiting for function update to complete..."
           aws lambda wait function-updated \
