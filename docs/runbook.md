@@ -25,7 +25,8 @@
 | 画像S3 | `rikako-images-development` | `rikako-images-production` |
 | コンテンツS3 | `rikako-content-development` | `rikako-content-production` |
 | 管理画面S3 | `rikako-admin-development` | `rikako-admin-production` |
-| Neon DB | `muddy-tree-64549662` (ap-southeast-1) | `ep-misty-unit-aoxkoz1d` (ap-southeast-1) |
+| Neon プロジェクト ID | `muddy-tree-64549662` (ap-southeast-1) | `fragrant-poetry-87067174` (ap-southeast-1) |
+| Neon エンドポイント | `ep-raspy-lab-a1wo0g6n` | `ep-misty-unit-aoxkoz1d` |
 | ECR (shared) | `579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/rikako-api` | 同左 |
 | CloudWatch Dashboard | `rikako-dev` | `rikako-prod` |
 | AWSアカウント | 197865631794 | 211125415945 |
@@ -399,22 +400,26 @@ aws logs filter-log-events \
 
 ### Neon CU（コンピューティングユニット）変更
 
-現在: 0.25〜2 CU（auto-scaling）
+現在: dev は 0.25〜2 CU、prod は 0.25〜4 CU（auto-scaling、auto-suspend 無効）。
 
 ```bash
-cd terraform/environments/dev
+cd terraform/environments/dev   # prod は environments/prod
 
-# terraform で変更（neon.tf の min/max compute units を編集）
+# terraform で変更（neon.tf の default_endpoint_settings を編集）
 terraform plan
 terraform apply
 ```
 
-`neon.tf` の該当箇所:
+`neon.tf` の該当箇所（`neon_project` の `default_endpoint_settings` ブロック）:
 
 ```hcl
-resource "neon_endpoint" "default" {
-  autoscaling_limit_min_cu = 0.25  # 最小CU
-  autoscaling_limit_max_cu = 2     # 最大CU
+resource "neon_project" "default" {
+  # ...
+  default_endpoint_settings {
+    autoscaling_limit_min_cu = 0.25  # 最小CU
+    autoscaling_limit_max_cu = 2     # 最大CU（prod は 4）
+    suspend_timeout_seconds  = 0     # 常時稼働（auto-suspend 無効）
+  }
 }
 ```
 

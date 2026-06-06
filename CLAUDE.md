@@ -61,13 +61,17 @@ Rikako - 問題集アプリ
 ├── migrations/             # DBマイグレーションファイル
 ├── terraform/
 │   ├── modules/
+│   │   ├── api_gateway/    # API Gateway HTTP APIモジュール
 │   │   ├── cloudfront/     # CloudFrontモジュール
+│   │   ├── cognito/        # Cognito User Poolモジュール
+│   │   ├── cognito_identity/ # Cognito Identity Poolモジュール
 │   │   ├── ecr/            # ECRモジュール
 │   │   ├── lambda/         # Lambdaモジュール
 │   │   └── s3/             # S3モジュール
 │   └── environments/
 │       ├── shared/         # ECR（全環境共有）
-│       └── dev/            # Dev環境（Lambda + Neon + Image CDN）
+│       ├── dev/            # Dev環境（Lambda + Neon + Image/Content CDN）
+│       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
 └── .github/workflows/      # CI設定
@@ -261,7 +265,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - Lambda関数名: `rikako-api-production` / `rikako-admin-api-production` / `rikako-slack-notifier-production`
   - Image CDN: https://image.rikako.org/ (S3: `rikako-images-production`)
   - Content CDN: https://content.rikako.org/ (S3: `rikako-content-production`)
-  - Neon DB: `ep-misty-unit-aoxkoz1d` (ap-southeast-1)
+  - Neon DB: `fragrant-poetry-87067174` (ap-southeast-1、エンドポイント `ep-misty-unit-aoxkoz1d`)
   - Cognito User Pool: `ap-northeast-1_d8LkqgsJU`
   - Terraform State: `s3://rikako-prod-terraform-state`
   - 自動 apply 無し、ローカルから `AWS_PROFILE=rikako-production-sso terraform apply` で反映
