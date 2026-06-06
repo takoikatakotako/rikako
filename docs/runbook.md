@@ -131,7 +131,7 @@ Lambda が読むシークレット（`OPENAI_API_KEY` / `SLACK_WEBHOOK_URL` / `D
 | `/rikako/<env>/openai-api-key` | OpenAI API キー | 手動 `put-parameter` |
 | `/rikako/<env>/slack-contact-webhook-url` | お問い合わせ通知用 Slack Webhook | 手動 `put-parameter` |
 | `/rikako/<env>/slack-alert-webhook-url` | CloudWatch アラート用 Slack Webhook | 手動 `put-parameter` |
-| `/rikako/<env>/database-url` | Neon 接続文字列 | Terraform が `neon_project.default.connection_uri` から `aws_ssm_parameter` で SecureString として登録 |
+| `/rikako/<env>/database-url` | Neon 接続文字列 | Terraform が `neon_project.default.connection_uri` を**初期値**として SecureString 登録。`lifecycle.ignore_changes = [value]` 指定のため以後の値はローテで上書き可（[ローテ手順](#neon-db)参照） |
 | `/rikako/neon-api-key` | Neon API キー（Terraform Provider 用） | 手動 `put-parameter` |
 
 ### 初回登録
@@ -161,6 +161,50 @@ AWS_PROFILE=rikako-development-sso aws ssm put-parameter \
 ### 確認
 
 `aws lambda get-function-configuration --query 'Environment.Variables'` で **シークレット実値が出ず `ssm:/...` リテラルだけが返る**ことを確認する。実値が露出していたら漏洩リスクがあるので即対応。
+
+### Neon DB パスワードのローテーション {#neon-db}
+
+`/rikako/<env>/database-url` の Neon パスワードをローテする手順。
+
+> **重要な前提**
+> - Neon の role は DB を所有しているため、`terraform apply -replace=neon_role.default` での drop/recreate は **HTTP 422 `ROLE_OWNS_OBJECTS`** で失敗する。ローテは必ず Neon API の **`reset_password`**（role を残しパスワードのみ再生成）で行う。
+> - SSM `database-url` は `lifecycle.ignore_changes = [value]` 指定のため、`put-parameter --overwrite` した値を terraform が巻き戻さない。
+> - **環境ごとにアプリが使う role/DB が異なる**ので注意:
+>   - **dev**: role `rikako_owner` / DB `rikako`
+>   - **prod**: role `neondb_owner` / DB `neondb`（Neon デフォルト）
+> - リセット直後から旧パスワードは無効になり、warm Lambda は cold start まで DB 接続に失敗する。
+
+```bash
+# 例: dev（prod の場合は PROFILE/PROJECT/BRANCH/ROLE/DB/SSM 名を読み替え）
+export AWS_PROFILE=rikako-development-sso
+API_KEY=$(aws ssm get-parameter --name /rikako/neon-api-key --with-decryption --query Parameter.Value --output text)
+PROJECT_ID=muddy-tree-64549662
+BRANCH_ID=br-calm-rice-a1123e1l
+ROLE=rikako_owner
+DB=rikako
+HOST=$(cd terraform/environments/dev && terraform state show neon_project.default | grep 'database_host ' | sed -E 's/.*= "(.*)"/\1/')
+
+# 1. パスワードを reset（新パスワードを取得、出力しない）
+NEWPASS=$(curl -s -X POST \
+  "https://console.neon.tech/api/v2/projects/${PROJECT_ID}/branches/${BRANCH_ID}/roles/${ROLE}/reset_password" \
+  -H "Authorization: Bearer ${API_KEY}" -H "Accept: application/json" | jq -r '.role.password')
+
+# 2. SSM を上書き
+aws ssm put-parameter --name /rikako/development/database-url --type SecureString --overwrite \
+  --value "postgres://${ROLE}:${NEWPASS}@${HOST}/${DB}?sslmode=require"
+
+# 3. Lambda を cold start（warm container に旧パスが残るため）
+TS=$(date +%s)
+for fn in rikako-api-development rikako-admin-api-development; do
+  aws lambda update-function-configuration --function-name "$fn" --description "db rotation $TS" >/dev/null
+  aws lambda wait function-updated --function-name "$fn"
+done
+
+# 4. 確認（DB を叩くエンドポイントが 200 を返すこと）
+curl -s -o /dev/null -w "%{http_code}\n" https://api.dev.rikako.org/workbooks
+```
+
+prod は次のように読み替える: `AWS_PROFILE=rikako-production-sso`、`PROJECT_ID` は `cd terraform/environments/prod && terraform state show neon_project.default` の `id`、`BRANCH_ID` は同 `default_branch_id`、`ROLE=neondb_owner`、`DB=neondb`、SSM 名 `/rikako/production/database-url`、関数は `rikako-api-production` / `rikako-admin-api-production`。
 
 ---
 
