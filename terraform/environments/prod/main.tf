@@ -11,14 +11,26 @@
 #   aws ssm put-parameter --name /rikako/production/slack-contact-webhook-url \
 #     --value 'https://hooks.slack.com/services/...' --type SecureString
 #
-# DATABASE_URL は neon_project の connection_uri から Terraform が SecureString として登録する。
+# DATABASE_URL は neon_project の connection_uri を初期値として SecureString で登録する。
+#
+# パスワードローテーション手順:
+#   Neon の role は DB を所有しており drop/recreate (terraform -replace) できない
+#   (HTTP 422 ROLE_OWNS_OBJECTS)。そのためローテは Neon API の reset_password で行い、
+#   新しい接続文字列を `aws ssm put-parameter --overwrite` で SSM に直接書き込む。
+#   terraform が値を巻き戻さないよう lifecycle.ignore_changes = [value] を指定している。
+#   prod のアプリが使う role は neondb_owner / DB は neondb（Neon デフォルト）である点に注意。
+#   詳細手順は docs を参照。
 # =============================================================================
 
 resource "aws_ssm_parameter" "database_url" {
   name        = "/${local.project}/${local.environment}/database-url"
   type        = "SecureString"
   value       = neon_project.default.connection_uri
-  description = "Neon DB connection URI (managed by Terraform)"
+  description = "Neon DB connection URI (initial value; rotated out-of-band via Neon API)"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
 
 locals {
