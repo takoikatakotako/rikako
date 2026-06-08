@@ -11,7 +11,7 @@ final class SoundPlayer {
     }
 
     /// 効果音の再生音量（0.0〜1.0）。少し控えめにする。
-    private let volume: Float = 0.6
+    private let volume: Float = 0.4
 
     private var players: [Effect: AVAudioPlayer] = [:]
 
