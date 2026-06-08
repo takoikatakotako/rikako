@@ -1,5 +1,4 @@
 import SwiftUI
-import AudioToolbox
 
 struct QuizView: View {
     @Environment(\.dismiss) private var dismiss
@@ -158,7 +157,7 @@ struct QuizView: View {
                         feedback.notificationOccurred(isCorrect ? .success : .error)
                     }
                     if isSoundEnabled {
-                        AudioServicesPlaySystemSound(isCorrect ? 1057 : 1073)
+                        SoundPlayer.shared.play(isCorrect ? .correct : .incorrect)
                     }
                 } label: {
                     HStack(spacing: 14) {
