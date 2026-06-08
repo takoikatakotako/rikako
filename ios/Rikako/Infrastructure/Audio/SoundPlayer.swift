@@ -10,6 +10,9 @@ final class SoundPlayer {
         case incorrect
     }
 
+    /// 効果音の再生音量（0.0〜1.0）。少し控えめにする。
+    private let volume: Float = 0.6
+
     private var players: [Effect: AVAudioPlayer] = [:]
 
     private init() {
@@ -29,6 +32,7 @@ final class SoundPlayer {
             return
         }
         let player = try? AVAudioPlayer(contentsOf: url)
+        player?.volume = volume
         player?.prepareToPlay()
         players[effect] = player
     }
