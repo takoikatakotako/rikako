@@ -16,11 +16,12 @@ struct QuizView: View {
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
 
-    init(questions: [Question], workbookTitle: String, workbookId: Int64, allSectionsQuestions: [[Question]] = [], currentSectionIndex: Int = 0) {
+    init(questions: [Question], workbookTitle: String, workbookId: Int64, allSectionsQuestions: [[Question]] = [], currentSectionIndex: Int = 0, questionWorkbookIds: [Int64: Int64]? = nil) {
         _viewModel = State(initialValue: QuizViewModel(
             questions: questions,
             workbookTitle: workbookTitle,
-            workbookId: workbookId
+            workbookId: workbookId,
+            questionWorkbookIds: questionWorkbookIds
         ))
         self.allSectionsQuestions = allSectionsQuestions
         self.currentSectionIndex = currentSectionIndex
