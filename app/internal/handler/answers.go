@@ -267,7 +267,7 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 
 	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
 	if err == sql.ErrNoRows {
-		return api.GetWrongAnswers200JSONResponse{Questions: []api.Question{}, Total: 0}, nil
+		return api.GetWrongAnswers200JSONResponse{Questions: []api.WrongAnswerQuestion{}, Total: 0}, nil
 	}
 	if err != nil {
 		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
@@ -290,11 +290,15 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 		return nil, err
 	}
 
+	workbookIDMap := map[int64]int64{}
 	flatRows := make([]questionWithChoicesRow, len(rows))
 	for i, r := range rows {
 		flatRows[i] = questionWithChoicesRow{
 			ID: r.ID, Text: r.Text, Explanation: r.Explanation,
 			ChoiceText: r.ChoiceText, IsCorrect: r.IsCorrect, ChoiceIndex: r.ChoiceIndex,
+		}
+		if _, exists := workbookIDMap[r.ID]; !exists {
+			workbookIDMap[r.ID] = r.WorkbookID
 		}
 	}
 	questions := buildQuestionsFromRows(flatRows)
@@ -303,8 +307,22 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 		return nil, err
 	}
 
+	wrongAnswerQuestions := make([]api.WrongAnswerQuestion, len(questions))
+	for i, q := range questions {
+		wrongAnswerQuestions[i] = api.WrongAnswerQuestion{
+			Id:          q.Id,
+			Type:        q.Type,
+			Text:        q.Text,
+			Choices:     q.Choices,
+			Correct:     q.Correct,
+			Explanation: q.Explanation,
+			Images:      q.Images,
+			WorkbookId:  workbookIDMap[q.Id],
+		}
+	}
+
 	return api.GetWrongAnswers200JSONResponse{
-		Questions: questions,
+		Questions: wrongAnswerQuestions,
 		Total:     int(total),
 	}, nil
 }

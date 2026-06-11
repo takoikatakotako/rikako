@@ -48,10 +48,11 @@ LIMIT $2 OFFSET $3;
 
 -- name: ListWrongAnswersWithChoices :many
 SELECT q.id, qsc.text, qsc.explanation,
-    c.text AS choice_text, c.is_correct, c.choice_index
+    c.text AS choice_text, c.is_correct, c.choice_index,
+    paged.workbook_id
 FROM (
-    SELECT question_id FROM (
-        SELECT DISTINCT ON (question_id) question_id, is_correct
+    SELECT question_id, workbook_id FROM (
+        SELECT DISTINCT ON (question_id) question_id, is_correct, workbook_id
         FROM user_answers
         WHERE user_id = $1
         ORDER BY question_id, answered_at DESC
