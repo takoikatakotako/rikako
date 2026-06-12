@@ -81,7 +81,7 @@ struct StudyHomeView: View {
                     QuizView(
                         questions: config.questions,
                         workbookTitle: config.workbookTitle,
-                        workbookId: config.workbookId,
+                        source: .workbook(id: config.workbookId),
                         allSectionsQuestions: config.allSectionsQuestions,
                         currentSectionIndex: config.currentSectionIndex
                     )

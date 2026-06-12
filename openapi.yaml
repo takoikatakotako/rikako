@@ -1087,6 +1087,43 @@ components:
         total:
           type: integer
 
+    WrongAnswerQuestion:
+      type: object
+      required:
+        - id
+        - type
+        - text
+        - choices
+        - workbookId
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum:
+            - single_choice
+        text:
+          type: string
+        choices:
+          type: array
+          items:
+            type: string
+        correct:
+          type: integer
+          description: 正解の選択肢インデックス
+        explanation:
+          type: string
+          description: 解説
+        images:
+          type: array
+          items:
+            type: string
+        workbookId:
+          type: integer
+          format: int64
+          description: この問題を最後に回答した問題集のID
+
     WrongAnswersResponse:
       type: object
       required:
@@ -1096,7 +1133,7 @@ components:
         questions:
           type: array
           items:
-            $ref: '#/components/schemas/Question'
+            $ref: '#/components/schemas/WrongAnswerQuestion'
         total:
           type: integer
 

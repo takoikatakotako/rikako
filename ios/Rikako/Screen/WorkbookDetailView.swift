@@ -51,7 +51,7 @@ struct WorkbookDetailView: View {
                     }
 
                     Section {
-                        NavigationLink(destination: QuizView(questions: workbook.questions, workbookTitle: workbook.title, workbookId: workbook.id)) {
+                        NavigationLink(destination: QuizView(questions: workbook.questions, workbookTitle: workbook.title, source: .workbook(id: workbook.id))) {
                             Label("この問題集を解く", systemImage: "play.fill")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)

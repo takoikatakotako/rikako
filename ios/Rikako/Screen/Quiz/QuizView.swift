@@ -16,11 +16,11 @@ struct QuizView: View {
     private let allSectionsQuestions: [[Question]]
     private let currentSectionIndex: Int
 
-    init(questions: [Question], workbookTitle: String, workbookId: Int64, allSectionsQuestions: [[Question]] = [], currentSectionIndex: Int = 0) {
+    init(questions: [Question], workbookTitle: String, source: QuizSource, allSectionsQuestions: [[Question]] = [], currentSectionIndex: Int = 0) {
         _viewModel = State(initialValue: QuizViewModel(
             questions: questions,
             workbookTitle: workbookTitle,
-            workbookId: workbookId
+            source: source
         ))
         self.allSectionsQuestions = allSectionsQuestions
         self.currentSectionIndex = currentSectionIndex
@@ -98,7 +98,7 @@ struct QuizView: View {
                 questions: viewModel.questions,
                 answers: viewModel.answers,
                 workbookTitle: viewModel.workbookTitle,
-                workbookId: viewModel.workbookId,
+                source: viewModel.source,
                 allSectionsQuestions: allSectionsQuestions,
                 currentSectionIndex: currentSectionIndex
             )
@@ -293,12 +293,12 @@ struct QuizView: View {
 
 #Preview("問題表示") {
     NavigationStack {
-        QuizView(questions: MockData.questions, workbookTitle: "基礎化学", workbookId: 1)
+        QuizView(questions: MockData.questions, workbookTitle: "基礎化学", source: .workbook(id: 1))
     }
 }
 
 #Preview("画像付き問題") {
     NavigationStack {
-        QuizView(questions: MockData.questionsWithImages, workbookTitle: "基礎化学", workbookId: 1)
+        QuizView(questions: MockData.questionsWithImages, workbookTitle: "基礎化学", source: .workbook(id: 1))
     }
 }

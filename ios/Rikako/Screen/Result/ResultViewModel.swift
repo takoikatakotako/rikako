@@ -16,15 +16,15 @@ final class ResultViewModel {
     let questions: [Question]
     let answers: [Int?]
     let workbookTitle: String
-    let workbookId: Int64
+    let source: QuizSource
 
     private(set) var didSubmit = false
 
-    init(questions: [Question], answers: [Int?], workbookTitle: String, workbookId: Int64) {
+    init(questions: [Question], answers: [Int?], workbookTitle: String, source: QuizSource) {
         self.questions = questions
         self.answers = answers
         self.workbookTitle = workbookTitle
-        self.workbookId = workbookId
+        self.source = source
     }
 
     var correctCount: Int {
@@ -83,19 +83,18 @@ final class ResultViewModel {
     }
 
     private func submitAnswersToServer() async {
-        let answerItems = zip(questions, answers).compactMap { question, answer -> AnswerItem? in
-            guard let choice = answer else { return nil }
-            return AnswerItem(questionId: question.id, selectedChoice: choice)
-        }
-        guard !answerItems.isEmpty else { return }
+        let byWorkbook = source.groupedAnswers(questions: questions, answers: answers)
+        guard !byWorkbook.isEmpty else { return }
 
-        do {
-            _ = try await AppContainer.shared.learningUseCases.submitAnswers.execute(
-                workbookId: workbookId,
-                answers: answerItems
-            )
-        } catch {
-            // ログ送信失敗はサイレントに無視（ユーザー体験を損なわない）
+        for (wbId, items) in byWorkbook {
+            do {
+                _ = try await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                    workbookId: wbId,
+                    answers: items
+                )
+            } catch {
+                // ログ送信失敗はサイレントに無視（ユーザー体験を損なわない）
+            }
         }
     }
 }

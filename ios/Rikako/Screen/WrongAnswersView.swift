@@ -1,15 +1,26 @@
 import SwiftUI
 
 struct WrongAnswersView: View {
-    @State private var questions: [Question] = []
+    @State private var wrongAnswerQuestions: [WrongAnswerQuestion] = []
     @State private var total = 0
     @State private var isLoading = true
+    @State private var errorMessage: String?
 
     var body: some View {
         Group {
             if isLoading {
                 ProgressView("読み込み中...")
-            } else if questions.isEmpty {
+            } else if let errorMessage {
+                ContentUnavailableView {
+                    Label("読み込みエラー", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("再読み込み") {
+                        Task { await load() }
+                    }
+                }
+            } else if wrongAnswerQuestions.isEmpty {
                 ContentUnavailableView {
                     Label("間違えた問題はありません", systemImage: "checkmark.circle")
                 } description: {
@@ -23,7 +34,7 @@ struct WrongAnswersView: View {
                     }
 
                     Section("問題一覧") {
-                        ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
+                        ForEach(Array(wrongAnswerQuestions.enumerated()), id: \.element.id) { index, waq in
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Q\(index + 1)")
@@ -33,11 +44,11 @@ struct WrongAnswersView: View {
                                         .frame(width: 32, height: 32)
                                         .background(Color.red)
                                         .clipShape(Circle())
-                                    Text(question.text)
+                                    Text(waq.text)
                                         .lineLimit(2)
                                 }
 
-                                if let images = question.images, !images.isEmpty {
+                                if let images = waq.images, !images.isEmpty {
                                     QuestionImageSection(imageURLs: images)
                                 }
                             }
@@ -45,7 +56,13 @@ struct WrongAnswersView: View {
                     }
 
                     Section {
-                        NavigationLink(destination: QuizView(questions: questions, workbookTitle: "復習", workbookId: 0)) {
+                        let questions = wrongAnswerQuestions.map(\.asQuestion)
+                        let workbookIdMap = Dictionary(uniqueKeysWithValues: wrongAnswerQuestions.map { ($0.id, $0.workbookId) })
+                        NavigationLink(destination: QuizView(
+                            questions: questions,
+                            workbookTitle: "復習",
+                            source: .review(workbookIds: workbookIdMap)
+                        )) {
                             Label("復習する", systemImage: "arrow.counterclockwise")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
@@ -61,10 +78,16 @@ struct WrongAnswersView: View {
 
     private func load() async {
         isLoading = true
-        let response = try? await AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 50, offset: 0)
-        questions = response?.questions ?? []
-        total = response?.total ?? 0
-        isLoading = false
+        errorMessage = nil
+        do {
+            let response = try await AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 50, offset: 0)
+            wrongAnswerQuestions = response.questions
+            total = response.total
+            isLoading = false
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
     }
 }
 

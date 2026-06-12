@@ -6,7 +6,7 @@ import Observation
 final class QuizViewModel {
     let questions: [Question]
     let workbookTitle: String
-    let workbookId: Int64
+    let source: QuizSource
 
     var currentIndex = 0
     var selectedChoice: Int?
@@ -14,10 +14,10 @@ final class QuizViewModel {
     var answers: [Int?]
     var showResult = false
 
-    init(questions: [Question], workbookTitle: String, workbookId: Int64) {
+    init(questions: [Question], workbookTitle: String, source: QuizSource) {
         self.questions = questions
         self.workbookTitle = workbookTitle
-        self.workbookId = workbookId
+        self.source = source
         self.answers = Array(repeating: nil, count: questions.count)
     }
 
@@ -47,14 +47,13 @@ final class QuizViewModel {
     }
 
     func submitAnswers() async {
-        let answerItems = zip(questions, answers).compactMap { question, answer -> AnswerItem? in
-            guard let choice = answer else { return nil }
-            return AnswerItem(questionId: question.id, selectedChoice: choice)
+        let byWorkbook = source.groupedAnswers(questions: questions, answers: answers)
+        guard !byWorkbook.isEmpty else { return }
+        for (wbId, items) in byWorkbook {
+            _ = try? await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                workbookId: wbId,
+                answers: items
+            )
         }
-        guard !answerItems.isEmpty else { return }
-        _ = try? await AppContainer.shared.learningUseCases.submitAnswers.execute(
-            workbookId: workbookId,
-            answers: answerItems
-        )
     }
 }

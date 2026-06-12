@@ -125,10 +125,10 @@ final class PreviewLearningRepository: LearningRepository {
     }
 
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
-        WrongAnswerListResponse(
-            questions: Array(MockData.questions.prefix(limit)),
-            total: min(limit, MockData.questions.count)
-        )
+        let waq = MockData.questions.prefix(limit).map {
+            WrongAnswerQuestion(id: $0.id, type: $0.type, text: $0.text, choices: $0.choices, correct: $0.correct, explanation: $0.explanation, images: $0.images, workbookId: 1)
+        }
+        return WrongAnswerListResponse(questions: Array(waq), total: min(limit, MockData.questions.count))
     }
 
     func fetchAnnouncements() async throws -> [Announcement] {

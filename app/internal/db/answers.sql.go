@@ -456,10 +456,11 @@ func (q *Queries) ListWrongAnswers(ctx context.Context, arg ListWrongAnswersPara
 
 const listWrongAnswersWithChoices = `-- name: ListWrongAnswersWithChoices :many
 SELECT q.id, qsc.text, qsc.explanation,
-    c.text AS choice_text, c.is_correct, c.choice_index
+    c.text AS choice_text, c.is_correct, c.choice_index,
+    paged.workbook_id
 FROM (
-    SELECT question_id FROM (
-        SELECT DISTINCT ON (question_id) question_id, is_correct
+    SELECT question_id, workbook_id FROM (
+        SELECT DISTINCT ON (question_id) question_id, is_correct, workbook_id
         FROM user_answers
         WHERE user_id = $1
         ORDER BY question_id, answered_at DESC
@@ -487,6 +488,7 @@ type ListWrongAnswersWithChoicesRow struct {
 	ChoiceText  sql.NullString `json:"choice_text"`
 	IsCorrect   sql.NullBool   `json:"is_correct"`
 	ChoiceIndex sql.NullInt32  `json:"choice_index"`
+	WorkbookID  int64          `json:"workbook_id"`
 }
 
 func (q *Queries) ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error) {
@@ -505,6 +507,7 @@ func (q *Queries) ListWrongAnswersWithChoices(ctx context.Context, arg ListWrong
 			&i.ChoiceText,
 			&i.IsCorrect,
 			&i.ChoiceIndex,
+			&i.WorkbookID,
 		); err != nil {
 			return nil, err
 		}

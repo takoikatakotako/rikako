@@ -343,10 +343,30 @@ type WorkbooksResponse struct {
 	Workbooks []Workbook `json:"workbooks"`
 }
 
+// WrongAnswerQuestion defines model for WrongAnswerQuestion.
+type WrongAnswerQuestion struct {
+	Choices []string `json:"choices"`
+
+	// Correct 正解の選択肢インデックス
+	Correct *int `json:"correct,omitempty"`
+
+	// Explanation 解説
+	Explanation *string `json:"explanation,omitempty"`
+	Id          int64   `json:"id"`
+
+	// Images 画像URL
+	Images *[]string    `json:"images,omitempty"`
+	Text   string       `json:"text"`
+	Type   QuestionType `json:"type"`
+
+	// WorkbookId この問題を最後に回答した問題集のID
+	WorkbookId int64 `json:"workbookId"`
+}
+
 // WrongAnswersResponse defines model for WrongAnswersResponse.
 type WrongAnswersResponse struct {
-	Questions []Question `json:"questions"`
-	Total     int        `json:"total"`
+	Questions []WrongAnswerQuestion `json:"questions"`
+	Total     int                   `json:"total"`
 }
 
 // DeviceID defines model for DeviceID.
