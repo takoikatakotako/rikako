@@ -46,7 +46,9 @@ struct WrongAnswersView: View {
 
                     Section {
                         let questions = wrongAnswerQuestions.map(\.asQuestion)
-                        let workbookIdMap = Dictionary(uniqueKeysWithValues: wrongAnswerQuestions.map { ($0.id, $0.workbookId) })
+                        let workbookIdMap = Dictionary(uniqueKeysWithValues: wrongAnswerQuestions.compactMap { waq in
+                            waq.workbookId.map { (waq.id, $0) }
+                        })
                         NavigationLink(destination: QuizView(
                             questions: questions,
                             workbookTitle: "復習",
