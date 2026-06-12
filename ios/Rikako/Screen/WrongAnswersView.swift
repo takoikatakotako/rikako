@@ -50,8 +50,7 @@ struct WrongAnswersView: View {
                         NavigationLink(destination: QuizView(
                             questions: questions,
                             workbookTitle: "復習",
-                            workbookId: wrongAnswerQuestions.first?.workbookId ?? 0,
-                            questionWorkbookIds: workbookIdMap
+                            source: .review(workbookIds: workbookIdMap)
                         )) {
                             Label("復習する", systemImage: "arrow.counterclockwise")
                                 .font(.headline)

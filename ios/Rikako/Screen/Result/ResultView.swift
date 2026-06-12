@@ -13,7 +13,7 @@ struct ResultView: View {
         questions: [Question],
         answers: [Int?],
         workbookTitle: String,
-        workbookId: Int64,
+        source: QuizSource,
         allSectionsQuestions: [[Question]] = [],
         currentSectionIndex: Int = 0
     ) {
@@ -21,7 +21,7 @@ struct ResultView: View {
             questions: questions,
             answers: answers,
             workbookTitle: workbookTitle,
-            workbookId: workbookId
+            source: source
         ))
         self.allSectionsQuestions = allSectionsQuestions
         self.currentSectionIndex = currentSectionIndex
@@ -62,7 +62,7 @@ struct ResultView: View {
             QuizView(
                 questions: sections.isEmpty ? viewModel.questions : sections[idx],
                 workbookTitle: viewModel.workbookTitle,
-                workbookId: viewModel.workbookId,
+                source: viewModel.source,
                 allSectionsQuestions: sections,
                 currentSectionIndex: idx
             )
@@ -71,7 +71,7 @@ struct ResultView: View {
             QuizView(
                 questions: wrongQuestions,
                 workbookTitle: viewModel.workbookTitle,
-                workbookId: viewModel.workbookId
+                source: viewModel.source
             )
         }
         .task {
@@ -84,7 +84,8 @@ struct ResultView: View {
     }
 
     private func loadSections() async {
-        guard let detail = try? await AppContainer.shared.learningUseCases.fetchWorkbookDetail.execute(id: viewModel.workbookId) else { return }
+        guard case .workbook(let workbookId) = viewModel.source else { return }
+        guard let detail = try? await AppContainer.shared.learningUseCases.fetchWorkbookDetail.execute(id: workbookId) else { return }
         let chunkSize = 10
         let total = detail.questions.count
         loadedSections = stride(from: 0, to: total, by: chunkSize).map { start in
@@ -201,19 +202,23 @@ struct ResultView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 
+    @ViewBuilder
     private var continueButton: some View {
-        let sections = effectiveSections
-        let sectionNumber = sections.isEmpty ? 1 : nextSectionIndex + 1
-        return Button {
-            showContinueQuiz = true
-        } label: {
-            Text(sections.isEmpty ? "次のチャプターを勉強する" : "Chapter \(sectionNumber) を勉強する")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.main))
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 復習は複数問題集を横断するため「次のチャプター」が一意に決まらない → 非表示
+        if !viewModel.source.isReview {
+            let sections = effectiveSections
+            let sectionNumber = sections.isEmpty ? 1 : nextSectionIndex + 1
+            Button {
+                showContinueQuiz = true
+            } label: {
+                Text(sections.isEmpty ? "次のチャプターを勉強する" : "Chapter \(sectionNumber) を勉強する")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.main))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
         }
     }
 
@@ -358,35 +363,35 @@ private extension Array {
 
 #Preview("100% 全問正解") {
     NavigationStack {
-        ResultView(questions: MockData.questions, answers: [0, 1, 2, 1, 2], workbookTitle: "基礎化学", workbookId: 1)
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 1, 2], workbookTitle: "基礎化学", source: .workbook(id: 1))
             .environment(AppState.shared)
     }
 }
 
 #Preview("80%") {
     NavigationStack {
-        ResultView(questions: MockData.questions, answers: [0, 1, 2, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+        ResultView(questions: MockData.questions, answers: [0, 1, 2, 0, 2], workbookTitle: "基礎化学", source: .workbook(id: 1))
             .environment(AppState.shared)
     }
 }
 
 #Preview("60%") {
     NavigationStack {
-        ResultView(questions: MockData.questions, answers: [0, 1, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+        ResultView(questions: MockData.questions, answers: [0, 1, 0, 0, 2], workbookTitle: "基礎化学", source: .workbook(id: 1))
             .environment(AppState.shared)
     }
 }
 
 #Preview("40%") {
     NavigationStack {
-        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 2], workbookTitle: "基礎化学", workbookId: 1)
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 2], workbookTitle: "基礎化学", source: .workbook(id: 1))
             .environment(AppState.shared)
     }
 }
 
 #Preview("20%") {
     NavigationStack {
-        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 0], workbookTitle: "基礎化学", workbookId: 1)
+        ResultView(questions: MockData.questions, answers: [0, 0, 0, 0, 0], workbookTitle: "基礎化学", source: .workbook(id: 1))
             .environment(AppState.shared)
     }
 }

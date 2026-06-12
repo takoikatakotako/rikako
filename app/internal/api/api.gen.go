@@ -355,8 +355,8 @@ type WrongAnswerQuestion struct {
 	Id          int64   `json:"id"`
 
 	// Images 画像URL
-	Images *[]string `json:"images,omitempty"`
-	Text   string    `json:"text"`
+	Images *[]string    `json:"images,omitempty"`
+	Text   string       `json:"text"`
 	Type   QuestionType `json:"type"`
 
 	// WorkbookId この問題を最後に回答した問題集のID
