@@ -4,11 +4,22 @@ struct WrongAnswersView: View {
     @State private var wrongAnswerQuestions: [WrongAnswerQuestion] = []
     @State private var total = 0
     @State private var isLoading = true
+    @State private var errorMessage: String?
 
     var body: some View {
         Group {
             if isLoading {
                 ProgressView("読み込み中...")
+            } else if let errorMessage {
+                ContentUnavailableView {
+                    Label("読み込みエラー", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(errorMessage)
+                } actions: {
+                    Button("再読み込み") {
+                        Task { await load() }
+                    }
+                }
             } else if wrongAnswerQuestions.isEmpty {
                 ContentUnavailableView {
                     Label("間違えた問題はありません", systemImage: "checkmark.circle")
@@ -67,10 +78,16 @@ struct WrongAnswersView: View {
 
     private func load() async {
         isLoading = true
-        let response = try? await AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 50, offset: 0)
-        wrongAnswerQuestions = response?.questions ?? []
-        total = response?.total ?? 0
-        isLoading = false
+        errorMessage = nil
+        do {
+            let response = try await AppContainer.shared.learningUseCases.fetchWrongAnswers.execute(limit: 50, offset: 0)
+            wrongAnswerQuestions = response.questions
+            total = response.total
+            isLoading = false
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
     }
 }
 
