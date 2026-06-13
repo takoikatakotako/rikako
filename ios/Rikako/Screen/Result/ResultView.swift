@@ -255,6 +255,7 @@ struct ResultView: View {
 
 private struct ResultQuestionDetailView: View {
     let row: ResultViewModel.QuestionResultRow
+    @State private var showAIChat = false
 
     var body: some View {
         ScrollView {
@@ -329,11 +330,33 @@ private struct ResultQuestionDetailView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
+
+                Button {
+                    showAIChat = true
+                } label: {
+                    Label("AIに質問する", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.main).opacity(0.1))
+                        .foregroundStyle(Color(.main))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
             }
             .padding()
         }
         .navigationTitle("Q\(row.index + 1)")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showAIChat) {
+            NavigationStack {
+                AIChatView(question: row.question, selectedChoice: row.selectedAnswer ?? row.question.correctIndex)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("閉じる") { showAIChat = false }
+                        }
+                    }
+            }
+        }
     }
 
     private func backgroundColor(for index: Int) -> Color {
