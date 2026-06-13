@@ -309,7 +309,7 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 
 ### 配信フロー
 1. `data/` のYAMLを編集
-2. `cd app && AWS_PROFILE=rikako-development-sso go run ./cmd/datasync -data ../data -env dev apply` でNeon dev DBに同期（差分は `apply` を `plan` に変えて事前確認）
+2. `cd app && go run ./cmd/datasync -data ../data -env dev apply` でNeon dev DBに同期（事前に `AWS_PROFILE` 設定 + `aws sso login` が必要。[AWS CLI セットアップ](docs/aws-setup.md) 参照。差分は `apply` を `plan` に変えて事前確認）
 3. `curl -u 'ユーザー名:パスワード' -X POST https://admin.dev.rikako.org/api/publish` でDB → S3にJSON書き出し（管理APIは `/api` 配下・Basic Auth 必須。`/publish` 直下はフロントエンドSPAに当たるので注意）
 4. CloudFrontが60秒以内に新JSONを配信
 
