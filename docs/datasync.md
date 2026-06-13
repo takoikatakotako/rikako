@@ -141,3 +141,14 @@ workbooks:
 - apply はトランザクション内で実行されるため、途中でエラーが発生した場合はロールバックされます
 - 明示的IDでINSERTするため、apply後にシーケンス（auto increment）は自動でリセットされます
 - `choices` が空の問題では `correct` の差分比較はスキップされます
+
+## dev環境への接続でハマる点
+
+- **DBドライバは lib/pq**。lib/pq は `channel_binding` パラメータを解釈できないため、接続文字列に `channel_binding=require` を含めると接続に失敗する。`?sslmode=require` のみにすること（Neonのコンソールが提示する `psql` 用URLには `channel_binding=require` が付いているのでそのまま使わない）。
+- dev Neon は **pooler ホスト**（`ep-...-pooler.<region>.aws.neon.tech`）を使う。直接エンドポイントだと `password authentication failed for user 'rikako_owner'` になりやすい。
+- 接続URLは SSM `/rikako/dev/database-url`（SecureString）から取得し、これは **Terraform 管理**（Neon `connection_uri` から登録）。Neon 側でロールパスワードが変わると SSM がズレて全接続が認証失敗するので、`terraform apply` で再登録するか、暫定で `aws ssm put-parameter --overwrite` で更新する（手動更新は次の apply で巻き戻る点に注意）。
+- `DATABASE_URL` 環境変数を直接渡せば `--env` より優先される。SSM がズレているときの暫定回避にも使える。
+
+## CI（plan-datasync）の既知の不具合
+
+`.github/workflows/plan-datasync.yml` の plan 実行ステップは `./datasync ... plan 2>&1 | tail -n +2 > ...` とパイプしているため、datasync が非ゼロ終了してもパイプ末尾の `tail` の終了コードでステップが成功扱いになる。**DB接続失敗（認証エラー）でもCIが緑になり、PRコメントにエラー文だけが載る**ため気づきにくい。`set -o pipefail` を入れるか、中間ファイルに落としてから tail する形に直すこと。

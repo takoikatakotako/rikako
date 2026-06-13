@@ -309,9 +309,14 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 
 ### 配信フロー
 1. `data/` のYAMLを編集
-2. `cd app && go run ./cmd/importer -data ../data` でDBに同期
-3. `curl -X POST https://admin.dev.rikako.org/publish` でDB → S3にJSON書き出し
+2. `cd app && go run ./cmd/datasync -data ../data -env dev apply` でNeon dev DBに同期（事前に `AWS_PROFILE` 設定 + `aws sso login` が必要。[AWS CLI セットアップ](docs/aws-setup.md) 参照。差分は `apply` を `plan` に変えて事前確認）
+3. `curl -u 'ユーザー名:パスワード' -X POST https://admin.dev.rikako.org/api/publish` でDB → S3にJSON書き出し（管理APIは `/api` 配下・Basic Auth 必須。`/publish` 直下はフロントエンドSPAに当たるので注意）
 4. CloudFrontが60秒以内に新JSONを配信
+
+> **dev DB接続の注意**
+> - `datasync -env dev` は SSM `/rikako/dev/database-url` から接続URLを取得する。アプリ/datasync の DB ドライバは **lib/pq** で、`channel_binding` パラメータ非対応。SSM の値は **pooler ホスト + `?sslmode=require`**（`channel_binding=require` は付けない）にすること。直接エンドポイントだと `password authentication failed` になりやすい。
+> - SSM の `database-url` は Terraform 管理（Neon connection_uri から登録）。手動更新すると次の `terraform apply` で巻き戻る恐れがあるため、恒久対処は Terraform/Neon provider 側を現行値に整合させる。
+> - `.github/workflows/plan-datasync.yml` の plan ステップは `./datasync ... | tail` とパイプしており、datasync の非ゼロ終了を握り潰して**DB接続失敗でもCIが緑になる**既知の不具合がある（`set -o pipefail` 等で要修正）。
 
 ### S3上のJSON構造
 ```
