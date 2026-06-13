@@ -174,7 +174,7 @@ struct ResultView: View {
                 NavigationLink {
                     ResultQuestionDetailView(row: row)
                 } label: {
-                    HStack {
+                    HStack(alignment: .top) {
                         Image(row.isCorrect ? .resultCorrect : .resultDiscorrect)
                             .resizable()
                             .frame(width: 28, height: 28)
@@ -183,7 +183,6 @@ struct ResultView: View {
                             .font(.subheadline.bold())
                             .frame(width: 32)
                         Text(row.question.text)
-                            .lineLimit(1)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Image(.resultNext)
