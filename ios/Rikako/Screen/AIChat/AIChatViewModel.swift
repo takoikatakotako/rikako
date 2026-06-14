@@ -17,7 +17,7 @@ final class AIChatViewModel {
     let question: Question
     let selectedChoice: Int
     private(set) var messages: [AIChatMessage] = []
-    private(set) var remainingTurns: Int = 10
+    private(set) var remainingTurns: Int = 5
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     var inputText: String = ""

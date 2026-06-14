@@ -10,7 +10,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/openai"
 )
 
-const maxTurns = 10
+const maxTurns = 5
 const maxExplanationLen = 2000
 
 func (h *Handler) ChatWithQuestion(ctx context.Context, request api.ChatWithQuestionRequestObject) (api.ChatWithQuestionResponseObject, error) {
@@ -27,7 +27,7 @@ func (h *Handler) ChatWithQuestion(ctx context.Context, request api.ChatWithQues
 		}
 	}
 	if userTurns > maxTurns {
-		return api.ChatWithQuestion400JSONResponse{Code: "TURN_LIMIT_EXCEEDED", Message: "最大10往復を超えています"}, nil
+		return api.ChatWithQuestion400JSONResponse{Code: "TURN_LIMIT_EXCEEDED", Message: "最大5往復を超えています"}, nil
 	}
 	if messages[len(messages)-1].Role != api.User {
 		return api.ChatWithQuestion400JSONResponse{Code: "INVALID_PARAMETER", Message: "最後のメッセージはuserである必要があります"}, nil
