@@ -157,13 +157,14 @@ resource "aws_cloudwatch_metric_alarm" "public_api_throttles" {
 
 resource "aws_cloudwatch_metric_alarm" "public_api_p99_latency" {
   alarm_name          = "${local.project}-${local.environment}-public-api-p99-latency"
-  alarm_description   = "Public API Lambda の p99 レイテンシが 10 秒を超えた"
+  # AIチャット(OpenAI同期呼び出し)が遅くp99を押し上げるため、当面30秒に緩和して様子見
+  alarm_description   = "Public API Lambda の p99 レイテンシが 30 秒を超えた"
   namespace           = "AWS/Lambda"
   metric_name         = "Duration"
   extended_statistic  = "p99"
   period              = 300
   evaluation_periods  = 2
-  threshold           = 10000
+  threshold           = 30000
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   dimensions          = { FunctionName = module.lambda.function_name }
