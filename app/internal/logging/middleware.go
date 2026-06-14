@@ -22,6 +22,9 @@ func RequestLogger(logger *slog.Logger) echo.MiddlewareFunc {
 			req := c.Request()
 			status := c.Response().Status
 
+			// p99 レイテンシ用のカスタムメトリクスを EMF で出力（チャットは除外）
+			emitLatencyMetric(c.Path(), latency)
+
 			attrs := []slog.Attr{
 				slog.String("method", req.Method),
 				slog.String("path", req.URL.Path),

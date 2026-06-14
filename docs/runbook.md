@@ -318,6 +318,22 @@ aws logs filter-log-events \
 # 5. 必要に応じてロールバック（→ 2. ロールバック手順）
 ```
 
+### p99 レイテンシアラーム（`public-api-p99-latency`）
+
+**症状**: 「Public API Lambda の p99 レイテンシ（AIチャットを除く）が 10 秒を超えた」という SNS/Slack 通知
+
+- このアラームは Lambda の `Duration` ではなく、アプリが EMF で出力するカスタムメトリクス `Rikako/PublicAPI` / `RequestLatency`（ディメンション `Service=public-api`）の p99 を見ている。
+- **AI チャット（`POST /questions/:questionId/chat`）は OpenAI を同期呼び出しするため遅く、このメトリクスから除外済み**（`app/internal/logging/metrics.go`）。チャットだけが遅い場合はこのアラームは鳴らない。
+- 鳴った場合はチャット以外の経路が遅い＝本当の遅延劣化。DB スロークエリ・Neon の CU 不足・コールドスタート増を疑う。
+
+```bash
+# 遅いリクエストをログから特定（latency でソート）
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/rikako-api-development \
+  --start-time $(date -v-15M +%s000) \
+  --filter-pattern '{ $.latency = "*s" }'
+```
+
 ### DB障害（Neon）
 
 **症状**: API が 500 エラー、`connection refused`
