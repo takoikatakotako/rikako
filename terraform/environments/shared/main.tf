@@ -4,7 +4,7 @@ module "ecr_api" {
   repository_name      = "rikako-api"
   image_tag_mutability = "MUTABLE"
   scan_on_push         = true
-  max_image_count      = 5
+  untagged_expiry_days = 14
   allowed_account_ids  = local.allowed_account_ids
 
   tags = {
@@ -20,7 +20,7 @@ module "ecr_admin_api" {
   repository_name      = "rikako-admin-api"
   image_tag_mutability = "MUTABLE"
   scan_on_push         = true
-  max_image_count      = 5
+  untagged_expiry_days = 14
   allowed_account_ids  = local.allowed_account_ids
 
   tags = {

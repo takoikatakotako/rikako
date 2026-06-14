@@ -15,10 +15,10 @@ variable "scan_on_push" {
   default     = true
 }
 
-variable "max_image_count" {
-  description = "Maximum number of images to keep in the repository"
+variable "untagged_expiry_days" {
+  description = "Number of days after which untagged images are expired. Tagged images (e.g. :prod / :dev) are always kept."
   type        = number
-  default     = 10
+  default     = 14
 }
 
 variable "tags" {

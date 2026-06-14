@@ -12,15 +12,20 @@ resource "aws_ecr_repository" "default" {
 resource "aws_ecr_lifecycle_policy" "default" {
   repository = aws_ecr_repository.default.name
 
+  # タグ付きイメージ（:prod / :dev など使用中のもの）は保護し、untagged のみ
+  # 一定期間経過後に削除する。以前は tagStatus=any で件数制限していたため、
+  # dev の連続デプロイで prod が使用中の :prod イメージまで削除され、prod Lambda が
+  # ImageDeleted で起動不能になる事故が発生した。
   policy = jsonencode({
     rules = [
       {
         rulePriority = 1
-        description  = "Keep last ${var.max_image_count} images"
+        description  = "Expire untagged images after ${var.untagged_expiry_days} days (tagged images are kept)"
         selection = {
-          tagStatus   = "any"
-          countType   = "imageCountMoreThan"
-          countNumber = var.max_image_count
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countNumber = var.untagged_expiry_days
+          countUnit   = "days"
         }
         action = {
           type = "expire"
