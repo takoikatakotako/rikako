@@ -1,135 +1,233 @@
 <!DOCTYPE html>
 <html lang="ja">
-
-<html>
 <head>
   <meta charset="utf-8">
-  <meta name="keywords" content="四択化学,高校化学,科学,化学 アプリ">
-  <meta name="description" content="４択化学は楽しく化学の勉強ができるiPhoneアプリです。">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rikako（理科子）| スキマ時間で学ぶ問題集アプリ</title>
+  <meta name="description" content="Rikako（理科子）は、4択問題をゲーム感覚で解きながら学べる問題集アプリ。その場で解説、AIに質問、間違えた問題は自動で復習。スキマ時間にコツコツ学習しよう。">
+  <meta name="keywords" content="問題集,学習アプリ,4択,クイズ,勉強,理科子,Rikako">
+  <link rel="canonical" href="https://rikako.org/">
 
-  <!--twitter-->
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="４択化学">
-  <meta name="twitter:description" content="４択化学は楽しく化学の勉強ができるiPhoneアプリです。">
-  <meta name="twitter:image:src" content="https://rikako.jp/images/Site.png">
-  <meta name="twitter:domain" content="rikako.jp">
-
-  <!-- facebook -->
+  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
-  <meta property="og:title" content="４択化学" />
-  <meta property="og:image" content="https://rikako.jp/images/Site.png">
-  <meta property="og:url" content="https://rikako.jp">
-  <meta property="og:description" content="４択化学は楽しく化学の勉強ができるiPhoneアプリです。">
-  <meta property="og:site_name" content="４択化学">
+  <meta property="og:title" content="Rikako（理科子）| スキマ時間で学ぶ問題集アプリ">
+  <meta property="og:description" content="4択をゲーム感覚で。その場で解説、AIに質問、間違えた問題は自動で復習。">
+  <meta property="og:url" content="https://rikako.org/">
+  <meta property="og:site_name" content="Rikako">
+  <meta property="og:image" content="https://rikako.org/assets/ogp.png">
 
-  <!-- iPhoneでcss切り分け-->
-  <meta name="viewport" content="user-scalable=no, width=device-width" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rikako（理科子）| スキマ時間で学ぶ問題集アプリ">
+  <meta name="twitter:description" content="4択をゲーム感覚で。その場で解説、AIに質問、間違えた問題は自動で復習。">
+  <meta name="twitter:image" content="https://rikako.org/assets/ogp.png">
 
-  <title>４択化学</title>
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/select.css" media="screen">
-
-  <!--favcon-->
-  <link rel="icon" type="images/vnd.microsoft.icon" href="images/favicon.ico">
-
-  <!--twitter投稿スクリプト-->
-  <script type="text/javascript" src="js/function.js"></script>
-  <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-
-  <!-- Global site tag (gtag.js) - Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-82467612-5"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'UA-82467612-5');
-  </script>
+  <meta name="theme-color" content="#48AC01">
+  <link rel="icon" href="images/favicon.ico">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-
-<!-- ここからheader-->
-<header>
-  <div id="header-in">
-
-    <div id="header-left">
-      <h1>化学、あいた時間に。</h1>
-      <p>４択化学は小学生から大学生までの化学を楽<br>しく勉強する事ができるiPhoneアプリです。<br>移動中や電車の待ち時間などに、化学の問題<br>を解いて、化学に親しみを持ってみましょう。</p>
-      <a href="https://itunes.apple.com/jp/app/4ze-hua-xue/id960647263?l=ja&ls=1&mt=8" title="appStoreへ">
-        <img id="store" type="image" src="images/appStore.png" alt="ストアへ">
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Rikako ホーム">
+        <span class="brand-mark" aria-hidden="true">理</span>
+        <span class="brand-name">Rikako</span>
       </a>
-      <a href="https://play.google.com/store/apps/details?id=jp.conol.chemist" title="appStoreへ">
-        <img id="storeGoogle" type="image" src="images/googlePlayBadge.png" alt="ストアへ">
-      </a>
-
+      <nav class="nav" aria-label="メインナビゲーション">
+        <a href="#features">機能</a>
+        <a href="#screens">画面</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="#download">ダウンロード</a>
     </div>
+  </header>
 
-    <div id="header-right">
-      <div id="social">
-        <!--twitter投稿ボタン-->
-        <a href="http://twitter.com/share?url=http://conol.co.jp/apps/chemist/&text=化学を楽しもう、4択化学。&related=ツイート後に表示されるユーザー&hashtags=四択化学"><img id="twitter" type="image" src="images/twitterLogo.png" alt="twitter"></a>
+  <main id="top">
 
-        <!--facebook投稿ボタン-->
-        <a class="fb btn" href="http://www.facebook.com/share.php?u=http://conol.co.jp/apps/chemist/" onclick="window.open(this.href, 'FBwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;"><img id="facebook" type="image" src="images/facebookLogo.png" alt="facebook"></a>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">スキマ時間で、コツコツ学ぶ。</p>
+          <h1>私と一緒に、<br>問題集で学ぼう。</h1>
+          <p class="lead">
+            4択をゲーム感覚で解いて、その場で解説。わからなければ AI に質問。
+            間違えた問題は自動で復習リストに入るから、ニガテを着実に減らせます。
+          </p>
+          <div class="hero-cta">
+            <!-- TODO: 実際の App Store URL に差し替え -->
+            <a class="btn btn-app" href="#download" aria-label="App Store でダウンロード">
+              <span class="btn-app-icon" aria-hidden="true"></span>
+              <span class="btn-app-text">
+                <small>Download on the</small>
+                <strong>App Store</strong>
+              </span>
+            </a>
+            <p class="hero-note">iPhone 対応・無料ではじめられます</p>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="phone">
+            <div class="phone-screen">
+              <img src="assets/screen-quiz.png" alt="Rikako の出題画面" loading="lazy">
+            </div>
+          </div>
+          <div class="mascot" aria-hidden="true">
+            <img src="images/RikakoGohst.png" alt="" loading="lazy">
+          </div>
+        </div>
       </div>
-      <img id="iPhoneScreen" src="images/screen1.png" alt="screen">
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="section">
+      <div class="container">
+        <h2 class="section-title">学びを続けられる、<span>5つ</span>の機能</h2>
+        <p class="section-sub">ゲーム感覚のはじめやすさと、理解を深める仕組みを両立しました。</p>
+
+        <ul class="features">
+          <li class="feature-card">
+            <div class="feature-icon">📝</div>
+            <h3>4択問題</h3>
+            <p>選ぶだけだから気軽。分野ごとの問題集を、ゲーム感覚でテンポよく進められます。</p>
+          </li>
+          <li class="feature-card">
+            <div class="feature-icon">💡</div>
+            <h3>その場で解説</h3>
+            <p>解いた直後にすぐ復習。正解も不正解も、わかりやすい解説でしっかり理解。</p>
+          </li>
+          <li class="feature-card">
+            <div class="feature-icon">✨</div>
+            <h3>AIに質問</h3>
+            <p>解説を読んでも腑に落ちないときは、その問題について AI に質問。納得いくまで深掘り。</p>
+          </li>
+          <li class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>弱点を復習</h3>
+            <p>間違えた問題は自動でピックアップ。まとめて解き直して、ニガテを着実に克服。</p>
+          </li>
+          <li class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>学習を記録</h3>
+            <p>解いた数や正答率を記録。続けるほど積み上がるから、毎日のはげみになります。</p>
+          </li>
+          <li class="feature-card">
+            <div class="feature-icon">📚</div>
+            <h3>分野を選ぶ</h3>
+            <p>たくさんの問題集から、自分にあった分野をセレクト。おすすめの1冊から始められます。</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Screenshots -->
+    <section id="screens" class="section section--tint">
+      <div class="container">
+        <h2 class="section-title">こんな画面で学べます</h2>
+
+        <div class="screens">
+          <figure class="screen">
+            <div class="phone phone--sm">
+              <div class="phone-screen"><img src="assets/screen-home.png" alt="チャプター一覧のホーム画面" loading="lazy"></div>
+            </div>
+            <figcaption>チャプターで学習</figcaption>
+          </figure>
+          <figure class="screen">
+            <div class="phone phone--sm">
+              <div class="phone-screen"><img src="assets/screen-quiz.png" alt="4択の出題画面" loading="lazy"></div>
+            </div>
+            <figcaption>テンポよく4択</figcaption>
+          </figure>
+          <figure class="screen">
+            <div class="phone phone--sm">
+              <div class="phone-screen"><img src="assets/screen-explanation.png" alt="解答後の正誤と解説" loading="lazy"></div>
+            </div>
+            <figcaption>その場で理解</figcaption>
+          </figure>
+          <figure class="screen">
+            <div class="phone phone--sm">
+              <div class="phone-screen"><img src="assets/screen-result.png" alt="結果と解答一覧" loading="lazy"></div>
+            </div>
+            <figcaption>結果と復習</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download CTA -->
+    <section id="download" class="section cta">
+      <div class="container cta-inner">
+        <h2>さっそく、はじめよう。</h2>
+        <p>理科子があなたの学習をサポートします。まずは1問から。</p>
+        <!-- TODO: 実際の App Store URL に差し替え -->
+        <a class="btn btn-app btn-app--invert" href="#download" aria-label="App Store でダウンロード">
+          <span class="btn-app-icon" aria-hidden="true"></span>
+          <span class="btn-app-text">
+            <small>Download on the</small>
+            <strong>App Store</strong>
+          </span>
+        </a>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section">
+      <div class="container container--narrow">
+        <h2 class="section-title">よくある質問</h2>
+        <div class="faq">
+          <details>
+            <summary>料金はかかりますか？</summary>
+            <p>無料でダウンロードして、すぐに学習を始められます。</p>
+          </details>
+          <details>
+            <summary>どんな分野の問題がありますか？</summary>
+            <p>複数の分野の問題集を用意しています。アプリ内で自分にあった分野を選んで始められます。</p>
+          </details>
+          <details>
+            <summary>AIへの質問とはどんな機能ですか？</summary>
+            <p>解いた問題について、AI に追加で質問できる機能です。解説だけでは分かりにくいところを、対話で深掘りできます。</p>
+          </details>
+          <details>
+            <summary>間違えた問題はどうなりますか？</summary>
+            <p>自動で復習リストにまとまります。あとからまとめて解き直して、ニガテを克服できます。</p>
+          </details>
+          <details>
+            <summary>Android 版はありますか？</summary>
+            <p>現在は iPhone 向けに提供しています。</p>
+          </details>
+        </div>
+
+        <div class="contact">
+          <h3>お問い合わせ</h3>
+          <p>ご意見・ご要望は、アプリ内の「お問い合わせ」からお送りいただけます。</p>
+          <!-- TODO: 公開の問い合わせ先（メール/フォーム）があれば差し替え -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true">理</span>
+        <span class="brand-name">Rikako</span>
+      </div>
+      <nav class="footer-nav" aria-label="フッターナビゲーション">
+        <a href="#features">機能</a>
+        <a href="#screens">画面</a>
+        <a href="#faq">FAQ</a>
+        <!-- TODO: プライバシーポリシーの公開URLに差し替え -->
+        <a href="#">プライバシーポリシー</a>
+      </nav>
+      <p class="copyright"><small>&copy; 2026 Rikako</small></p>
     </div>
-  </div>
-</header>
-<!-- /header -->
-
-
-<!-- ここから機能一覧-->
-
-<div id="functions">
-  <div id="functions-in">
-    <h1>化学を楽しむ<span>４つ</span>の機能</h1>
-
-    <div id="question">
-      <h3>４択問題</h3>
-        <p>４択から正解を選ぶだけなので、ゲームのよ<br>うに気軽に取り組む事ができます。<br>画像問題や知識問題など、<br>様々な問題が200問以上収録されています。</p>
-    </div>
-
-    <div id="explanation">
-      <h3>問題解説機能</h3>
-      <p>解いた直後にすぐ復習。全ての問題の<br>解説を読む事ができます。<br>間違えた問題だけでなく、正解した<br>問題も確認しましょう。</p>
-    </div>
-
-    <div id="weakpoint">
-      <h3>弱点克服機能</h3>
-        <p>間違えてしまった問題は<br>弱点リストに登録されます。<br>しっかり覚えて弱点問題に再挑戦！<br>ニガテを無くしましょう。</p>
-    </div>
-
-    <div id="database">
-      <h3>化学式一覧機能</h3>
-      <p>重要な150の化学式をまとめました。<br>化合物の英語名と日本語名を確認で<br>きるほか、物質量など詳細情報を追<br>加予定です。</p>
-    </div>
-
-    <div id="social2">
-
-      <a href="https://itunes.apple.com/jp/app/4ze-hua-xue/id960647263?l=ja&ls=1&mt=8" title="ストアへ"><img id="store2" type="image" src="images/appStore.png" alt="ストアへ"></a>
-      <a href="http://twitter.com/share?url=http://conol.co.jp/apps/chemist/&text=化学を楽しもう、4択化学。&related=ツイート後に表示されるユーザー&hashtags=四択化学"><img id="twitter2" type="image" src="images/twitterLogo.png" alt="twitter"></a>
-
-        <!--facebook投稿ボタン-->
-        <a class="fb btn" href="http://www.facebook.com/share.php?u=http://conol.co.jp/apps/chemist/" onclick="window.open(this.href, 'FBwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;"><img id="facebook2" type="image" src="images/facebookLogo.png" alt="facebook"></a>
-
-    </div>
-  </div>
-</div>
-<!-- ここまで機能一覧-->
-
-
-<!-- ここからfooter、コピーライトとか-->
-<footer>
-  <h2>MaterialThanks</h2>
-  <a href="http://www.flaticon.com/" title="flaticon.com"><p>http://www.flaticon.com</P></a>
-  <a href="http://pixelbuddha.net/" title="pixelbuddha.net"><p>http://pixelbuddha.net</P></a>
-  <p><small>Copyrights &copy;
-    <a href="https://rikako.jp/">rikako.jp</a> All Rights Reserved.</small></p>
-</footer>
-<!-- ここからfotter、コピーライトとか-->
+  </footer>
 
 </body>
 </html>
