@@ -111,7 +111,11 @@ resource "aws_lambda_function" "this" {
   }
 
   lifecycle {
-    ignore_changes = [image_uri]
+    # image_uri はデプロイ(update-function-code)で更新されるため無視。
+    # description は外部のDBクレデンシャルローテーション処理が
+    # コールドスタート強制のために書き換えるため無視（terraform が毎回 null に
+    # 戻そうとして無用な更新=コールドスタートが走るのを防ぐ）。
+    ignore_changes = [image_uri, description]
   }
 
   tags = var.tags
