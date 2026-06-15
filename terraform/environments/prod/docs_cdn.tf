@@ -86,9 +86,16 @@ resource "aws_cloudfront_distribution" "docs" {
     }
   }
 
-  # MkDocs Material が生成する 404.html を返す
+  # MkDocs Material が生成する 404.html を返す。
+  # OAC + S3 では存在しないオブジェクトは 403 を返すため、403 も 404 ページにマップする。
   custom_error_response {
     error_code         = 404
+    response_code      = 404
+    response_page_path = "/404.html"
+  }
+
+  custom_error_response {
+    error_code         = 403
     response_code      = 404
     response_page_path = "/404.html"
   }
