@@ -308,6 +308,7 @@ img { max-width: 100%; display: block; }
 .legal p { margin-bottom: 14px; }
 .legal ul { margin: 0 0 14px; padding-left: 1.3em; }
 .legal li { margin-bottom: 8px; }
+.legal-history { color: var(--muted); font-size: 0.95rem; }
 
 /* ---------- Footer ---------- */
 .site-footer { border-top: 1px solid var(--line); padding: 40px 0; background: var(--white); }
