@@ -5,90 +5,96 @@ final class ScreenshotTests: XCTestCase {
     let app = XCUIApplication()
 
     override func setUpWithError() throws {
-        continueAfterFailure = true
+        continueAfterFailure = false
         app.launch()
     }
 
     @MainActor
     func test_AllScreenshots() throws {
-        // === オンボーディング（現行6ページ構成） ===
-        // 0: Welcome
-        tapButtonIfExists("次へ", timeout: 25)
-        // 1: WorkbookIntro
-        tapButtonIfExists("問題集を選ぶ", timeout: 15)
-        // 2: WorkbookSelection（API読み込み後、おすすめ問題集をタップ）
-        let recommended = app.scrollViews.buttons.firstMatch
-        if recommended.waitForExistence(timeout: 30) { recommended.tap() }
-        sleep(1)
-        // 3: AppIntro
-        tapButtonIfExists("次へ", timeout: 15)
-        // 4: TermsAgreement（同意スイッチON → 同意して次へ）
-        // Toggle はラベルとノブが入れ子。中心はラベル上なので右端(ノブ)を座標タップする。
-        let agreeToggle = app.switches["利用規約に同意します"]
-        if agreeToggle.waitForExistence(timeout: 15), (agreeToggle.value as? String) != "1" {
-            agreeToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-            sleep(1)
-        }
-        tapButtonIfExists("同意して次へ", timeout: 10)
-        // 5: Finish（はじめる → 匿名サインイン）
-        tapButtonIfExists("はじめる", timeout: 15)
-        sleep(5)
-
-        // === 01: ホーム（学習：選択した問題集のチャプター一覧） ===
-        _ = app.navigationBars["学習"].waitForExistence(timeout: 30)
+        // === オンボーディング通過 ===
+        let nextButton = app.buttons["次へ"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 15))
+        nextButton.tap()
         sleep(2)
-        takeScreenshot(name: "01_home")
 
-        // === 02: 学習記録タブ ===
-        let recordTab = app.tabBars.buttons["学習記録"]
-        if recordTab.waitForExistence(timeout: 10) {
-            recordTab.tap()
+        for _ in 0..<3 {
+            let next = app.buttons["次へ"]
+            XCTAssertTrue(next.waitForExistence(timeout: 15))
+            next.tap()
             sleep(2)
-            takeScreenshot(name: "02_study_record")
-            app.tabBars.buttons["学習"].tap()
-            sleep(1)
         }
+
+        let categoryButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '中学理科'")).firstMatch
+        XCTAssertTrue(categoryButton.waitForExistence(timeout: 15))
+        categoryButton.tap()
+        sleep(1)
+
+        let beginButton = app.buttons["はじめる"]
+        XCTAssertTrue(beginButton.waitForExistence(timeout: 15))
+        beginButton.tap()
+        sleep(2)
+
+        // === ログイン画面 → スキップ ===
+        let skipLogin = app.buttons["ログインせずに使う"]
+        XCTAssertTrue(skipLogin.waitForExistence(timeout: 15))
+        skipLogin.tap()
+        sleep(2)
+
+        // === 01: 問題集一覧 ===
+        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 15))
+        takeScreenshot(name: "01_workbook_list")
+
+        // === 02: 問題集詳細 ===
+        let firstCell = app.cells.firstMatch
+        XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
+        firstCell.tap()
+
+        let startQuizButton = app.buttons["この問題集を解く"]
+        XCTAssertTrue(startQuizButton.waitForExistence(timeout: 15))
+        takeScreenshot(name: "02_workbook_detail")
 
         // === 03: クイズ（解答前） ===
-        let startButton = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'はじめる'")).firstMatch
-        if startButton.waitForExistence(timeout: 15) { startButton.tap() }
-        sleep(2)
+        startQuizButton.tap()
+        XCTAssertTrue(app.navigationBars["Q1 / 5"].waitForExistence(timeout: 15))
         takeScreenshot(name: "03_quiz_before_answer")
 
-        // === 04: クイズ（解答後／解説＋AIに質問） ===
+        // === 04: クイズ（解答後） ===
         let firstChoice = app.scrollViews.buttons.element(boundBy: 0)
-        if firstChoice.waitForExistence(timeout: 10) { firstChoice.tap() }
+        XCTAssertTrue(firstChoice.waitForExistence(timeout: 10))
+        firstChoice.tap()
         sleep(1)
-        takeScreenshot(name: "04_quiz_explanation")
+        takeScreenshot(name: "04_quiz_after_answer")
 
-        // === 残りを解いて結果画面へ ===
-        for _ in 0..<25 {
-            if app.scrollViews.buttons["結果を見る"].exists {
-                app.scrollViews.buttons["結果を見る"].tap()
-                break
-            } else if app.scrollViews.buttons["次の問題へ"].exists {
-                app.scrollViews.buttons["次の問題へ"].tap()
-                sleep(1)
-                let choice = app.scrollViews.buttons.element(boundBy: 0)
-                if choice.waitForExistence(timeout: 5) { choice.tap() }
+        // === 05: 結果画面 ===
+        // 残り4問を解答
+        let nextQuestionButton = app.scrollViews.buttons["次の問題へ"]
+        XCTAssertTrue(nextQuestionButton.waitForExistence(timeout: 5))
+        nextQuestionButton.tap()
+        sleep(1)
+
+        for i in 2...5 {
+            XCTAssertTrue(app.navigationBars["Q\(i) / 5"].waitForExistence(timeout: 10))
+
+            let choice = app.scrollViews.buttons.element(boundBy: 0)
+            XCTAssertTrue(choice.waitForExistence(timeout: 10))
+            choice.tap()
+            sleep(1)
+
+            if i < 5 {
+                let nextBtn = app.scrollViews.buttons["次の問題へ"]
+                XCTAssertTrue(nextBtn.waitForExistence(timeout: 5))
+                nextBtn.tap()
                 sleep(1)
             } else {
+                let resultBtn = app.scrollViews.buttons["結果を見る"]
+                XCTAssertTrue(resultBtn.waitForExistence(timeout: 5))
+                resultBtn.tap()
                 sleep(1)
             }
         }
-        sleep(2)
 
-        // === 05: 結果画面 ===
-        _ = app.navigationBars["結果"].waitForExistence(timeout: 20)
+        XCTAssertTrue(app.navigationBars["結果"].waitForExistence(timeout: 15))
         takeScreenshot(name: "05_result")
-    }
-
-    private func tapButtonIfExists(_ label: String, timeout: TimeInterval) {
-        let button = app.buttons[label]
-        if button.waitForExistence(timeout: timeout) {
-            button.tap()
-            sleep(1)
-        }
     }
 
     private func takeScreenshot(name: String) {
