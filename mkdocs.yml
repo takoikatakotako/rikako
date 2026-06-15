@@ -1,6 +1,6 @@
 site_name: Rikako
 site_description: 問題集アプリ ドキュメント
-site_url: https://takoikatakotako.github.io/rikako/
+site_url: https://docs.rikako.org/
 
 theme:
   name: material

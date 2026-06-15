@@ -104,3 +104,13 @@ resource "cloudflare_record" "admin" {
   ttl     = 1
   proxied = false
 }
+
+# docs.rikako.org → Docs CloudFront
+resource "cloudflare_record" "docs" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "docs"
+  content = aws_cloudfront_distribution.docs.domain_name
+  type    = "CNAME"
+  ttl     = 1
+  proxied = false
+}
