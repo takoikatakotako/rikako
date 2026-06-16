@@ -72,6 +72,34 @@ resource "aws_cloudfront_origin_access_control" "lp" {
   signing_protocol                  = "sigv4"
 }
 
+# クリーンURL用の rewrite。拡張子の無いパスに .html を付与する
+# （例: /privacy → /privacy.html, /terms/2026-06-16 → /terms/2026-06-16.html）。
+# ルート / と拡張子付き(.css/.png 等)はそのまま。S3 静的サイトホスティングは使わず
+# OAC を維持したまま、AWS 推奨の CloudFront Functions 方式でクリーンURLを実現する。
+resource "aws_cloudfront_function" "lp_rewrite" {
+  name    = "${local.project}-lp-rewrite-${local.environment}"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOF
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+      if (uri === '/') {
+        return request;
+      }
+      if (uri.endsWith('/')) {
+        uri = uri.slice(0, -1);
+      }
+      var lastSegment = uri.split('/').pop();
+      if (lastSegment.indexOf('.') === -1) {
+        uri = uri + '.html';
+      }
+      request.uri = uri;
+      return request;
+    }
+  EOF
+}
+
 resource "aws_cloudfront_distribution" "lp" {
   origin {
     domain_name              = module.lp_s3.bucket_regional_domain_name
@@ -102,6 +130,11 @@ resource "aws_cloudfront_distribution" "lp" {
     min_ttl     = 0
     default_ttl = 86400
     max_ttl     = 31536000
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.lp_rewrite.arn
+    }
   }
 
   restrictions {

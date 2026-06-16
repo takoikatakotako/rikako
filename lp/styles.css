@@ -294,6 +294,22 @@ img { max-width: 100%; display: block; }
 .contact h3 { font-size: 1.25rem; margin-bottom: 10px; }
 .contact p { color: var(--body); }
 
+/* ---------- Legal pages (privacy, terms) ---------- */
+.legal { padding: 64px 0 80px; }
+.legal h1 { font-size: clamp(1.8rem, 3.4vw, 2.4rem); font-weight: 800; }
+.legal-updated { color: var(--muted); font-size: 0.9rem; margin: 10px 0 32px; }
+.legal h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 40px 0 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.legal p { margin-bottom: 14px; }
+.legal ul { margin: 0 0 14px; padding-left: 1.3em; }
+.legal li { margin-bottom: 8px; }
+.legal-history { color: var(--muted); font-size: 0.95rem; }
+
 /* ---------- Footer ---------- */
 .site-footer { border-top: 1px solid var(--line); padding: 40px 0; background: var(--white); }
 .footer-inner { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
