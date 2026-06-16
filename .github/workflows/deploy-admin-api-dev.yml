@@ -24,10 +24,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (ECR push)
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          role-to-assume: arn:aws:iam::579039992557:role/rikako-ecr-push
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -49,6 +49,12 @@ jobs:
         run: |
           docker build -f app/Dockerfile.admin -t ${{ steps.meta.outputs.tags }} .
           docker push ${{ steps.meta.outputs.tags }}
+
+      - name: Configure AWS credentials (deploy)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Update Lambda function
         env:
