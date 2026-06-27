@@ -17,7 +17,7 @@ import (
 const (
 	localDSN     = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
 	devSSMParam  = "/rikako/dev/database-url"
-	prodSSMParam = "/rikako/prod/database-url"
+	prodSSMParam = "/rikako/production/database-url"
 )
 
 func main() {
