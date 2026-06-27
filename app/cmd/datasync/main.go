@@ -15,13 +15,14 @@ import (
 )
 
 const (
-	localDSN    = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
-	devSSMParam = "/rikako/dev/database-url"
+	localDSN     = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
+	devSSMParam  = "/rikako/dev/database-url"
+	prodSSMParam = "/rikako/prod/database-url"
 )
 
 func main() {
 	dataDir := flag.String("data", "data", "データディレクトリのパス")
-	env := flag.String("env", "local", "接続先環境 (local, dev)")
+	env := flag.String("env", "local", "接続先環境 (local, dev, prod)")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage: datasync [flags] <plan|apply>
 
@@ -32,6 +33,7 @@ Subcommands:
 Environments:
   local   ローカルPostgreSQL (localhost:5432)
   dev     Neon dev環境 (SSMからURL取得)
+  prod    Neon prod環境 (SSMからURL取得)
 
 ローカルからdev環境に接続する場合:
   AWS_PROFILE=rikako-development-sso datasync -data ../data -env dev plan
@@ -117,6 +119,8 @@ func resolveDSN(env string) (string, error) {
 		return localDSN, nil
 	case "dev":
 		return fetchDSNFromSSM(devSSMParam)
+	case "prod":
+		return fetchDSNFromSSM(prodSSMParam)
 	default:
 		return "", fmt.Errorf("unknown environment: %s", env)
 	}
