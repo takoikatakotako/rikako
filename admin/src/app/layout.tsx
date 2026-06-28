@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ScrollReset } from "@/components/layout/scroll-reset";
+import { APP_TITLE } from "@/lib/env";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rikako Admin",
+  title: APP_TITLE,
   description: "問題集アプリ管理画面",
 };
 

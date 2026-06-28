@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { BookOpen, FileQuestion, FolderOpen, Upload, Loader2, Users, AppWindow, WrenchIcon, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { APP_TITLE } from "@/lib/env";
 import { apiPost } from "@/lib/api/client";
 import type { PublishResponse } from "@/lib/api/types";
 
@@ -41,7 +42,7 @@ export function Sidebar() {
     <aside className="flex h-screen w-60 flex-col border-r bg-background">
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/" className="text-lg font-bold">
-          Rikako Admin
+          {APP_TITLE}
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-2">
