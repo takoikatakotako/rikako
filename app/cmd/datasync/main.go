@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -64,12 +65,8 @@ Flags:
 		log.Fatalf("Failed to resolve database URL: %v", err)
 	}
 
-	// 接続先を表示
-	displayDSN := dsn
-	if len(displayDSN) > 60 {
-		displayDSN = displayDSN[:60] + "..."
-	}
-	fmt.Printf("Connecting to [%s]: %s\n", *env, displayDSN)
+	// 接続先を表示（CIログ等に出るためパスワードは必ずマスクする）
+	fmt.Printf("Connecting to [%s]: %s\n", *env, redactDSN(dsn))
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -106,6 +103,16 @@ Flags:
 			fmt.Println("\nNo changes. YAML and DB are already in sync.")
 		}
 	}
+}
+
+// redactDSN はDSNのパスワード部分を伏せた表示用文字列を返す。
+// URLとしてパースできない場合は情報を一切出さない。
+func redactDSN(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return "(unparsable DSN, redacted)"
+	}
+	return u.Redacted()
 }
 
 func resolveDSN(env string) (string, error) {
