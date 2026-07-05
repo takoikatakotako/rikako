@@ -316,7 +316,7 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 > **dev DB接続の注意**
 > - `datasync -env dev` は SSM `/rikako/dev/database-url` から接続URLを取得する。アプリ/datasync の DB ドライバは **lib/pq** で、`channel_binding` パラメータ非対応。SSM の値は **pooler ホスト + `?sslmode=require`**（`channel_binding=require` は付けない）にすること。直接エンドポイントだと `password authentication failed` になりやすい。
 > - SSM の `database-url` は Terraform 管理（Neon connection_uri から登録）。手動更新すると次の `terraform apply` で巻き戻る恐れがあるため、恒久対処は Terraform/Neon provider 側を現行値に整合させる。
-> - `.github/workflows/plan-datasync.yml` の plan ステップは `./datasync ... | tail` とパイプしており、datasync の非ゼロ終了を握り潰して**DB接続失敗でもCIが緑になる**既知の不具合がある（`set -o pipefail` 等で要修正）。
+> - `.github/workflows/plan-datasync.yml` の plan ステップは `set -o pipefail` + `tee` で datasync の失敗を検知する（2026-06-13 修正済み）。`tee` により datasync の標準出力が public な CI ログに出るため、datasync は接続先表示のパスワードを `url.Redacted()` でマスクしている。**DSN を生のままログや標準出力に出さないこと。**
 
 ### S3上のJSON構造
 ```
