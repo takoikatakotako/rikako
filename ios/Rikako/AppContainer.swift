@@ -9,6 +9,17 @@ final class AppContainer {
     let anonymousSignIn: () async throws -> String
 
     private init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uitest-screenshots") {
+            let repository = PreviewLearningRepository()
+            self.appState = AppState.shared
+            self.learningUseCases = LearningUseCases(repository: repository)
+            self.deviceIdentityProvider = PreviewDeviceIdentityProvider()
+            self.anonymousSignIn = { try await repository.anonymousSignIn() }
+            return
+        }
+        #endif
+
         let flavor = AppFlavor.current
         let httpClient = URLSessionHTTPClient(session: .shared)
         let deviceIdentityProvider = CognitoDeviceIdentityProvider(
