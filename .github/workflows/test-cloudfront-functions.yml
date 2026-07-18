@@ -1,0 +1,27 @@
+name: Test CloudFront Functions
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/environments/dev/admin_frontend.tf"
+      - "terraform/environments/prod/admin_frontend.tf"
+      - "terraform/tests/**"
+      - ".github/workflows/test-cloudfront-functions.yml"
+
+jobs:
+  test:
+    name: Test CloudFront Functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run tests
+        run: node --test 'terraform/tests/**/*.test.mjs'
