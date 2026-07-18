@@ -27,7 +27,15 @@ final class AppState {
 
     private init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uitest-screenshots") {
+            self.hasCompletedOnboarding = true
+        } else {
+            self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
+        }
+        #else
         self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
+        #endif
         self.isLoggedIn = false
         self.anonymousUserId = userDefaults.string(forKey: DefaultsKey.anonymousUserId)
         self.userId = nil

@@ -185,6 +185,7 @@ struct QuizView: View {
                     )
                 }
                 .disabled(viewModel.showExplanation)
+                .accessibilityIdentifier("quizChoice")
             }
         }
     }

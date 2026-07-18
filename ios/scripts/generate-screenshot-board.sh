@@ -11,10 +11,45 @@ XCRESULT_PATH="${IOS_DIR}/build/screenshots.xcresult"
 rm -rf "$XCRESULT_PATH" "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
+DEVICE_NAME="iPhone 17 Pro Max"
+
+# Resolve a concrete simulator UDID so we can pre-boot it and clean up its status bar.
+DEVICE_UDID="$(xcrun simctl list devices available --json | python3 -c "
+import json, sys
+devices = json.load(sys.stdin)['devices']
+udids = [d['udid'] for rt in devices for d in devices[rt] if d.get('name') == '$DEVICE_NAME' and d.get('isAvailable')]
+print(udids[0] if udids else '')
+")"
+
+if [ -z "$DEVICE_UDID" ]; then
+    echo "ERROR: シミュレータ '$DEVICE_NAME' が見つかりません"
+    exit 1
+fi
+
+echo "==> Booting simulator ($DEVICE_NAME / $DEVICE_UDID)..."
+# 同じ UDID を再利用することで、初回起動時のシステム通知（Apple Intelligence 等）を
+# 消化済みの状態で撮影し、スクリーンショットにバナーが写り込むのを防ぐ。
+xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
+xcrun simctl bootstatus "$DEVICE_UDID" 2>/dev/null || true
+
+echo "==> Overriding status bar (9:41, full signal/battery)..."
+xcrun simctl status_bar "$DEVICE_UDID" override \
+    --time "9:41" \
+    --dataNetwork wifi --wifiMode active --wifiBars 3 \
+    --cellularMode active --cellularBars 4 \
+    --batteryState charged --batteryLevel 100
+
+# 撮影後は必ず status bar のオーバーライドを解除する
+cleanup_status_bar() {
+    xcrun simctl status_bar "$DEVICE_UDID" clear 2>/dev/null || true
+}
+trap cleanup_status_bar EXIT
+
 echo "==> Running screenshot tests..."
 xcodebuild test \
-    -scheme Rikako \
-    -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+    -project "$IOS_DIR/Rikako.xcodeproj" \
+    -scheme high-school-chemistry-dev \
+    -destination "platform=iOS Simulator,id=$DEVICE_UDID" \
     -only-testing:RikakoUITests/ScreenshotTests \
     -resultBundlePath "$XCRESULT_PATH" \
     -configuration Debug \

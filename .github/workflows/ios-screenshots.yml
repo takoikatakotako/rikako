@@ -28,10 +28,10 @@ jobs:
         run: |
           xcodebuild test \
             -scheme high-school-chemistry-dev \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-            -only-testing:RikakoTests/ScreenshotTests \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+            -only-testing:RikakoUITests/ScreenshotTests \
             -resultBundlePath build/screenshots.xcresult \
-            -configuration 'HighSchoolChemistryDev Debug' \
+            -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Extract screenshots

@@ -1,100 +1,99 @@
 import XCTest
 
+/// App Store 提出用スクリーンショットを生成する UI テスト。
+///
+/// `-uitest-screenshots` 起動引数で以下が有効になる（いずれも #if DEBUG 限定）:
+/// - AppContainer が PreviewLearningRepository（モック）を注入 → ネットワーク不要・決定的
+/// - AppState.hasCompletedOnboarding = true → オンボーディングをスキップして直接メイン画面へ
+///
+/// モックの問題集詳細は MockData.questions（5問）を返すため、クイズを最後まで解いて結果画面まで撮れる。
 final class ScreenshotTests: XCTestCase {
 
     let app = XCUIApplication()
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        app.launchArguments += ["-uitest-screenshots"]
         app.launch()
     }
 
     @MainActor
     func test_AllScreenshots() throws {
-        // === オンボーディング通過 ===
-        let nextButton = app.buttons["次へ"]
-        XCTAssertTrue(nextButton.waitForExistence(timeout: 15))
-        nextButton.tap()
-        sleep(2)
+        // === 01: 学習ホーム ===
+        // 「はじめる」（チャプター開始）ボタンが出れば StudyHome の準備完了
+        let startButton = button(containing: "はじめる")
+        XCTAssertTrue(startButton.waitForExistence(timeout: 30), "学習ホームの『はじめる』ボタンが見つからない")
+        sleep(1) // ヒーロー描画の安定待ち
+        takeScreenshot(name: "01_study_home")
 
-        for _ in 0..<3 {
-            let next = app.buttons["次へ"]
-            XCTAssertTrue(next.waitForExistence(timeout: 15))
-            next.tap()
-            sleep(2)
-        }
-
-        let categoryButton = app.buttons.matching(NSPredicate(format: "label CONTAINS '中学理科'")).firstMatch
-        XCTAssertTrue(categoryButton.waitForExistence(timeout: 15))
-        categoryButton.tap()
+        // === 02: 問題集を変更（一覧）===
+        let pickerButton = app.buttons["問題集を変更"]
+        XCTAssertTrue(pickerButton.waitForExistence(timeout: 10))
+        pickerButton.tap()
+        XCTAssertTrue(app.navigationBars["問題集を変更"].waitForExistence(timeout: 10))
         sleep(1)
+        takeScreenshot(name: "02_workbook_picker")
+        app.buttons["閉じる"].tap()
 
-        let beginButton = app.buttons["はじめる"]
-        XCTAssertTrue(beginButton.waitForExistence(timeout: 15))
-        beginButton.tap()
-        sleep(2)
+        // === 03: クイズ（解答前）===
+        let start2 = button(containing: "はじめる")
+        XCTAssertTrue(start2.waitForExistence(timeout: 10))
+        start2.tap()
 
-        // === ログイン画面 → スキップ ===
-        let skipLogin = app.buttons["ログインせずに使う"]
-        XCTAssertTrue(skipLogin.waitForExistence(timeout: 15))
-        skipLogin.tap()
-        sleep(2)
-
-        // === 01: 問題集一覧 ===
-        XCTAssertTrue(app.navigationBars["問題集"].waitForExistence(timeout: 15))
-        takeScreenshot(name: "01_workbook_list")
-
-        // === 02: 問題集詳細 ===
-        let firstCell = app.cells.firstMatch
-        XCTAssertTrue(firstCell.waitForExistence(timeout: 10))
-        firstCell.tap()
-
-        let startQuizButton = app.buttons["この問題集を解く"]
-        XCTAssertTrue(startQuizButton.waitForExistence(timeout: 15))
-        takeScreenshot(name: "02_workbook_detail")
-
-        // === 03: クイズ（解答前） ===
-        startQuizButton.tap()
-        XCTAssertTrue(app.navigationBars["Q1 / 5"].waitForExistence(timeout: 15))
+        let firstChoice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
+        XCTAssertTrue(firstChoice.waitForExistence(timeout: 15), "クイズの選択肢が表示されない")
+        sleep(1)
         takeScreenshot(name: "03_quiz_before_answer")
 
-        // === 04: クイズ（解答後） ===
-        let firstChoice = app.scrollViews.buttons.element(boundBy: 0)
-        XCTAssertTrue(firstChoice.waitForExistence(timeout: 10))
+        // === 04: クイズ（解答後・解説）===
         firstChoice.tap()
+        XCTAssertTrue(waitForNextOrResult(timeout: 10), "解答後の『次の問題へ / 結果を見る』が出ない")
         sleep(1)
         takeScreenshot(name: "04_quiz_after_answer")
 
-        // === 05: 結果画面 ===
-        // 残り4問を解答
-        let nextQuestionButton = app.scrollViews.buttons["次の問題へ"]
-        XCTAssertTrue(nextQuestionButton.waitForExistence(timeout: 5))
-        nextQuestionButton.tap()
-        sleep(1)
+        // === 05: 結果 ===
+        // 残りの問題を解き進めて結果画面へ（問題数に依存しないループ）
+        while true {
+            let resultBtn = app.buttons["結果を見る"]
+            let nextBtn = app.buttons["次の問題へ"]
 
-        for i in 2...5 {
-            XCTAssertTrue(app.navigationBars["Q\(i) / 5"].waitForExistence(timeout: 10))
-
-            let choice = app.scrollViews.buttons.element(boundBy: 0)
-            XCTAssertTrue(choice.waitForExistence(timeout: 10))
-            choice.tap()
-            sleep(1)
-
-            if i < 5 {
-                let nextBtn = app.scrollViews.buttons["次の問題へ"]
-                XCTAssertTrue(nextBtn.waitForExistence(timeout: 5))
-                nextBtn.tap()
-                sleep(1)
-            } else {
-                let resultBtn = app.scrollViews.buttons["結果を見る"]
-                XCTAssertTrue(resultBtn.waitForExistence(timeout: 5))
+            if resultBtn.exists && resultBtn.isHittable {
                 resultBtn.tap()
-                sleep(1)
+                break
+            } else if nextBtn.exists && nextBtn.isHittable {
+                nextBtn.tap()
+                let choice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
+                XCTAssertTrue(choice.waitForExistence(timeout: 10))
+                choice.tap()
+                _ = waitForNextOrResult(timeout: 10)
+            } else {
+                XCTFail("『次の問題へ / 結果を見る』ボタンが見つからない")
+                break
             }
         }
 
-        XCTAssertTrue(app.navigationBars["結果"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.navigationBars["結果"].waitForExistence(timeout: 15), "結果画面に遷移しない")
+        sleep(1)
         takeScreenshot(name: "05_result")
+    }
+
+    // MARK: - Helpers
+
+    /// ラベルに指定文字列を含む最初のボタン（複合ラベルのボタン向け）
+    private func button(containing text: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// 解答後に現れる「次の問題へ」または「結果を見る」ボタンの出現を待つ
+    private func waitForNextOrResult(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if app.buttons["結果を見る"].exists || app.buttons["次の問題へ"].exists {
+                return true
+            }
+            usleep(200_000)
+        }
+        return false
     }
 
     private func takeScreenshot(name: String) {
