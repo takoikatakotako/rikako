@@ -1,0 +1,72 @@
+name: Apply Terraform Prod
+
+# prod の terraform を手動適用する（Issue #240）。
+# 流れ: plan（ゲート無し）→ GitHub Environment `production` の承認 → apply。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    name: Plan (prod)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/environments/prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (read-only)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions-terraform-plan
+          aws-region: ap-northeast-1
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      # 承認前のレビュー用。public リポのため plan の秘匿値は terraform の
+      # sensitive 伝播で (sensitive value) に伏字化される。バイナリ plan は保存・公開しない。
+      - name: Terraform Plan
+        run: terraform plan -input=false -lock=false -no-color
+
+  apply:
+    name: Apply (prod)
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
+    defaults:
+      run:
+        working-directory: terraform/environments/prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14"
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials (admin)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions-terraform-apply
+          aws-region: ap-northeast-1
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      # 承認後に再 plan して適用する（バイナリ plan を跨がせない = public リポでの秘匿値漏洩回避）。
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve
