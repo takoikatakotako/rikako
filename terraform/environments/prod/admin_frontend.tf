@@ -59,14 +59,15 @@ resource "aws_cloudfront_function" "admin_spa_rewrite" {
         };
       }
       var uri = request.uri;
-      if (uri.endsWith('/')) {
-        request.uri = uri + 'index.html';
-      } else if (!uri.includes('.')) {
+      // 拡張子付き（静的アセット）以外は、セクションの index.html に畳んで
+      // クライアントサイドルーティングに委譲する。個別詳細ページ（例: /questions/668/）は
+      // 静的生成していないため、末尾スラッシュの有無に関わらず /<section>/index.html を返す。
+      if (!uri.includes('.')) {
         var segments = uri.split('/').filter(function(s) { return s; });
-        if (segments.length > 1) {
-          request.uri = '/' + segments[0] + '/index.html';
+        if (segments.length === 0) {
+          request.uri = '/index.html';
         } else {
-          request.uri = uri + '/index.html';
+          request.uri = '/' + segments[0] + '/index.html';
         }
       }
       return request;
