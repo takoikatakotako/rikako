@@ -91,7 +91,7 @@ func (q *Queries) GetCategoryTitle(ctx context.Context, id int64) (GetCategoryTi
 
 const listAllCategories = `-- name: ListAllCategories :many
 SELECT c.id, c.title, c.description,
-    (SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
+    (SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id AND w.is_published = true) as workbook_count
 FROM categories c
 ORDER BY c.id
 `
@@ -103,6 +103,7 @@ type ListAllCategoriesRow struct {
 	WorkbookCount int64          `json:"workbook_count"`
 }
 
+// publisher 専用。公開コンテンツの workbook_count は公開中のみを数える。
 func (q *Queries) ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAllCategories)
 	if err != nil {

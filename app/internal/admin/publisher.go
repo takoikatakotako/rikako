@@ -187,7 +187,8 @@ func (h *Handler) buildCategoryDetail(ctx context.Context, categoryID int64) (ap
 		return api.CategoryDetail{}, err
 	}
 
-	wbRows, err := h.queries.ListWorkbooksByCategory(ctx, sql.NullInt64{Int64: categoryID, Valid: true})
+	// 公開コンテンツ（content.rikako.org）には公開中の問題集のみを含める。
+	wbRows, err := h.queries.ListPublishedWorkbooksByCategory(ctx, sql.NullInt64{Int64: categoryID, Valid: true})
 	if err != nil {
 		return api.CategoryDetail{}, err
 	}
