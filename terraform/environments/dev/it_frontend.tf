@@ -24,14 +24,26 @@ resource "aws_cloudfront_origin_access_control" "it" {
   signing_protocol                  = "sigv4"
 }
 
-# ディレクトリ/拡張子なしパスに index.html を補完（全ページ静的生成済みなので SPA フォールバックは不要）
+# dev は Basic 認証で保護し、検索ボットや一般アクセスを遮断する（prod では付けない）。
+# 認証情報は既存の admin dev 資格情報（SSM）を流用。認証後に、ディレクトリ/拡張子なし
+# パスへ index.html を補完する（全ページ静的生成済みなので SPA フォールバックは不要）。
 resource "aws_cloudfront_function" "it_dir_index" {
   name    = "${local.project}-it-dir-index-${local.environment}"
   runtime = "cloudfront-js-2.0"
   publish = true
   code    = <<-EOF
+    var CREDENTIALS = '${local.admin_basic_auth_credentials}';
     function handler(event) {
       var request = event.request;
+      var headers = request.headers;
+      var auth = headers.authorization;
+      if (!auth || auth.value !== 'Basic ' + CREDENTIALS) {
+        return {
+          statusCode: 401,
+          statusDescription: 'Unauthorized',
+          headers: { 'www-authenticate': { value: 'Basic realm="IT Dev"' } },
+        };
+      }
       var uri = request.uri;
       if (uri.endsWith('/')) {
         request.uri = uri + 'index.html';
