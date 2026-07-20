@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ExamProgress } from "@/components/ExamProgress";
 import { getExam, getExamCategory } from "@/lib/content";
 
 type Params = { workbookId: string };
@@ -48,31 +49,9 @@ export default async function ExamPage({
         {exam.description && (
           <p className="text-slate-600">{exam.description}</p>
         )}
-        {exam.questions.length > 0 && (
-          <Link
-            href={`/questions/${exam.questions[0].id}/`}
-            className="mt-2 inline-flex w-fit items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
-          >
-            問1から順に見る
-          </Link>
-        )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">問題一覧</h2>
-        <ol className="grid grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] gap-2">
-          {exam.questions.map((q, i) => (
-            <li key={q.id}>
-              <Link
-                href={`/questions/${q.id}/`}
-                className="flex h-12 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium transition-colors hover:border-slate-300 hover:bg-slate-50"
-              >
-                問{i + 1}
-              </Link>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <ExamProgress questionIds={exam.questions.map((q) => q.id)} />
     </div>
   );
 }
