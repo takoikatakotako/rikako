@@ -59,7 +59,11 @@ export default async function QuestionPage({
         <h1 className="text-lg font-bold tracking-tight">
           {exam.title} 問{questionNo}
         </h1>
-        <QuestionCard question={question} />
+        <QuestionCard
+          question={question}
+          nextHref={nextId !== null ? `/questions/${nextId}/` : null}
+          backHref={`/exams/${exam.id}/`}
+        />
       </article>
 
       <nav className="flex items-center justify-between gap-3">
