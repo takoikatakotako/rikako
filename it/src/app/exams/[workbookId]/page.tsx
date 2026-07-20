@@ -51,7 +51,7 @@ export default async function ExamPage({
         {exam.questions.length > 0 && (
           <Link
             href={`/questions/${exam.questions[0].id}/`}
-            className="mt-2 inline-flex w-fit items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+            className="mt-2 inline-flex w-fit items-center rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-strong"
           >
             問1から順に見る
           </Link>
@@ -65,7 +65,7 @@ export default async function ExamPage({
             <li key={q.id}>
               <Link
                 href={`/questions/${q.id}/`}
-                className="flex h-12 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium transition-colors hover:border-slate-300 hover:bg-slate-50"
+                className="flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand-strong"
               >
                 問{i + 1}
               </Link>

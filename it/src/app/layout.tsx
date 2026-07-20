@@ -20,13 +20,16 @@ export default function RootLayout({
   return (
     <html lang="ja" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <header className="border-b border-slate-200 bg-white">
+        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
-            <Link href="/" className="font-bold text-lg tracking-tight">
-              ITパスポート過去問
-              <span className="ml-1 text-sm font-normal text-slate-400">
-                rikako
+            <Link
+              href="/"
+              className="flex items-center gap-2 font-bold text-lg tracking-tight"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-sm font-black text-white">
+                IT
               </span>
+              ITパスポート過去問
             </Link>
           </div>
         </header>

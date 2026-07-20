@@ -23,11 +23,11 @@ export default async function Home() {
             <li key={exam.id}>
               <Link
                 href={`/exams/${exam.id}/`}
-                className="block rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                className="block rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-brand hover:bg-brand-soft"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{exam.title}</span>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                  <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-strong">
                     全{exam.questionCount}問
                   </span>
                 </div>

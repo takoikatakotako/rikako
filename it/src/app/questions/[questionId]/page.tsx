@@ -66,7 +66,7 @@ export default async function QuestionPage({
         {prevId !== null ? (
           <Link
             href={`/questions/${prevId}/`}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:border-brand hover:bg-brand-soft"
           >
             ← 前の問題
           </Link>
@@ -76,14 +76,14 @@ export default async function QuestionPage({
         {nextId !== null ? (
           <Link
             href={`/questions/${nextId}/`}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:border-brand hover:bg-brand-soft"
           >
             次の問題 →
           </Link>
         ) : (
           <Link
             href={`/exams/${exam.id}/`}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold transition-colors hover:border-brand hover:bg-brand-soft"
           >
             一覧へ戻る
           </Link>
