@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "it/**"
+      - "web/**"
       - ".github/workflows/deploy-it-frontend-dev.yml"
   workflow_dispatch:
 
@@ -31,16 +31,17 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: it/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
-        working-directory: it
+        working-directory: web
         run: npm ci
 
       - name: Build
-        working-directory: it
+        working-directory: web
         run: npm run build
         env:
+          NEXT_PUBLIC_SITE: it
           NEXT_PUBLIC_CONTENT_BASE_URL: https://content.dev.rikako.org/v1
 
       - name: Configure AWS credentials
@@ -50,7 +51,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
-        working-directory: it
+        working-directory: web
         run: |
           aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ \
             --delete \
