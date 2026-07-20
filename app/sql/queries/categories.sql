@@ -9,8 +9,9 @@ ORDER BY c.id
 LIMIT $1 OFFSET $2;
 
 -- name: ListAllCategories :many
+-- publisher 専用。公開コンテンツの workbook_count は公開中のみを数える。
 SELECT c.id, c.title, c.description,
-    (SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id) as workbook_count
+    (SELECT COUNT(*) FROM workbooks w WHERE w.category_id = c.id AND w.is_published = true) as workbook_count
 FROM categories c
 ORDER BY c.id;
 

@@ -81,6 +81,7 @@ type Querier interface {
 	ImportSingleChoice(ctx context.Context, arg ImportSingleChoiceParams) (int64, error)
 	ImportWorkbook(ctx context.Context, arg ImportWorkbookParams) error
 	ImportWorkbookQuestion(ctx context.Context, arg ImportWorkbookQuestionParams) error
+	// publisher 専用。公開コンテンツの workbook_count は公開中のみを数える。
 	ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error)
 	ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, error)
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error)
