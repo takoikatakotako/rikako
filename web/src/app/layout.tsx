@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ITパスポート過去問 | rikako",
-    template: "%s | ITパスポート過去問 rikako",
+    default: `${siteConfig.siteName} | rikako`,
+    template: `%s | ${siteConfig.siteName} rikako`,
   },
-  description:
-    "ITパスポート試験の公開問題（過去問）を無料で解ける・見られるWebアプリ。解説付き。令和6年度・令和7年度の全問を収録。",
-  metadataBase: new URL("https://it.rikako.org"),
+  description: siteConfig.description,
+  metadataBase: new URL(siteConfig.domain),
 };
 
 export default function RootLayout({
@@ -27,9 +27,9 @@ export default function RootLayout({
               className="flex items-center gap-2 font-bold text-lg tracking-tight"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-sm font-black text-white">
-                IT
+                {siteConfig.badge}
               </span>
-              ITパスポート過去問
+              {siteConfig.siteName}
             </Link>
           </div>
         </header>
@@ -56,7 +56,9 @@ export default function RootLayout({
                 プライバシーポリシー
               </a>
             </nav>
-            <p>ITパスポート試験の公開問題を利用しています。© 2026 Rikako</p>
+            <p>
+              {siteConfig.sourceNote && `${siteConfig.sourceNote} `}© 2026 Rikako
+            </p>
           </div>
         </footer>
       </body>

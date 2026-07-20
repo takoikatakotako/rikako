@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getExamCategory } from "@/lib/content";
+import { siteConfig } from "@/lib/site";
 
 export default async function Home() {
   const category = await getExamCategory();
@@ -8,16 +9,13 @@ export default async function Home() {
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <h1 className="text-2xl font-bold tracking-tight">
-          ITパスポート過去問を無料で解く・見る
+          {siteConfig.heroTitle}
         </h1>
-        <p className="text-slate-600 leading-relaxed">
-          ITパスポート試験の公開問題（過去問）を、解説付きで解いたり見たりできます。
-          会員登録は不要です。まずは試験回を選んでください。
-        </p>
+        <p className="text-slate-600 leading-relaxed">{siteConfig.heroLead}</p>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">試験回を選ぶ</h2>
+        <h2 className="text-lg font-semibold">{siteConfig.unitLabel}を選ぶ</h2>
         <ul className="flex flex-col gap-3">
           {category.workbooks.map((exam) => (
             <li key={exam.id}>

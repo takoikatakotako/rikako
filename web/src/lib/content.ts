@@ -2,11 +2,10 @@
 // これは iOS アプリが読むのと同じソース（is_published=true の公開中の問題だけが配信される）。
 // よって Web で見える問題 = アプリで公開中の問題、が常に一致する。
 
+import { siteConfig } from "@/lib/site";
+
 const CONTENT_BASE_URL =
   process.env.NEXT_PUBLIC_CONTENT_BASE_URL ?? "https://content.rikako.org/v1";
-
-// ITパスポートのカテゴリID（content 上で固定）。it.rikako.org はこのカテゴリのみを扱う。
-export const IT_CATEGORY_ID = 2;
 
 export type Question = {
   id: number;
@@ -49,9 +48,9 @@ async function fetchJSON<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** ITパスポートのカテゴリ（試験回=workbook の一覧を含む） */
+/** このサイトが扱うカテゴリ（試験回/問題集=workbook の一覧を含む） */
 export function getExamCategory(): Promise<CategoryDetail> {
-  return fetchJSON<CategoryDetail>(`categories/${IT_CATEGORY_ID}.json`);
+  return fetchJSON<CategoryDetail>(`categories/${siteConfig.categoryId}.json`);
 }
 
 /** 試験回（workbook）の詳細（全問を含む） */
