@@ -37,10 +37,26 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="border-t border-slate-200 bg-white">
-          <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-slate-500">
-            <p>
-              ITパスポート試験の公開問題を利用しています。© 2026 Rikako
-            </p>
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-6 text-sm text-slate-500">
+            <nav className="flex flex-wrap gap-x-4 gap-y-2">
+              <a
+                href="https://rikako.org/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-brand-strong hover:underline"
+              >
+                利用規約
+              </a>
+              <a
+                href="https://rikako.org/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-brand-strong hover:underline"
+              >
+                プライバシーポリシー
+              </a>
+            </nav>
+            <p>ITパスポート試験の公開問題を利用しています。© 2026 Rikako</p>
           </div>
         </footer>
       </body>
