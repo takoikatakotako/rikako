@@ -248,7 +248,6 @@ private struct OnboardingWorkbookSelectionPage: View {
         .task {
             await viewModel.loadRecommendedWorkbookIfNeeded()
         }
-        .background(PageSwipeLock(isEnabled: true))
     }
 
     private func workbookButton(for workbook: Workbook, emphasizesPrimary: Bool) -> some View {
@@ -291,33 +290,6 @@ private struct OnboardingWorkbookSelectionPage: View {
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct PageSwipeLock: UIViewRepresentable {
-    let isEnabled: Bool
-
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        DispatchQueue.main.async {
-            updateScrollState(from: view)
-        }
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        DispatchQueue.main.async {
-            updateScrollState(from: uiView)
-        }
-    }
-
-    private func updateScrollState(from view: UIView) {
-        guard let scrollView = sequence(first: view.superview, next: { $0?.superview })
-            .first(where: { $0 is UIScrollView }) as? UIScrollView else {
-            return
-        }
-
-        scrollView.isScrollEnabled = !isEnabled
     }
 }
 
