@@ -7,6 +7,7 @@ import XCTest
 /// - AppState.hasCompletedOnboarding = true → オンボーディングをスキップして直接メイン画面へ
 ///
 /// モックの問題集詳細は MockData.questions（5問）を返すため、クイズを最後まで解いて結果画面まで撮れる。
+/// 学習記録・AIチャットもモックデータで映えるように調整済み（PreviewLearningRepository 参照）。
 final class ScreenshotTests: XCTestCase {
 
     let app = XCUIApplication()
@@ -26,16 +27,24 @@ final class ScreenshotTests: XCTestCase {
         sleep(1) // ヒーロー描画の安定待ち
         takeScreenshot(name: "01_study_home")
 
-        // === 02: 問題集を変更（一覧）===
+        // === 02: 学習記録 ===
+        app.tabBars.buttons["学習記録"].tap()
+        // スケルトンではなく本体が出るまで待つ（streakCard の見出し）
+        XCTAssertTrue(app.staticTexts["連続学習日数"].waitForExistence(timeout: 15), "学習記録が読み込まれない")
+        sleep(1)
+        takeScreenshot(name: "02_study_record")
+        app.tabBars.buttons["学習"].tap()
+
+        // === 03: 問題集を変更（一覧）===
         let pickerButton = app.buttons["問題集を変更"]
         XCTAssertTrue(pickerButton.waitForExistence(timeout: 10))
         pickerButton.tap()
         XCTAssertTrue(app.navigationBars["問題集を変更"].waitForExistence(timeout: 10))
         sleep(1)
-        takeScreenshot(name: "02_workbook_picker")
+        takeScreenshot(name: "03_workbook_picker")
         app.buttons["閉じる"].tap()
 
-        // === 03: クイズ（解答前）===
+        // === 04: クイズ（解答前）===
         let start2 = button(containing: "はじめる")
         XCTAssertTrue(start2.waitForExistence(timeout: 10))
         start2.tap()
@@ -43,15 +52,33 @@ final class ScreenshotTests: XCTestCase {
         let firstChoice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
         XCTAssertTrue(firstChoice.waitForExistence(timeout: 15), "クイズの選択肢が表示されない")
         sleep(1)
-        takeScreenshot(name: "03_quiz_before_answer")
+        takeScreenshot(name: "04_quiz_before_answer")
 
-        // === 04: クイズ（解答後・解説）===
+        // === 05: クイズ（解答後・解説）===
         firstChoice.tap()
         XCTAssertTrue(waitForNextOrResult(timeout: 10), "解答後の『次の問題へ / 結果を見る』が出ない")
         sleep(1)
-        takeScreenshot(name: "04_quiz_after_answer")
+        takeScreenshot(name: "05_quiz_after_answer")
 
-        // === 05: 結果 ===
+        // === 06: AIに質問する（チャット）===
+        let askAIButton = app.buttons["AIに質問する"]
+        XCTAssertTrue(askAIButton.waitForExistence(timeout: 10), "『AIに質問する』ボタンが見つからない")
+        askAIButton.tap()
+
+        let chatInput = app.textFields["chatInput"]
+        XCTAssertTrue(chatInput.waitForExistence(timeout: 10), "チャット入力欄が見つからない")
+        chatInput.tap()
+        chatInput.typeText("なぜ水はH2Oなの？")
+        app.buttons["chatSendButton"].tap()
+
+        // モックのAI回答（「水分子は…」）が出るまで待つ
+        let aiReply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "水分子")).firstMatch
+        XCTAssertTrue(aiReply.waitForExistence(timeout: 15), "AIの回答が表示されない")
+        sleep(1)
+        takeScreenshot(name: "06_ai_chat")
+        app.buttons["閉じる"].tap()
+
+        // === 07: 結果 ===
         // 残りの問題を解き進めて結果画面へ（問題数に依存しないループ）
         while true {
             let resultBtn = app.buttons["結果を見る"]
@@ -74,7 +101,7 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["結果"].waitForExistence(timeout: 15), "結果画面に遷移しない")
         sleep(1)
-        takeScreenshot(name: "05_result")
+        takeScreenshot(name: "07_result")
     }
 
     // MARK: - Helpers

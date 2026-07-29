@@ -152,6 +152,7 @@ struct AIChatView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .focused($isInputFocused)
+                    .accessibilityIdentifier("chatInput")
                     .onSubmit {
                         guard viewModel.canSend else { return }
                         Task { await viewModel.sendMessage() }
@@ -165,6 +166,7 @@ struct AIChatView: View {
                         .foregroundStyle(viewModel.canSend ? Color(.main) : Color(.systemGray3))
                 }
                 .disabled(!viewModel.canSend)
+                .accessibilityIdentifier("chatSendButton")
             }
         }
         .padding(.horizontal, 16)

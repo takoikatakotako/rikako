@@ -105,7 +105,7 @@ final class PreviewLearningRepository: LearningRepository {
     }
 
     func fetchUserProfile(appSlug: String) async throws -> UserProfile {
-        UserProfile(identityId: "preview-identity", displayName: "プレビューユーザー", selectedWorkbookId: 1)
+        UserProfile(identityId: "preview-identity", displayName: "理科子", selectedWorkbookId: 1)
     }
 
     func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile {
@@ -121,7 +121,34 @@ final class PreviewLearningRepository: LearningRepository {
     }
 
     func fetchUserSummary() async throws -> UserSummary {
-        UserSummary(totalAnswered: 42, totalCorrect: 30, weeklyAnswered: 10, weeklyCorrect: 8, studyDates: [], weeklyWorkbookIds: [])
+        UserSummary(
+            totalAnswered: 156,
+            totalCorrect: 132,
+            weeklyAnswered: 42,
+            weeklyCorrect: 35,
+            studyDates: Self.previewStudyDates(),
+            weeklyWorkbookIds: [5, 6]
+        )
+    }
+
+    /// スクショ/プレビュー用の学習日データ。撮影日を基準に、直近を連続学習（連続日数）にしつつ
+    /// 過去60日を程よく埋めてヒートマップが映えるようにする。
+    private static func previewStudyDates() -> [String] {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Tokyo")
+        let cal = Calendar(identifier: .gregorian)
+        let today = Date()
+        var dates: [String] = []
+        for offset in 0..<60 {
+            guard let d = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
+            // 直近12日は連続（streak確保）、それ以前は大半を学習済みにして適度に穴を空ける。
+            if offset < 12 || (offset % 7 != 3 && offset % 5 != 2) {
+                dates.append(f.string(from: d))
+            }
+        }
+        return dates
     }
 
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
@@ -170,7 +197,8 @@ extension PreviewLearningRepository {
         "preview-identity-id-from-transfer"
     }
     func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
-        ChatResponse(reply: "これはプレビュー用の回答です。正解は選択肢2です。", turnCount: messages.filter { $0.role == "user" }.count, remainingTurns: 10 - messages.filter { $0.role == "user" }.count)
+        let reply = "いい質問だね！水分子は酸素原子1個と水素原子2個が結びついてできているから、化学式は H₂O と書くよ。\n\nCO₂ は二酸化炭素、NaCl は塩化ナトリウム（食塩）、O₂ は酸素だから、どれも水とは別の物質なんだ。まずは「H＝水素」「O＝酸素」と覚えるのがコツだよ！"
+        return ChatResponse(reply: reply, turnCount: messages.filter { $0.role == "user" }.count, remainingTurns: 10 - messages.filter { $0.role == "user" }.count)
     }
 
     func submitContact(subject: String?, body: String, email: String?, userId: String?, deviceModel: String?, osVersion: String?, appVersion: String?) async throws {}
