@@ -40,6 +40,7 @@ export default async function QuestionPage({
 
   const { question, exam, index, prevId, nextId } = ctx;
   const questionNo = index + 1;
+  const total = exam.questions.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,9 +57,28 @@ export default async function QuestionPage({
       </nav>
 
       <article className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5">
-        <h1 className="text-lg font-bold tracking-tight">
-          {exam.title} 問{questionNo}
-        </h1>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h1 className="text-lg font-bold tracking-tight">
+              {exam.title} 問{questionNo}
+            </h1>
+            <span className="shrink-0 text-sm font-medium text-slate-500">
+              問 {questionNo} / {total}
+            </span>
+          </div>
+          <div
+            className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100"
+            role="progressbar"
+            aria-valuenow={questionNo}
+            aria-valuemin={1}
+            aria-valuemax={total}
+          >
+            <div
+              className="h-full rounded-full bg-brand transition-all"
+              style={{ width: `${(questionNo / total) * 100}%` }}
+            />
+          </div>
+        </div>
         <QuestionCard
           question={question}
           nextHref={nextId !== null ? `/questions/${nextId}/` : null}
