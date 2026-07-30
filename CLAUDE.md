@@ -330,6 +330,36 @@ s3://rikako-content-development/
 
 JSON形式は公開API（openapi.yaml）のレスポンスと完全一致。
 
+## リリース（iOS）
+
+App Store でアプリを公開したら、対応する git タグと GitHub Release を作成する。
+
+### タグ命名規則
+
+- 形式: `<flavor>/vX.Y.Z`（`X.Y.Z` は iOS の `MARKETING_VERSION` に一致）
+- flavor はアプリ通称:
+  - 化学版（`APP_SLUG=high-school-chemistry` / Bundle ID `jp.conol.chemist`）→ **`chemistry`**
+  - ※ App Store 上は Bundle ID ごとに別アプリだが、タグ prefix はむやみに増やさない方針。新しいアプリを本格展開する場合のみ短い prefix を追加する。
+- モノレポ（iOS / backend / web が同居）のため、prefix なしの bare `vX.Y.Z` は使わない（何のリリースか曖昧になる）。
+
+### 手順
+
+```bash
+# main の該当コミットにタグを打つ（例: 化学版 3.0.0）
+git tag -a chemistry/v3.0.0 <commit> -m "化学版 iOS v3.0.0"
+git push origin chemistry/v3.0.0
+
+# GitHub Release を作成（--latest で最新扱い）
+gh release create chemistry/v3.0.0 \
+  --verify-tag \
+  --title "化学版 iOS v3.0.0" \
+  --notes-file <release-notes.md> \
+  --latest
+```
+
+- リリースノートには主要 PR（機能追加・修正）を箇条書きでまとめる。
+- 初リリースは `chemistry/v3.0.0`（2026-07 App Store 公開）。
+
 ## 注意事項
 
 - IDはすべてUUID形式を使用
