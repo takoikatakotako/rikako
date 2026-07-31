@@ -1,0 +1,13 @@
+import type { MetadataRoute } from "next";
+import { siteConfig } from "@/lib/site";
+
+// 静的エクスポート（output: export）でビルド時に robots.txt を生成する。
+export const dynamic = "force-static";
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: { userAgent: "*", allow: "/" },
+    sitemap: `${siteConfig.domain}/sitemap.xml`,
+    host: siteConfig.domain,
+  };
+}
