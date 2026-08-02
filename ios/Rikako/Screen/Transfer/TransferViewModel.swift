@@ -52,14 +52,19 @@ final class TransferViewModel {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+        let analytics = AppContainer.shared.analytics
+        analytics.log(.transferStarted)
         do {
             let identityId = try await applyTokenUseCase.execute(token: token)
             deviceIdentityProvider.overrideIdentityId(identityId)
             transferCompleted = true
+            analytics.log(.transferCompleted)
         } catch APIError.sameDevice {
             errorMessage = "このQRコードは同じデバイスで発行されています。別のデバイスのQRコードを読み取ってください"
+            analytics.log(.transferFailed(reason: .unknown))
         } catch {
             errorMessage = "引き継ぎに失敗しました。コードが正しいか確認してください"
+            analytics.log(.transferFailed(reason: AnalyticsFailureReason(error)))
         }
     }
 }

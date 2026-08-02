@@ -39,6 +39,7 @@ struct RootView: View {
             }
         }
         .task {
+            AppContainer.shared.analytics.log(.appOpen)
             guard !skipInitialize else { return }
             await initialize()
         }

@@ -13,10 +13,21 @@ final class OnboardingViewModel {
 
     private let fetchWorkbooksUseCase: FetchWorkbooksUseCase
     private let anonymousSignIn: () async throws -> String
+    private let analytics: AnalyticsClient
 
-    init(fetchWorkbooksUseCase: FetchWorkbooksUseCase, anonymousSignIn: @escaping () async throws -> String) {
+    init(
+        fetchWorkbooksUseCase: FetchWorkbooksUseCase,
+        anonymousSignIn: @escaping () async throws -> String,
+        analytics: AnalyticsClient
+    ) {
         self.fetchWorkbooksUseCase = fetchWorkbooksUseCase
         self.anonymousSignIn = anonymousSignIn
+        self.analytics = analytics
+        analytics.log(.onboardingStarted)
+    }
+
+    func logStepViewed(_ step: Int) {
+        analytics.log(.onboardingStepViewed(step: step))
     }
 
     var otherWorkbooks: [Workbook] {
@@ -48,6 +59,7 @@ final class OnboardingViewModel {
         do {
             let identityId = try await anonymousSignIn()
             appState.completeOnboarding(anonymousUserId: identityId)
+            analytics.log(.onboardingCompleted)
         } catch {
             startErrorMessage = error.localizedDescription
         }

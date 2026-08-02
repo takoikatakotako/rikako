@@ -27,6 +27,7 @@ final class AIChatViewModel {
     init(question: Question, selectedChoice: Int) {
         self.question = question
         self.selectedChoice = selectedChoice
+        AppContainer.shared.analytics.log(.aiChatStarted)
     }
 
     var canSend: Bool {
@@ -57,10 +58,12 @@ final class AIChatViewModel {
             messages.append(assistantMessage)
             apiMessages.append(ChatMessageRequest(role: "assistant", content: response.reply))
             remainingTurns = response.remainingTurns
+            AppContainer.shared.analytics.log(.aiChatSucceeded)
         } catch {
             messages.removeLast()
             apiMessages.removeLast()
             errorMessage = "エラーが発生しました。もう一度お試しください。"
+            AppContainer.shared.analytics.log(.aiChatFailed(reason: AnalyticsFailureReason(error)))
         }
     }
 }

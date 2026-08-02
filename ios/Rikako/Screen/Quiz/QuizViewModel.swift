@@ -19,6 +19,9 @@ final class QuizViewModel {
         self.workbookTitle = workbookTitle
         self.source = source
         self.answers = Array(repeating: nil, count: questions.count)
+        if case .workbook(let id) = source {
+            AppContainer.shared.analytics.log(.workbookStarted(workbookID: id))
+        }
     }
 
     var currentQuestion: Question {
@@ -39,6 +42,9 @@ final class QuizViewModel {
     func goToNextQuestionOrResult() {
         if isLastQuestion {
             showResult = true
+            if case .workbook(let id) = source {
+                AppContainer.shared.analytics.log(.workbookCompleted(workbookID: id))
+            }
         } else {
             currentIndex += 1
             selectedChoice = nil
@@ -49,11 +55,17 @@ final class QuizViewModel {
     func submitAnswers() async {
         let byWorkbook = source.groupedAnswers(questions: questions, answers: answers)
         guard !byWorkbook.isEmpty else { return }
+        let analytics = AppContainer.shared.analytics
         for (wbId, items) in byWorkbook {
-            _ = try? await AppContainer.shared.learningUseCases.submitAnswers.execute(
-                workbookId: wbId,
-                answers: items
-            )
+            do {
+                _ = try await AppContainer.shared.learningUseCases.submitAnswers.execute(
+                    workbookId: wbId,
+                    answers: items
+                )
+                analytics.log(.answersSubmitted(workbookID: wbId, count: items.count))
+            } catch {
+                analytics.log(.answersSubmissionFailed(reason: AnalyticsFailureReason(error)))
+            }
         }
     }
 }
