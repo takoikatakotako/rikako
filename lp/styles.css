@@ -254,6 +254,38 @@ img { max-width: 100%; display: block; }
 .screen { margin: 0; text-align: center; }
 .screen figcaption { margin-top: 16px; font-weight: 700; color: var(--ink); }
 
+/* ---------- Web versions ---------- */
+.web-cards {
+  margin: 52px auto 0;
+  max-width: 860px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+.web-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.web-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.web-card-icon {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  font-size: 1.7rem;
+  background: var(--brand-soft);
+  border-radius: 16px;
+  margin-bottom: 18px;
+}
+.web-card h3 { font-size: 1.25rem; margin-bottom: 8px; }
+.web-card p { font-size: 0.98rem; margin-bottom: 24px; }
+.web-card .btn { margin-top: auto; }
+
 /* ---------- CTA ---------- */
 .cta { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); }
 .cta-inner { text-align: center; }
@@ -333,6 +365,10 @@ img { max-width: 100%; display: block; }
   .hero-visual { min-height: 360px; margin-top: 24px; }
   .mascot { width: 140px; height: 140px; right: 50%; transform: translateX(120px); }
   .section { padding: 64px 0; }
+}
+
+@media (max-width: 600px) {
+  .web-cards { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
