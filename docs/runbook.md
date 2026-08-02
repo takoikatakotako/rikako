@@ -426,6 +426,42 @@ aws logs filter-log-events \
   --filter-pattern "/questions"
 ```
 
+### 公開API アクセスログ（API Gateway）
+
+公開API（`api.<env>.rikako.org` = API Gateway HTTP API）のアクセスログは以下の Log Group に JSON で出力される（保持: dev 7日 / prod 30日）。
+
+| env | Log Group |
+|-----|-----------|
+| dev | `/aws/vendedlogs/apigateway/rikako-api-development` |
+| prod | `/aws/vendedlogs/apigateway/rikako-api-production` |
+
+記録項目は `requestId` / `sourceIp` / `httpMethod` / `routeKey` / `path` / `status` / `responseLatency` / `integrationStatus` / `integrationErrorMessage` / `userAgent`。**Authorization・X-Device-ID・リクエスト本文は記録しない**（機微情報を保存しないため。source IP は bot 識別のため既定で記録、不要なら `access_log_include_source_ip = false` で無効化可）。
+
+#### 4xx/5xx をステータス・パス別に集計（Logs Insights）
+
+```bash
+# prod は rikako-api-production / rikako-production-sso に読み替え
+export AWS_PROFILE=rikako-development-sso
+LOG_GROUP=/aws/vendedlogs/apigateway/rikako-api-development
+
+QID=$(aws logs start-query \
+  --log-group-name "$LOG_GROUP" \
+  --start-time $(date -v-1d +%s) --end-time $(date +%s) \
+  --query-string 'filter status >= 400 | stats count(*) as cnt by status, path, userAgent | sort cnt desc | limit 50' \
+  --query queryId --output text)
+sleep 5
+aws logs get-query-results --query-id "$QID" --output table
+```
+
+主なクエリ例（`--query-string` に指定）:
+
+- ステータス別の全体内訳: `stats count(*) as cnt by status | sort cnt desc`
+- 4xx をパス別に: `filter status >= 400 and status < 500 | stats count(*) as cnt by path, status | sort cnt desc`
+- bot 由来の切り分け: `filter status >= 400 | stats count(*) as cnt by userAgent, path | sort cnt desc`
+- 特定パスのレイテンシ: `filter path like /workbooks/ | stats avg(responseLatency), max(responseLatency) by path`
+
+> Logs Insights はブラウザからも実行できる（CloudWatch → Logs Insights → 上記 Log Group を選択）。
+
 ### CloudWatch Dashboard
 
 ブラウザで確認:

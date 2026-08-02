@@ -99,6 +99,8 @@ module "api_gateway" {
   throttle_burst_limit = 200
   throttle_rate_limit  = 100
 
+  access_log_retention_days = 30
+
   tags = {
     Project     = local.project
     Environment = local.environment
