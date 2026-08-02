@@ -1,16 +1,17 @@
-# chemist.rikako.org — 高校化学 問題集Webアプリ（静的サイト・一般公開）
+# chemistry.rikako.org — 高校化学 問題集Webアプリ（静的サイト・一般公開）
 # it_frontend.tf と同型（共通コードベース web/ を NEXT_PUBLIC_SITE=chemistry でビルドして配信）。
 # LP と同様、Basic Auth なしの公開サイト。
+# ※ 旧 chemist_frontend.tf（chemist.rikako.org）から並行移行中。旧スタックは force_destroy を
+#   仕込んだ上で後続PRで削除する（新規作成→切替→旧削除）。
 
 locals {
-  chemist_bucket_name = "${local.project}-chemist-${local.environment}"
+  chemistry_bucket_name = "${local.project}-chemistry-${local.environment}"
 }
 
-module "chemist_s3" {
+module "chemistry_s3" {
   source = "../../modules/s3"
 
-  bucket_name = local.chemist_bucket_name
-  # chemistry.rikako.org へ移行のため後続PRで削除する。中身入りでも destroy 可能にする。
+  bucket_name   = local.chemistry_bucket_name
   force_destroy = true
   tags = {
     Project     = local.project
@@ -19,16 +20,16 @@ module "chemist_s3" {
   }
 }
 
-resource "aws_cloudfront_origin_access_control" "chemist" {
-  name                              = local.chemist_bucket_name
+resource "aws_cloudfront_origin_access_control" "chemistry" {
+  name                              = local.chemistry_bucket_name
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
 
 # 公開サイトなので認証なし。ディレクトリ/拡張子なしパスに index.html を補完するだけ。
-resource "aws_cloudfront_function" "chemist_dir_index" {
-  name    = "${local.project}-chemist-dir-index-${local.environment}"
+resource "aws_cloudfront_function" "chemistry_dir_index" {
+  name    = "${local.project}-chemistry-dir-index-${local.environment}"
   runtime = "cloudfront-js-2.0"
   publish = true
   code    = <<-EOF
@@ -45,23 +46,23 @@ resource "aws_cloudfront_function" "chemist_dir_index" {
   EOF
 }
 
-resource "aws_cloudfront_distribution" "chemist" {
+resource "aws_cloudfront_distribution" "chemistry" {
   origin {
-    domain_name              = module.chemist_s3.bucket_regional_domain_name
-    origin_id                = "s3-${local.chemist_bucket_name}"
-    origin_access_control_id = aws_cloudfront_origin_access_control.chemist.id
+    domain_name              = module.chemistry_s3.bucket_regional_domain_name
+    origin_id                = "s3-${local.chemistry_bucket_name}"
+    origin_access_control_id = aws_cloudfront_origin_access_control.chemistry.id
   }
 
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "Chemistry web for ${local.project}-${local.environment}"
   default_root_object = "index.html"
-  aliases             = ["chemist.rikako.org"]
+  aliases             = ["chemistry.rikako.org"]
 
   default_cache_behavior {
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-${local.chemist_bucket_name}"
+    target_origin_id       = "s3-${local.chemistry_bucket_name}"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
 
@@ -78,7 +79,7 @@ resource "aws_cloudfront_distribution" "chemist" {
 
     function_association {
       event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.chemist_dir_index.arn
+      function_arn = aws_cloudfront_function.chemistry_dir_index.arn
     }
   }
 
@@ -108,12 +109,12 @@ resource "aws_cloudfront_distribution" "chemist" {
   }
 }
 
-resource "aws_s3_bucket_policy" "chemist_cdn" {
-  bucket = module.chemist_s3.bucket_id
-  policy = data.aws_iam_policy_document.chemist_cdn_s3_access.json
+resource "aws_s3_bucket_policy" "chemistry_cdn" {
+  bucket = module.chemistry_s3.bucket_id
+  policy = data.aws_iam_policy_document.chemistry_cdn_s3_access.json
 }
 
-data "aws_iam_policy_document" "chemist_cdn_s3_access" {
+data "aws_iam_policy_document" "chemistry_cdn_s3_access" {
   statement {
     effect = "Allow"
 
@@ -123,12 +124,12 @@ data "aws_iam_policy_document" "chemist_cdn_s3_access" {
     }
 
     actions   = ["s3:GetObject"]
-    resources = ["${module.chemist_s3.bucket_arn}/*"]
+    resources = ["${module.chemistry_s3.bucket_arn}/*"]
 
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.chemist.arn]
+      values   = [aws_cloudfront_distribution.chemistry.arn]
     }
   }
 }
@@ -138,13 +139,13 @@ data "aws_iam_policy_document" "chemist_cdn_s3_access" {
 # （ListDistributions は docs_cdn.tf の github_actions_s3_docs で付与済み）
 # =============================================================================
 
-resource "aws_iam_role_policy" "github_actions_s3_chemist" {
-  name   = "s3-chemist-access"
+resource "aws_iam_role_policy" "github_actions_s3_chemistry" {
+  name   = "s3-chemistry-access"
   role   = aws_iam_role.github_actions.id
-  policy = data.aws_iam_policy_document.github_actions_s3_chemist.json
+  policy = data.aws_iam_policy_document.github_actions_s3_chemistry.json
 }
 
-data "aws_iam_policy_document" "github_actions_s3_chemist" {
+data "aws_iam_policy_document" "github_actions_s3_chemistry" {
   statement {
     effect = "Allow"
     actions = [
@@ -154,23 +155,23 @@ data "aws_iam_policy_document" "github_actions_s3_chemist" {
       "s3:ListBucket",
     ]
     resources = [
-      module.chemist_s3.bucket_arn,
-      "${module.chemist_s3.bucket_arn}/*",
+      module.chemistry_s3.bucket_arn,
+      "${module.chemistry_s3.bucket_arn}/*",
     ]
   }
 
   statement {
     effect    = "Allow"
     actions   = ["cloudfront:CreateInvalidation"]
-    resources = [aws_cloudfront_distribution.chemist.arn]
+    resources = [aws_cloudfront_distribution.chemistry.arn]
   }
 }
 
-# chemist.rikako.org → Chemistry Web CloudFront
-resource "cloudflare_record" "chemist" {
+# chemistry.rikako.org → Chemistry Web CloudFront
+resource "cloudflare_record" "chemistry" {
   zone_id = data.cloudflare_zone.rikako.id
-  name    = "chemist"
-  content = aws_cloudfront_distribution.chemist.domain_name
+  name    = "chemistry"
+  content = aws_cloudfront_distribution.chemistry.domain_name
   type    = "CNAME"
   ttl     = 1
   proxied = false

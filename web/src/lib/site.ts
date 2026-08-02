@@ -38,7 +38,7 @@ const SITES: Record<SiteKey, SiteConfig> = {
     siteName: "高校化学 問題集",
     description:
       "高校化学（化学基礎・高校化学）の問題を無料で解ける・見られるWebアプリ。解説付き。",
-    domain: "https://chemist.rikako.org",
+    domain: "https://chemistry.rikako.org",
     heroTitle: "高校化学の問題を無料で解く・見る",
     heroLead:
       "化学基礎・高校化学の問題を、解説付きで解いたり見たりできます。会員登録は不要です。まずは問題集を選んでください。",
