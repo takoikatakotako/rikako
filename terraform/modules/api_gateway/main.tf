@@ -34,6 +34,20 @@ resource "aws_apigatewayv2_route" "default" {
 }
 
 # =============================================================================
+# Access Logs
+# =============================================================================
+# `/aws/vendedlogs/` プレフィックスにすることで、API Gateway が書き込むための
+# CloudWatch Logs リソースポリシー（アカウント上限 5120 文字）を消費しない。
+# 記録するのはリクエストのメタデータのみ。Authorization / X-Device-ID / 本文は
+# 一切記録しない（機微情報を保存しないため）。
+
+resource "aws_cloudwatch_log_group" "access_logs" {
+  name              = "/aws/vendedlogs/apigateway/${var.name}"
+  retention_in_days = var.access_log_retention_days
+  tags              = var.tags
+}
+
+# =============================================================================
 # Stage with Throttling
 # =============================================================================
 
@@ -45,6 +59,24 @@ resource "aws_apigatewayv2_stage" "default" {
   default_route_settings {
     throttling_burst_limit = var.throttle_burst_limit
     throttling_rate_limit  = var.throttle_rate_limit
+  }
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.access_logs.arn
+    format = jsonencode({
+      requestId               = "$context.requestId"
+      requestTime             = "$context.requestTime"
+      sourceIp                = var.access_log_include_source_ip ? "$context.identity.sourceIp" : "disabled"
+      httpMethod              = "$context.httpMethod"
+      routeKey                = "$context.routeKey"
+      path                    = "$context.path"
+      status                  = "$context.status"
+      protocol                = "$context.protocol"
+      responseLatency         = "$context.responseLatency"
+      integrationStatus       = "$context.integration.status"
+      integrationErrorMessage = "$context.integrationErrorMessage"
+      userAgent               = "$context.identity.userAgent"
+    })
   }
 
   tags = var.tags

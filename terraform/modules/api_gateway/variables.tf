@@ -35,6 +35,18 @@ variable "throttle_rate_limit" {
   default     = 50
 }
 
+variable "access_log_retention_days" {
+  description = "Retention period (days) for the API Gateway access log group"
+  type        = number
+  default     = 7
+}
+
+variable "access_log_include_source_ip" {
+  description = "Whether to record the client source IP in access logs (privacy vs. bot identification trade-off)"
+  type        = bool
+  default     = true
+}
+
 variable "cors_allow_origins" {
   description = "CORS allowed origins"
   type        = list(string)
