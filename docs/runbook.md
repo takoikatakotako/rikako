@@ -207,6 +207,52 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.dev.rikako.org/workbooks
 
 prod は次のように読み替える: `AWS_PROFILE=rikako-production-sso`、`PROJECT_ID` は `cd terraform/environments/prod && terraform state show neon_project.default` の `id`、`BRANCH_ID` は同 `default_branch_id`、`ROLE=neondb_owner`、`DB=neondb`、SSM 名 `/rikako/production/database-url`、関数は `rikako-api-production` / `rikako-admin-api-production`。
 
+### 管理画面 Basic 認証（CloudFront Function）{#admin-basic-auth}
+
+管理画面（`admin.<env>.rikako.org` / フロント・`/api` 共通）の Basic 認証は SSM の `/rikako/admin-basic-auth-user` / `/rikako/admin-basic-auth-password` を使う。
+
+> **重要: Lambda シークレットと反映タイミングが違う**
+> Lambda のシークレット（[2.5](#25-シークレット管理ssm-parameter-store)）は起動時に SSM を読むためローテだけで反映される。**Basic 認証は違う**。`terraform/environments/<env>/admin_frontend.tf` が **`terraform apply` 時に SSM 値を `base64(user:password)` して CloudFront Function（`rikako-admin-spa-rewrite-<env>` / `rikako-admin-api-auth-rewrite-<env>`）のコードに焼き込む**。ランタイムでは SSM を見ない。
+> - したがって **SSM を `put-parameter --overwrite` しただけでは 401 のまま**。ローテ時は必ず対象 env で `terraform apply`（＝関数の再デプロイ）まで行う。
+> - **prod は自動 apply が無い**（[8. Terraform 操作](#8-terraform操作)）。SSM 更新後に prod apply を忘れると「SSM の値で 401」になる。逆に、後から誰かが prod apply すると現在の SSM 値に同期されて解消する。
+
+#### 疎通確認（シークレットを出力しない）
+
+`curl -u` の資格情報は SSM から変数に入れて渡し、標準出力にはステータスコードだけ出す。
+
+```bash
+export AWS_PROFILE=rikako-production-sso   # dev は rikako-development-sso
+BASE=https://admin.rikako.org              # dev は https://admin.dev.rikako.org
+U=$(aws ssm get-parameter --name /rikako/admin-basic-auth-user --with-decryption --query Parameter.Value --output text)
+P=$(aws ssm get-parameter --name /rikako/admin-basic-auth-password --with-decryption --query Parameter.Value --output text)
+
+# 認証なし → 401（関数が機能している証拠）／ 認証あり → 200 を期待
+echo "no-auth  /api/health -> $(curl -s -o /dev/null -w '%{http_code}' $BASE/api/health)"
+echo "auth     /api/health -> $(curl -s -o /dev/null -w '%{http_code}' -u "$U:$P" $BASE/api/health)"
+echo "auth     /api/users  -> $(curl -s -o /dev/null -w '%{http_code}' -u "$U:$P" $BASE/api/users)"
+echo "auth     /           -> $(curl -s -o /dev/null -w '%{http_code}' -u "$U:$P" $BASE/)"
+```
+
+#### ドリフト確認（SSM値 と デプロイ済み関数 の照合）
+
+401 が出るときに「SSM 更新後の未 apply」かを切り分ける。**値そのものは出さず、SHA-256 の先頭だけ比較する**。
+
+```bash
+export AWS_PROFILE=rikako-production-sso
+U=$(aws ssm get-parameter --name /rikako/admin-basic-auth-user --with-decryption --query Parameter.Value --output text)
+P=$(aws ssm get-parameter --name /rikako/admin-basic-auth-password --with-decryption --query Parameter.Value --output text)
+EXPECTED=$(printf '%s:%s' "$U" "$P" | base64)
+echo "expected sha256: $(printf '%s' "$EXPECTED" | shasum -a 256 | cut -c1-12)"
+for FN in rikako-admin-spa-rewrite-production rikako-admin-api-auth-rewrite-production; do
+  CODE=$(aws cloudfront get-function --name "$FN" --stage LIVE /dev/stdout 2>/dev/null)
+  DEP=$(printf '%s' "$CODE" | grep -oE "var CREDENTIALS = '[^']*'" | sed "s/var CREDENTIALS = '//; s/'\$//")
+  [ "$DEP" = "$EXPECTED" ] && R="MATCH" || R="MISMATCH → 対象 env で terraform apply が必要"
+  echo "$FN: deployed sha256 $(printf '%s' "$DEP" | shasum -a 256 | cut -c1-12) → $R"
+done
+```
+
+MISMATCH なら `cd terraform/environments/prod && terraform plan`（差分が上記 2 関数の `CREDENTIALS` だけであることを確認）→ `terraform apply`。apply 中に資格情報が切り替わるため、旧資格情報で開いていた管理画面は再ログインが必要。
+
 ---
 
 ## 3. マイグレーション実行手順
