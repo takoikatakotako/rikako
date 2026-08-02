@@ -129,3 +129,10 @@ flowchart LR
   3. `firebase-ios-sdk` を SPM 追加、`FirebaseAnalyticsClient` を実装、`RikakoApp` で `FirebaseApp.configure()`
   4. `AppContainer` の Release 実装を `NoopAnalyticsClient` → `FirebaseAnalyticsClient` に差し替え（dev フレーバーは Noop 継続）
   5. Firebase DebugView で個人情報が送信されていないことを確認
+
+#### GoogleService-Info.plist の扱い（git に載せない）
+
+`GoogleService-Info.plist` は本来クライアント配布物だが、`API_KEY` がシークレットスキャナに毎回検知され通知ノイズになるため、**git 管理外**とする（`.gitignore` で `**/GoogleService-Info*.plist` を除外済み）。
+
+- **ローカル**: Firebase コンソールからDLした plist を配置する（配置先は Phase 2 で SPM/plist 選択方式を実装する際に確定。bundle ID ごとに別ファイル）。紛失しても再DL可。
+- **CI**: base64 を GitHub Actions Secret に格納し、ビルド前に復元するステップを追加する（Phase 2 の Firebase 結線とセットで導入。Firebase 未結線の現状はビルドに plist 不要）。
