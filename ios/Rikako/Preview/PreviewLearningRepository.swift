@@ -220,7 +220,8 @@ enum PreviewAppContainer {
     static func makeOnboardingViewModel() -> OnboardingViewModel {
         OnboardingViewModel(
             fetchWorkbooksUseCase: learningUseCases.fetchWorkbooks,
-            anonymousSignIn: { "preview-anonymous-\(UUID().uuidString)" }
+            anonymousSignIn: { "preview-anonymous-\(UUID().uuidString)" },
+            analytics: NoopAnalyticsClient()
         )
     }
 }

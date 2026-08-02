@@ -10,7 +10,8 @@ struct OnboardingView: View {
     init() {
         _viewModel = State(initialValue: OnboardingViewModel(
             fetchWorkbooksUseCase: AppContainer.shared.learningUseCases.fetchWorkbooks,
-            anonymousSignIn: AppContainer.shared.anonymousSignIn
+            anonymousSignIn: AppContainer.shared.anonymousSignIn,
+            analytics: AppContainer.shared.analytics
         ))
         _currentPage = State(initialValue: 0)
     }
@@ -49,6 +50,10 @@ struct OnboardingView: View {
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
         .background(Color(.systemBackground))
+        .onAppear { viewModel.logStepViewed(currentPage) }
+        .onChange(of: currentPage) { _, newValue in
+            viewModel.logStepViewed(newValue)
+        }
     }
 }
 

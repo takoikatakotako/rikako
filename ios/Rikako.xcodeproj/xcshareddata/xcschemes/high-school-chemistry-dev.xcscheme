@@ -34,6 +34,16 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "17B40F692F65BCE4001A7DD8"
+               BuildableName = "RikakoTests.xctest"
+               BlueprintName = "RikakoTests"
+               ReferencedContainer = "container:Rikako.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "17B40F732F65BCE4001A7DD8"
                BuildableName = "RikakoUITests.xctest"
                BlueprintName = "RikakoUITests"

@@ -91,3 +91,41 @@ flowchart LR
 | 結果 | 実装済み | スコア、正誤一覧、一覧に戻る |
 | 設定 | 実装済み | カテゴリ変更、アカウント情報、学習統計、ログアウト |
 | プロフィール | 実装済み | ユーザー情報、学習記録 |
+
+## 利用イベント計測（Analytics）
+
+リリース後にオンボーディング離脱や主要機能の成功／失敗率をバージョン別に把握するための計測基盤（[#261](https://github.com/takoikatakotako/rikako/issues/261)）。計測基盤は **Firebase Analytics** を採用（クラッシュ収集 [#235](https://github.com/takoikatakotako/rikako/issues/235) の Crashlytics と統合する方針）。
+
+### アーキテクチャ
+
+計測は差し替え可能な抽象に載せている（`LearningRepository` 等と同じ protocol-first）。
+
+| 種別 | ファイル | 役割 |
+|------|----------|------|
+| protocol | `Domain/Analytics/AnalyticsClient.swift` | 計測の抽象。`log(_:)` / `setCommonProperties(_:)` |
+| イベント | `Domain/Analytics/AnalyticsEvent.swift` | 最小イベントの enum ＋ 失敗理由カテゴリ |
+| 実装(Noop) | `Infrastructure/Analytics/NoopAnalyticsClient.swift` | preview / UIテスト用 |
+| 実装(Console) | `Infrastructure/Analytics/ConsoleAnalyticsClient.swift` | DEBUG でイベントをコンソール出力 |
+| 共通プロパティ | `Infrastructure/Analytics/AnalyticsCommonProperties+Current.swift` | app version/build・app slug・OS version |
+
+`AppContainer` が構築して各 ViewModel に注入（DIしている `OnboardingViewModel`）または `AppContainer.shared.analytics` 経由で発火（service-locator の Quiz/AIChat/Transfer 等）する。
+
+### イベント一覧
+
+`app_open` / `onboarding_started` / `onboarding_step_viewed`(step) / `onboarding_completed` / `workbook_started`(workbook_id) / `workbook_completed`(workbook_id) / `answers_submitted`(workbook_id, count) / `answers_submission_failed`(reason) / `ai_chat_started` / `ai_chat_succeeded` / `ai_chat_failed`(reason) / `transfer_started` / `transfer_completed` / `transfer_failed`(reason)
+
+### プライバシー方針（重要）
+
+- イベントに載せるのは**識別子・件数・カテゴリの非 PII スカラーのみ**。ユーザー入力本文・問題文・メールアドレス・Cognito Identity ID は**絶対に含めない**。
+- 失敗は生のエラーメッセージではなく `AnalyticsFailureReason`（`network`/`server`/`decoding`/`cancelled`/`unauthorized`/`unknown`）の有限カテゴリに畳み込む。
+- 非 PII であることは `RikakoTests/AnalyticsEventTests.swift` で検証（キーの allowlist・値の型・reason の有限集合）。`PrivacyInfo.xcprivacy` は `ProductInteraction` を宣言済み。
+
+### 実装フェーズ
+
+- **Phase 1（実装済み）**: Firebase 非依存の計測レイヤー＋全イベント発火＋PIIテスト。DEBUG は `ConsoleAnalyticsClient`、Release は `NoopAnalyticsClient`。
+- **Phase 2（Firebase 結線・未）**:
+  1. Firebase プロジェクトを作成し、**prod の iOS アプリ2つ**を登録（`jp.conol.chemist` / `org.rikako.it-passport`）
+  2. `GoogleService-Info.plist` をDL（bundle IDごと）。**AdId 収集を無効化**し `NSPrivacyTracking=false` を維持
+  3. `firebase-ios-sdk` を SPM 追加、`FirebaseAnalyticsClient` を実装、`RikakoApp` で `FirebaseApp.configure()`
+  4. `AppContainer` の Release 実装を `NoopAnalyticsClient` → `FirebaseAnalyticsClient` に差し替え（dev フレーバーは Noop 継続）
+  5. Firebase DebugView で個人情報が送信されていないことを確認
