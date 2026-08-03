@@ -122,17 +122,33 @@ flowchart LR
 
 ### 実装フェーズ
 
-- **Phase 1（実装済み）**: Firebase 非依存の計測レイヤー＋全イベント発火＋PIIテスト。DEBUG は `ConsoleAnalyticsClient`、Release は `NoopAnalyticsClient`。
-- **Phase 2（Firebase 結線・未）**:
-  1. Firebase プロジェクトを作成し、**prod の iOS アプリ2つ**を登録（`jp.conol.chemist` / `org.rikako.it-passport`）
-  2. `GoogleService-Info.plist` をDL（bundle IDごと）。**AdId 収集を無効化**し `NSPrivacyTracking=false` を維持
-  3. `firebase-ios-sdk` を SPM 追加、`FirebaseAnalyticsClient` を実装、`RikakoApp` で `FirebaseApp.configure()`
-  4. `AppContainer` の Release 実装を `NoopAnalyticsClient` → `FirebaseAnalyticsClient` に差し替え（dev フレーバーは Noop 継続）
-  5. Firebase DebugView で個人情報が送信されていないことを確認
+- **Phase 1（実装済み）**: Firebase 非依存の計測レイヤー＋全イベント発火＋PIIテスト。
+- **Phase 2（実装済み・結線）**: `firebase-ios-sdk` を SPM 追加（**`FirebaseAnalytics` 単体**）、`FirebaseAnalyticsClient` 実装、`AppContainer` で環境別に選択。
+
+計測クライアントの選択（`AppContainer`）:
+
+| ビルド | フレーバー | クライアント | 送信先 |
+|--------|-----------|-------------|--------|
+| DEBUG | dev | `CompositeAnalyticsClient`（`ConsoleAnalyticsClient` + `FirebaseAnalyticsClient`） | コンソール出力 + Firebase `rikako-dev` |
+| Release | prod | `FirebaseAnalyticsClient` | Firebase `rikako-prd` |
+
+`FirebaseAnalyticsClient.configured(slug:environment:)` が `GoogleService-Info-<slug>-<env>.plist` で `FirebaseApp.configure` する。plist が見つからない場合は Firebase 分をスキップ（dev は Console のみ / prod は `NoopAnalyticsClient`）＝クラッシュしない。
+
+Firebase プロジェクトは **dev/prod で分離**（dev データが prod GA4 を汚さないため）:
+
+| 環境 | プロジェクト | 登録アプリ（bundle ID） |
+|------|-------------|------------------------|
+| prod | `rikako-prd` | `jp.conol.chemist` / `org.rikako.it-passport` |
+| dev | `rikako-dev` | `org.rikako.chemist.dev` / `org.rikako.it-passport.dev` |
+
+各プロジェクト内は GA4 プロパティ共有だが、共通プロパティ `app_slug` でアプリ別にセグメント可能。
+
+**IDFA/プライバシー**: firebase-ios-sdk 12.x は `FirebaseAnalytics` 単体で IDFA を収集しない（旧 `FirebaseAnalyticsWithoutAdIdSupport` 相当がデフォルト）。IDFA を有効化する **`FirebaseAnalyticsIdentitySupport` は追加しない**こと（`NSPrivacyTracking=false` 維持のため）。#235 で Crashlytics を足す時も同様。
 
 #### GoogleService-Info.plist の扱い（git に載せない）
 
-`GoogleService-Info.plist` は本来クライアント配布物だが、`API_KEY` がシークレットスキャナに毎回検知され通知ノイズになるため、**git 管理外**とする（`.gitignore` で `**/GoogleService-Info*.plist` を除外済み）。
+`API_KEY` がシークレットスキャナに検知され通知ノイズになるため **git 管理外**（`.gitignore` で `**/GoogleService-Info*.plist` を除外）。
 
-- **ローカル**: Firebase コンソールからDLした plist を配置する（配置先は Phase 2 で SPM/plist 選択方式を実装する際に確定。bundle ID ごとに別ファイル）。紛失しても再DL可。
-- **CI**: base64 を GitHub Actions Secret に格納し、ビルド前に復元するステップを追加する（Phase 2 の Firebase 結線とセットで導入。Firebase 未結線の現状はビルドに plist 不要）。
+- **配置先**: `ios/Rikako/Firebase/GoogleService-Info-<app_slug>-<env>.plist`（`<app_slug>` = `high-school-chemistry` / `it-passport`、`<env>` = `prod` / `dev`、計4ファイル）。folder sync でアプリバンドルに含まれる。Firebase コンソールからDLしたファイルをこの名前にリネームして置く。紛失しても再DL可。
+- **CI**: 現状の iOS CI は dev（Debug）を build / build-for-testing するのみ。dev plist が無くても Console フォールバックでビルド・実行できる（Firebase 送信なし）。Release ビルドを CI で行う場合は base64 を GitHub Actions Secret に格納しビルド前に復元するステップを追加する。
+- **残作業**: `rikako-dev` プロジェクト作成＋dev アプリ2つ登録＋dev plist 2つ配置（`GoogleService-Info-<slug>-dev.plist`）。Firebase DebugView での PII 非送信の実機確認。
