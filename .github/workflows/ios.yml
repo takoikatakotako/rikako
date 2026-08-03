@@ -35,3 +35,14 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -configuration 'HighSchoolChemistryDev Debug' \
             CODE_SIGNING_ALLOWED=NO
+
+      # ユニットテストを実行する（UI テストは重く ios-screenshots.yml が別管理のため RikakoTests のみ）。
+      - name: Test (unit)
+        working-directory: ./ios
+        run: |
+          xcodebuild test \
+            -scheme high-school-chemistry-dev \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -configuration 'HighSchoolChemistryDev Debug' \
+            -only-testing:RikakoTests \
+            CODE_SIGNING_ALLOWED=NO
