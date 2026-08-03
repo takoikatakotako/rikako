@@ -28,20 +28,20 @@ struct UpdateRequiredView: View {
                         .padding(.horizontal, 32)
                 }
 
-                Button {
-                    if let url = URL(string: Links.appStore) {
-                        UIApplication.shared.open(url)
+                if let appStoreURL = AppFlavor.current.appStoreURL {
+                    Button {
+                        UIApplication.shared.open(appStoreURL)
+                    } label: {
+                        Text("App Storeを開く")
+                            .font(.headline)
+                            .foregroundStyle(Color(.main))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                } label: {
-                    Text("App Storeを開く")
-                        .font(.headline)
-                        .foregroundStyle(Color(.main))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 40)
                 }
-                .padding(.horizontal, 40)
 
                 Spacer()
             }

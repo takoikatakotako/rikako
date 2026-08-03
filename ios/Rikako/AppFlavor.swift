@@ -7,6 +7,19 @@ struct AppFlavor {
 
     static let current = AppFlavor(bundle: .main)
 
+    /// App Store のアプリ ID。iOS 版が未公開のフレーバーは nil。
+    var appStoreID: String? {
+        switch slug {
+        case "high-school-chemistry": return "960647263"
+        default: return nil // it-passport は iOS 版未公開
+        }
+    }
+
+    /// App Store ページの URL（未公開フレーバーは nil）。
+    var appStoreURL: URL? {
+        appStoreID.flatMap { URL(string: "https://apps.apple.com/jp/app/id\($0)") }
+    }
+
     init(bundle: Bundle) {
         let info = bundle.infoDictionary ?? [:]
         self.slug = info["RIKAKO_APP_SLUG"] as? String ?? "high-school-chemistry"
