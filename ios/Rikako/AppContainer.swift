@@ -39,12 +39,19 @@ final class AppContainer {
         self.deviceIdentityProvider = deviceIdentityProvider
         self.anonymousSignIn = { try await repository.anonymousSignIn() }
 
-        // Phase 1: Firebase 未結線のため DEBUG はコンソール出力、Release は Noop。
-        // Phase 2 で Release を FirebaseAnalyticsClient に差し替える（#261）。
+        // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。
+        // dev は Console にも出力（コンソール即確認 + DebugView 検証の両立）。
+        // plist が無ければ Firebase 分はスキップ（dev=Consoleのみ / prod=Noop）。
         #if DEBUG
-        let analytics: AnalyticsClient = ConsoleAnalyticsClient()
+        let environment = "dev"
+        var clients: [AnalyticsClient] = [ConsoleAnalyticsClient()]
+        if let firebase = FirebaseAnalyticsClient.configured(slug: flavor.slug, environment: environment) {
+            clients.append(firebase)
+        }
+        let analytics: AnalyticsClient = CompositeAnalyticsClient(clients)
         #else
-        let analytics: AnalyticsClient = NoopAnalyticsClient()
+        let environment = "prod"
+        let analytics: AnalyticsClient = FirebaseAnalyticsClient.configured(slug: flavor.slug, environment: environment) ?? NoopAnalyticsClient()
         #endif
         analytics.setCommonProperties(.current(flavor: flavor))
         self.analytics = analytics
