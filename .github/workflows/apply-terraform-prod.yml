@@ -38,7 +38,29 @@ jobs:
       # 承認前のレビュー用。public リポのため plan の秘匿値は terraform の
       # sensitive 伝播で (sensitive value) に伏字化される。バイナリ plan は保存・公開しない。
       - name: Terraform Plan
-        run: terraform plan -input=false -lock=false -no-color
+        run: |
+          set -o pipefail
+          terraform plan -input=false -lock=false -no-color 2>&1 | tee /tmp/plan.txt
+
+      # plan を run ページの Summary に出す。承認画面（同じ run ページ）から
+      # ログを開かずに差分を確認できる。出力は上の plan と同じ -no-color テキストで、
+      # 秘匿値は terraform の sensitive 伝播で伏字化済み。GITHUB_STEP_SUMMARY の
+      # 上限(1MiB)対策で先頭のみに丸める。
+      - name: Publish plan to summary
+        if: always()
+        run: |
+          {
+            echo "## Terraform Plan (prod)"
+            echo ""
+            echo "<details><summary>plan output</summary>"
+            echo ""
+            echo '```terraform'
+            head -c 900000 /tmp/plan.txt
+            echo ''
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   apply:
     name: Apply (prod)
