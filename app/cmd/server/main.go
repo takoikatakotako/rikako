@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/appslug"
 	"github.com/takoikatakotako/rikako/internal/auth"
 	"github.com/takoikatakotako/rikako/internal/handler"
 	"github.com/takoikatakotako/rikako/internal/identity"
@@ -73,6 +74,7 @@ func main() {
 	e.Use(logging.RequestLogger(logger))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(appslug.Middleware)
 
 	// カスタムエラーハンドラ
 	e.HTTPErrorHandler = newHTTPErrorHandler(logger)
