@@ -1,57 +1,54 @@
 import Foundation
 
 final class PreviewLearningRepository: LearningRepository {
-    private let workbooks: [Workbook] = [
-        Workbook(
-            id: 1,
-            title: "基礎化学のはじめの一歩",
-            description: "まずは化学の基本用語と考え方に慣れるための問題集です。",
-            questionCount: 12,
-            categoryId: 1
-        ),
-        Workbook(
-            id: 2,
-            title: "化学結合の基礎",
-            description: "イオン結合や共有結合など、化学結合の基本を確認する問題集です。",
-            questionCount: 18,
-            categoryId: 1
-        ),
-        Workbook(
-            id: 3,
-            title: "酸と塩基の入門",
-            description: "pH、電離、酸と塩基の考え方をやさしく学ぶ問題集です。",
-            questionCount: 15,
-            categoryId: 2
-        ),
-        Workbook(
-            id: 4,
-            title: "物質量とモル計算",
-            description: "mol の考え方と計算に慣れるための問題集です。",
-            questionCount: 20,
-            categoryId: 2
-        ),
-        Workbook(
-            id: 5,
-            title: "酸化還元の基礎",
-            description: "酸化数や電子のやり取りを基礎から確認する問題集です。",
-            questionCount: 16,
-            categoryId: 3
-        ),
-        Workbook(
-            id: 6,
-            title: "有機化学のさわり",
-            description: "炭化水素や官能基の最初の理解に向いた問題集です。",
-            questionCount: 14,
-            categoryId: 4
-        ),
-        Workbook(
-            id: 7,
-            title: "無機化学の基本整理",
-            description: "金属元素や気体の性質を整理しながら学ぶ問題集です。",
-            questionCount: 19,
-            categoryId: 5
-        )
+    private let isIT: Bool
+    private let workbooks: [Workbook]
+    private let categories: [Category]
+    private let questions: [Question]
+
+    /// フレーバー（app_slug）に応じてプレビュー/スクショ用のダミーデータを切り替える。
+    /// it-passport のときは ITパスポートの内容、それ以外（化学）は従来の化学の内容を返す。
+    init(slug: String = AppFlavor.current.slug) {
+        let it = (slug == "it-passport")
+        self.isIT = it
+        self.workbooks = it ? Self.itWorkbooks : Self.chemistryWorkbooks
+        self.categories = it ? Self.itCategories : Self.chemistryCategories
+        self.questions = it ? MockData.itQuestions : MockData.questions
+    }
+
+    // MARK: - フレーバー別データ
+
+    private static let chemistryWorkbooks: [Workbook] = [
+        Workbook(id: 1, title: "基礎化学のはじめの一歩", description: "まずは化学の基本用語と考え方に慣れるための問題集です。", questionCount: 12, categoryId: 1),
+        Workbook(id: 2, title: "化学結合の基礎", description: "イオン結合や共有結合など、化学結合の基本を確認する問題集です。", questionCount: 18, categoryId: 1),
+        Workbook(id: 3, title: "酸と塩基の入門", description: "pH、電離、酸と塩基の考え方をやさしく学ぶ問題集です。", questionCount: 15, categoryId: 2),
+        Workbook(id: 4, title: "物質量とモル計算", description: "mol の考え方と計算に慣れるための問題集です。", questionCount: 20, categoryId: 2),
+        Workbook(id: 5, title: "酸化還元の基礎", description: "酸化数や電子のやり取りを基礎から確認する問題集です。", questionCount: 16, categoryId: 3),
+        Workbook(id: 6, title: "有機化学のさわり", description: "炭化水素や官能基の最初の理解に向いた問題集です。", questionCount: 14, categoryId: 4),
+        Workbook(id: 7, title: "無機化学の基本整理", description: "金属元素や気体の性質を整理しながら学ぶ問題集です。", questionCount: 19, categoryId: 5),
     ]
+
+    private static let chemistryCategories: [Category] = [
+        Category(id: 1, title: "基礎化学", description: "化学の最初の一歩を学ぶカテゴリです。", workbookCount: chemistryWorkbooks.count),
+    ]
+
+    private static let itWorkbooks: [Workbook] = [
+        Workbook(id: 1, title: "企業活動と経営戦略", description: "企業活動やマーケティング、経営戦略の基本を学ぶ問題集です。", questionCount: 20, categoryId: 1),
+        Workbook(id: 2, title: "法務と関連法規", description: "知的財産権やセキュリティ関連法規など、押さえておきたい法務の問題集です。", questionCount: 16, categoryId: 1),
+        Workbook(id: 3, title: "プロジェクトマネジメント入門", description: "進捗管理やスケジュールなど、プロジェクト管理の基礎を学ぶ問題集です。", questionCount: 15, categoryId: 2),
+        Workbook(id: 4, title: "サービスマネジメントの基礎", description: "サービスの運用・管理の考え方を確認する問題集です。", questionCount: 14, categoryId: 2),
+        Workbook(id: 5, title: "コンピュータの基礎理論", description: "2進数やアルゴリズムなど、IT技術の土台を学ぶ問題集です。", questionCount: 22, categoryId: 3),
+        Workbook(id: 6, title: "ネットワークの基礎", description: "プロトコルやIPアドレスなど、ネットワークの基本を学ぶ問題集です。", questionCount: 18, categoryId: 3),
+        Workbook(id: 7, title: "情報セキュリティ入門", description: "機密性・完全性・可用性など、情報セキュリティの基礎を学ぶ問題集です。", questionCount: 17, categoryId: 3),
+    ]
+
+    private static let itCategories: [Category] = [
+        Category(id: 1, title: "ストラテジ系", description: "経営戦略・マーケティング・法務などを学ぶ分野です。", workbookCount: 2),
+        Category(id: 2, title: "マネジメント系", description: "プロジェクトやサービスの管理を学ぶ分野です。", workbookCount: 2),
+        Category(id: 3, title: "テクノロジ系", description: "IT技術の基礎を学ぶ分野です。", workbookCount: 3),
+    ]
+
+    // MARK: - LearningRepository
 
     func fetchAppStatus() async throws -> AppStatusResponse {
         AppStatusResponse(minimumVersion: "1.0.0", latestVersion: "1.0.0", isMaintenance: false, maintenanceMessage: "")
@@ -62,39 +59,36 @@ final class PreviewLearningRepository: LearningRepository {
     }
 
     func fetchWorkbookDetail(id: Int64) async throws -> WorkbookDetail {
-        WorkbookDetail(
+        let workbook = workbooks.first(where: { $0.id == id }) ?? workbooks.first
+        return WorkbookDetail(
             id: id,
-            title: workbooks.first?.title ?? "プレビュー問題集",
-            description: workbooks.first?.description ?? "プレビュー用の問題集です。",
-            categoryId: workbooks.first?.categoryId,
-            questions: MockData.questions
+            title: workbook?.title ?? "プレビュー問題集",
+            description: workbook?.description ?? "プレビュー用の問題集です。",
+            categoryId: workbook?.categoryId,
+            questions: questions
         )
     }
 
     func fetchCategories(limit: Int, offset: Int) async throws -> [Category] {
-        [
-            Category(
-                id: 1,
-                title: "基礎化学",
-                description: "化学の最初の一歩を学ぶカテゴリです。",
-                workbookCount: workbooks.count
-            )
-        ]
+        categories
     }
 
     func fetchCategoryDetail(id: Int64) async throws -> CategoryDetail {
-        CategoryDetail(
+        let category = categories.first(where: { $0.id == id }) ?? categories.first
+        // IT は分野が複数あるので該当カテゴリの問題集に絞る。化学は単一カテゴリなので全件。
+        let items = isIT ? workbooks.filter { $0.categoryId == id } : workbooks
+        return CategoryDetail(
             id: id,
-            title: "基礎化学",
-            description: "化学の最初の一歩を学ぶカテゴリです。",
-            workbooks: workbooks
+            title: category?.title ?? "カテゴリ",
+            description: category?.description ?? "",
+            workbooks: items.isEmpty ? workbooks : items
         )
     }
 
     func submitAnswers(workbookId: Int64, answers: [AnswerItem]) async throws -> AnswerSubmissionResponse {
         AnswerSubmissionResponse(
             correctCount: answers.filter { answer in
-                MockData.questions.first(where: { $0.id == answer.questionId })?.correctIndex == answer.selectedChoice
+                questions.first(where: { $0.id == answer.questionId })?.correctIndex == answer.selectedChoice
             }.count,
             totalCount: answers.count
         )
@@ -152,18 +146,21 @@ final class PreviewLearningRepository: LearningRepository {
     }
 
     func fetchWrongAnswers(limit: Int, offset: Int) async throws -> WrongAnswerListResponse {
-        let waq = MockData.questions.prefix(limit).map {
+        let waq = questions.prefix(limit).map {
             WrongAnswerQuestion(id: $0.id, type: $0.type, text: $0.text, choices: $0.choices, correct: $0.correct, explanation: $0.explanation, images: $0.images, workbookId: 1)
         }
-        return WrongAnswerListResponse(questions: Array(waq), total: min(limit, MockData.questions.count))
+        return WrongAnswerListResponse(questions: Array(waq), total: min(limit, questions.count))
     }
 
     func fetchAnnouncements() async throws -> [Announcement] {
         let now = Date()
+        let newWorkbookBody = isIT
+            ? "テクノロジ系の復習に使いやすい問題集を追加しました。"
+            : "基礎化学の復習に使いやすい問題集を追加しました。"
         return [
             Announcement(
                 id: 1,
-                title: "春のチャレンジ応援キャンペーン",
+                title: "学習応援キャンペーン",
                 body: "# キャンペーン開催\n期間限定で学習を続けやすい企画を実施中です。\n\n- ログインボーナス\n- 連続学習バッジ",
                 category: "info",
                 publishedAt: now.addingTimeInterval(-60 * 60 * 3)
@@ -171,7 +168,7 @@ final class PreviewLearningRepository: LearningRepository {
             Announcement(
                 id: 2,
                 title: "新しい問題集を追加しました",
-                body: "基礎化学の復習に使いやすい問題集を追加しました。",
+                body: newWorkbookBody,
                 category: "release",
                 publishedAt: now.addingTimeInterval(-60 * 60 * 24 * 2)
             ),
@@ -197,7 +194,9 @@ extension PreviewLearningRepository {
         "preview-identity-id-from-transfer"
     }
     func chatWithQuestion(questionId: Int64, messages: [ChatMessageRequest], selectedChoice: Int) async throws -> ChatResponse {
-        let reply = "いい質問だね！水分子は酸素原子1個と水素原子2個が結びついてできているから、化学式は H₂O と書くよ。\n\nCO₂ は二酸化炭素、NaCl は塩化ナトリウム（食塩）、O₂ は酸素だから、どれも水とは別の物質なんだ。まずは「H＝水素」「O＝酸素」と覚えるのがコツだよ！"
+        let reply = isIT
+            ? "いい質問だね！情報セキュリティの3要素は「機密性（Confidentiality）」「完全性（Integrity）」「可用性（Availability）」の3つで、頭文字をとって CIA とも呼ばれるよ。\n\n「再現性」はこの3要素には含まれないんだ。まずは CIA の3つをセットで覚えるのがコツだよ！"
+            : "いい質問だね！水分子は酸素原子1個と水素原子2個が結びついてできているから、化学式は H₂O と書くよ。\n\nCO₂ は二酸化炭素、NaCl は塩化ナトリウム（食塩）、O₂ は酸素だから、どれも水とは別の物質なんだ。まずは「H＝水素」「O＝酸素」と覚えるのがコツだよ！"
         return ChatResponse(reply: reply, turnCount: messages.filter { $0.role == "user" }.count, remainingTurns: 10 - messages.filter { $0.role == "user" }.count)
     }
 

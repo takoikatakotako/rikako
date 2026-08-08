@@ -49,6 +49,55 @@ enum MockData {
         ),
     ]
 
+    /// ITパスポート版のプレビュー/スクショ用問題（it-passport フレーバー）。
+    static let itQuestions: [Question] = [
+        Question(
+            id: 1,
+            type: .singleChoice,
+            text: "PDCAサイクルの「A」が表すものはどれか？",
+            choices: ["Plan（計画）", "Do（実行）", "Check（評価）", "Act（改善）"],
+            correct: 3,
+            explanation: "PDCAはPlan（計画）→Do（実行）→Check（評価）→Act（改善）の頭文字です。Aは改善を表します。",
+            images: []
+        ),
+        Question(
+            id: 2,
+            type: .singleChoice,
+            text: "2進数の 1010 を10進数で表すといくつか？",
+            choices: ["8", "10", "12", "20"],
+            correct: 1,
+            explanation: "1010(2) = 8+0+2+0 = 10 です。各桁は 2^3, 2^2, 2^1, 2^0 の重みを持ちます。",
+            images: []
+        ),
+        Question(
+            id: 3,
+            type: .singleChoice,
+            text: "情報セキュリティの3要素に含まれないものはどれか？",
+            choices: ["機密性", "完全性", "可用性", "再現性"],
+            correct: 3,
+            explanation: "情報セキュリティの3要素は機密性・完全性・可用性（CIA）です。再現性は含まれません。",
+            images: []
+        ),
+        Question(
+            id: 4,
+            type: .singleChoice,
+            text: "Webページの閲覧に主に使われるプロトコルはどれか？",
+            choices: ["SMTP", "HTTP", "FTP", "POP3"],
+            correct: 1,
+            explanation: "Webページのやり取りにはHTTP（HTTPS）が使われます。SMTP/POP3はメール、FTPはファイル転送用です。",
+            images: []
+        ),
+        Question(
+            id: 5,
+            type: .singleChoice,
+            text: "プロジェクトの進捗管理に使う図はどれか？",
+            choices: ["ER図", "ガントチャート", "フローチャート", "散布図"],
+            correct: 1,
+            explanation: "ガントチャートは作業の期間と進捗を横棒で表し、プロジェクトの進捗管理に使われます。",
+            images: []
+        ),
+    ]
+
     static let questionsWithImages: [Question] = [
         Question(
             id: 101,

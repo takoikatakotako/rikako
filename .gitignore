@@ -36,3 +36,6 @@ ios/build/
 # Firebase (#261 Phase 2): git に載せずローカル配置＋CIで復元する（scanner ノイズ回避）。
 # 詳細は docs/ios.md「利用イベント計測（Analytics）」参照。
 **/GoogleService-Info*.plist
+
+# Firebase CLI のデバッグログ
+firebase-debug.log

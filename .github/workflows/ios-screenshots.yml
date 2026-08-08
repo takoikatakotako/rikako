@@ -7,6 +7,14 @@ on:
       - 'ios/**'
     types: [ labeled ]
   workflow_dispatch:
+    inputs:
+      scheme:
+        description: "スクショを撮るスキーム（アプリ）"
+        type: choice
+        default: high-school-chemistry-dev
+        options:
+          - high-school-chemistry-dev
+          - it-passport-dev
 
 permissions:
   contents: write
@@ -25,13 +33,16 @@ jobs:
 
       - name: Run screenshot tests
         working-directory: ./ios
+        env:
+          # PR ラベル起動時は入力が無いため化学版にフォールバック。
+          # ビルド構成は各スキームの TestAction 設定に委ねる（it-passport-dev は ItPassportDev Debug）。
+          SCHEME: ${{ inputs.scheme || 'high-school-chemistry-dev' }}
         run: |
           xcodebuild test \
-            -scheme high-school-chemistry-dev \
+            -scheme "$SCHEME" \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
             -only-testing:RikakoUITests/ScreenshotTests \
             -resultBundlePath build/screenshots.xcresult \
-            -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Extract screenshots
