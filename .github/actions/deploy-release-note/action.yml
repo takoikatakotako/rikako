@@ -27,7 +27,15 @@ runs:
         # タグ名に日時が埋まっているため refname 降順＝時系列で最新を取る
         # （軽量タグは creatordate がコミット日に依存し、同一コミットで曖昧になるため）。
         PREV=$(git tag -l "${PREFIX}/*" --sort=-refname | head -1)
-        TAG="${PREFIX}/$(date -u +%Y%m%d-%H%M%S)"
+
+        # 前タグから新規コミットが無い（変更なし再デプロイ）ときは空リリースを作らない。
+        if [ -n "$PREV" ] && [ "$(git rev-list "${PREV}..HEAD" --count)" -eq 0 ]; then
+          echo "前回デプロイ($PREV)から新しいコミットが無いため Release 作成をスキップします。"
+          exit 0
+        fi
+
+        # タグ・リリースの日時は JST（運用が日本時間のため）。
+        TAG="${PREFIX}/$(TZ=Asia/Tokyo date +%Y%m%d-%H%M%S)"
         git tag "$TAG"
         git push origin "$TAG"
         if [ -n "$PREV" ]; then

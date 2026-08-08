@@ -1,0 +1,42 @@
+name: Deploy Admin Prod
+
+# 管理画面を API＋フロントのセットでデプロイし、1つの GitHub Release（admin-prod/）を作る。
+# 片方だけデプロイしたいときは個別の Deploy Admin API Prod / Deploy Admin Frontend Prod を使う。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  admin-api:
+    name: Admin API
+    uses: ./.github/workflows/deploy-admin-api-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  admin-frontend:
+    name: Admin Frontend
+    uses: ./.github/workflows/deploy-admin-frontend-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  release-note:
+    needs: [admin-api, admin-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Create deploy release note
+        uses: ./.github/actions/deploy-release-note
+        with:
+          tag-prefix: admin-prod
+          title: "Admin Prod"
+          github-token: ${{ github.token }}
