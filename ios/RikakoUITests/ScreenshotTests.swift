@@ -68,11 +68,12 @@ final class ScreenshotTests: XCTestCase {
         let chatInput = app.textFields["chatInput"]
         XCTAssertTrue(chatInput.waitForExistence(timeout: 10), "チャット入力欄が見つからない")
         chatInput.tap()
-        chatInput.typeText("なぜ水はH2Oなの？")
+        chatInput.typeText("もっとくわしく教えて")
         app.buttons["chatSendButton"].tap()
 
-        // モックのAI回答（「水分子は…」）が出るまで待つ
-        let aiReply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "水分子")).firstMatch
+        // モックのAI回答が出るまで待つ。回答はフレーバーで内容が異なるが、
+        // どちらも理科子の「いい質問だね！」で始まるため flavor 非依存に判定できる。
+        let aiReply = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "いい質問だね")).firstMatch
         XCTAssertTrue(aiReply.waitForExistence(timeout: 15), "AIの回答が表示されない")
         sleep(1)
         takeScreenshot(name: "06_ai_chat")
