@@ -68,3 +68,20 @@ jobs:
           echo "## Admin Frontend Deploy Complete! 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**S3 Bucket:** ${{ env.S3_BUCKET }}" >> $GITHUB_STEP_SUMMARY
+
+  release-note:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Create deploy release note
+        uses: ./.github/actions/deploy-release-note
+        with:
+          tag-prefix: admin-frontend-prod
+          title: "Admin Frontend Prod"
+          github-token: ${{ github.token }}

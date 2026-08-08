@@ -1,0 +1,43 @@
+name: Deploy release note
+description: 前回デプロイタグ以降にマージされた PR をまとめた GitHub Release を作成する
+
+inputs:
+  tag-prefix:
+    description: "タグ接頭辞（例: api-prod）。コンポーネント別に分けること（PR範囲がずれるため）"
+    required: true
+  title:
+    description: "Release タイトル接頭辞（例: API Prod）"
+    required: true
+  github-token:
+    description: "GitHub token（contents: write 権限が必要）"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create deploy release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PREFIX: ${{ inputs.tag-prefix }}
+        TITLE: ${{ inputs.title }}
+      run: |
+        set -euo pipefail
+        # 同じ prefix の前回タグを起点にする（他コンポーネントのタグと混ざらない）。
+        # タグ名に日時が埋まっているため refname 降順＝時系列で最新を取る
+        # （軽量タグは creatordate がコミット日に依存し、同一コミットで曖昧になるため）。
+        PREV=$(git tag -l "${PREFIX}/*" --sort=-refname | head -1)
+        TAG="${PREFIX}/$(date -u +%Y%m%d-%H%M%S)"
+        git tag "$TAG"
+        git push origin "$TAG"
+        if [ -n "$PREV" ]; then
+          gh release create "$TAG" \
+            --title "${TITLE} ${TAG}" \
+            --notes-start-tag "$PREV" \
+            --generate-notes
+        else
+          # 初回は前タグが無いため全履歴を拾わないよう固定文にする。
+          gh release create "$TAG" \
+            --title "${TITLE} ${TAG}" \
+            --notes "初回のデプロイ記録です。次回以降はこのタグ以降のマージ PR を自動でまとめます。"
+        fi
