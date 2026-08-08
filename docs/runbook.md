@@ -567,6 +567,22 @@ terraform apply
 4. `datasync plan` で確認 → `datasync apply` で反映
 5. 画像があれば `aws s3 sync` でS3にアップロード
 
+### アプリ別に強制アップデートを設定する（minimumVersion）
+
+`GET /status` の `minimumVersion` / `latestVersion` は **app_slug 別に上書き**できる。iOS は全リクエストで `X-App-Slug` を送り、公開API Lambda は `MINIMUM_VERSION_<SLUG>` env があればそれを返す（無ければグローバル既定 `MINIMUM_VERSION`）。これにより **アプリ単位で独立に強制アップデートを制御**できる（例: 化学版だけ強制更新し、IT版は影響を受けない）。
+
+- env 名は slug のハイフンを大文字＋`_` に正規化: `high-school-chemistry` → `MINIMUM_VERSION_HIGH_SCHOOL_CHEMISTRY`、`it-passport` → `MINIMUM_VERSION_IT_PASSPORT`
+- 設定は Terraform の Lambda 環境変数（`terraform/environments/<env>/main.tf` の公開API `environment_variables`）。**グローバルの `MINIMUM_VERSION` を上げると全アプリに効く**ため、片方だけ上げたいときは必ず slug 別 env を使う。
+
+```hcl
+# 例: 化学版だけ 3.0.2 以上を必須にする（IT版は据え置き）
+environment_variables = {
+  MINIMUM_VERSION                      = "1.0.0"  # 既定（未指定アプリ用）
+  MINIMUM_VERSION_HIGH_SCHOOL_CHEMISTRY = "3.0.2"
+  # MINIMUM_VERSION_IT_PASSPORT は未設定 → 既定 1.0.0
+}
+```
+
 ### Cognito ユーザー作成
 
 ```bash

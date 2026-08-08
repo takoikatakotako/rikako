@@ -157,10 +157,12 @@ final class RemoteLearningRepository: LearningRepository {
 
     private func getJSON<T: Decodable>(url: URL, authenticated: Bool) async throws -> T {
         var request = URLRequest(url: url)
+        // X-App-Slug は常に送る。/status はアプリ別の minimumVersion/latestVersion を
+        // 返せるように slug を必要とする（強制アップデートをアプリ単位で制御するため）。
+        request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
         if authenticated {
             let deviceId = try await deviceIdentityProvider.getIdentityId()
             request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
-            request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
         }
 
         let (data, response) = try await httpClient.data(for: request)
