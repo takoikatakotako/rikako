@@ -21,11 +21,15 @@
 #   詳細手順は docs を参照。
 # =============================================================================
 
+# アプリが使う接続文字列。dev は既に pooled endpoint（`-pooler` host, sslmode=require,
+# channel_binding なし）で運用中（Issue #281）。ignore_changes=[value] のため terraform には
+# 巻き戻されない。マイグレーションは output connection_string（direct）を使う。
+# 詳細は docs/runbook.md「Neon 接続プーリング」参照。
 resource "aws_ssm_parameter" "database_url" {
   name        = "/${local.project}/${local.environment}/database-url"
   type        = "SecureString"
   value       = neon_project.default.connection_uri
-  description = "Neon DB connection URI (initial value; rotated out-of-band via Neon API)"
+  description = "Neon DB connection URI for app (pooled in operation; migrations use direct output)"
 
   lifecycle {
     ignore_changes = [value]

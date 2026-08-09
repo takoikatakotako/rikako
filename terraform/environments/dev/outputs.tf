@@ -20,7 +20,9 @@ output "database_host" {
 }
 
 output "connection_string" {
-  description = "Database connection string"
+  # direct（非 pooled）接続文字列。マイグレーション（golang-migrate, advisory lock）はこれを使う。
+  # 通常のアプリは SSM database-url（pooled）を使う。詳細は docs/runbook.md「Neon 接続プーリング」参照。
+  description = "Database connection string (direct endpoint; used by migrations)"
   value       = neon_project.default.connection_uri
   sensitive   = true
 }

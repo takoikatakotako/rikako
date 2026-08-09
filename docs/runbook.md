@@ -207,6 +207,71 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.dev.rikako.org/workbooks
 
 prod は次のように読み替える: `AWS_PROFILE=rikako-production-sso`、`PROJECT_ID` は `cd terraform/environments/prod && terraform state show neon_project.default` の `id`、`BRANCH_ID` は同 `default_branch_id`、`ROLE=neondb_owner`、`DB=neondb`、SSM 名 `/rikako/production/database-url`、関数は `rikako-api-production` / `rikako-admin-api-production`。
 
+### Neon 接続プーリング（PgBouncer / pooled endpoint）{#neon-pooling}
+
+Lambda 同時実行数の増加に備え、通常のアプリトラフィックは Neon の **pooled endpoint（PgBouncer, transaction pooling）** を使う（[Issue #281](https://github.com/takoikatakotako/rikako/issues/281)）。別途 pgpool-II を立てるのではなく Neon 標準の pooled connection を使う。
+
+#### 接続方針（用途別）
+
+| 用途 | エンドポイント | 接続元 | 理由 |
+|------|--------------|--------|------|
+| 公開API / 管理API Lambda | **pooled**（`-pooler` host） | SSM `/rikako/<env>/database-url` | 同時実行増でも Neon 直接接続数を抑える |
+| datasync | **pooled** | SSM `/rikako/<env>/database-url` | 単純な upsert のみでセッション状態を持たない |
+| **マイグレーション**（golang-migrate） | **direct**（非 pooled） | `terraform output -raw connection_string`（= `neon_project.connection_uri`） | **advisory lock はセッション単位**のため transaction pooling では正しく機能しない |
+
+> マイグレーションは SSM ではなく terraform の direct な `connection_uri` を使っているため、SSM を pooled 化しても影響しない。**マイグレーションは今後も direct を維持すること。**
+
+#### 互換性（調査結果 / 2026-08 時点）
+
+transaction pooling では**セッションに依存する機能が使えない**が、本アプリは該当機能を使っていないため互換:
+
+- sqlc は `emit_prepared_queries: false` → 生成コードは `QueryContext`/`ExecContext` 直呼びで、**永続 prepared statement を持たない**
+- **advisory lock / 一時テーブル / `LISTEN`・`NOTIFY` / `SET SESSION` は不使用**（アプリ側）
+- **lib/pq は SCRAM channel binding 非対応** → 接続 URL に `channel_binding=require` を**付けない**（`sslmode=require` のみ）。詳細は CLAUDE.md「dev DB接続の注意」参照
+- `SetMaxOpenConns(10)`（公開API）は pooled でも妥当。PgBouncer が多重化するため Neon 直接接続数は増えない（必要なら削減も可）
+
+#### 現状
+
+- **dev**: 既に pooled 運用（SSM が `-pooler` host）
+- **prod**: 未切替（2026-08-08 時点で endpoint は `pooler_enabled = false`）
+
+#### prod への切替手順
+
+```bash
+export AWS_PROFILE=rikako-production-sso
+# 1. Neon コンソールで prod endpoint のコネクションプーラーを有効化（または -pooler host を使う）
+
+# 2. 現在の direct URL を取得し、host を pooled（-pooler 付き）に、channel_binding は除去、sslmode=require に整える
+#    （値はログに出さないよう変数で扱う）
+POOLED_URL='postgres://<role>:<password>@<host>-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+
+# 3. SSM を更新（ignore_changes=[value] のため terraform に巻き戻されない）
+aws ssm put-parameter --name /rikako/production/database-url --type SecureString --overwrite --value "$POOLED_URL"
+
+# 4. API / 管理API Lambda を cold start（warm container の旧接続を破棄）
+TS=$(date +%s)
+for fn in rikako-api-production rikako-admin-api-production; do
+  aws lambda update-function-configuration --function-name "$fn" --description "pooled switch $TS" >/dev/null
+  aws lambda wait function-updated --function-name "$fn"
+done
+
+# 5. 疎通確認
+curl -s -o /dev/null -w "%{http_code}\n" https://api.rikako.org/workbooks   # 200
+# 匿名サインイン・回答送信・データ引き継ぎ、管理API主要処理も確認する
+```
+
+> **DSN をログ/標準出力に出さないこと。** `put-parameter` の値も表示しない。切替前後で Neon コンソールの接続数・エラーを比較する。
+
+#### rollback
+
+pooled で問題が出たら SSM を **direct host に戻して** cold start する（手順4を再実行）。
+
+```bash
+DIRECT_URL='postgres://<role>:<password>@<host>.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'  # -pooler なし
+aws ssm put-parameter --name /rikako/production/database-url --type SecureString --overwrite --value "$DIRECT_URL"
+# → 上記手順4で Lambda を cold start
+```
+
 ### 管理画面 Basic 認証（CloudFront Function）{#admin-basic-auth}
 
 管理画面（`admin.<env>.rikako.org` / フロント・`/api` 共通）の Basic 認証は SSM の `/rikako/admin-basic-auth-user` / `/rikako/admin-basic-auth-password` を使う。

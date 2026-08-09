@@ -22,11 +22,15 @@
 #   詳細手順は docs を参照。
 # =============================================================================
 
+# アプリ（API/管理API/datasync）が使う接続文字列。運用では pooled endpoint（`-pooler` host,
+# sslmode=require, channel_binding は付けない）に put-parameter --overwrite で更新する（Issue #281）。
+# ignore_changes = [value] のため terraform には巻き戻されない。マイグレーションは output
+# connection_string（direct）を使う。詳細は docs/runbook.md「Neon 接続プーリング」参照。
 resource "aws_ssm_parameter" "database_url" {
   name        = "/${local.project}/${local.environment}/database-url"
   type        = "SecureString"
   value       = neon_project.default.connection_uri
-  description = "Neon DB connection URI (initial value; rotated out-of-band via Neon API)"
+  description = "Neon DB connection URI for app (initial=direct; switch to pooled out-of-band)"
 
   lifecycle {
     ignore_changes = [value]
