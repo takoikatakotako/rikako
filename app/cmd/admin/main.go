@@ -16,6 +16,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/takoikatakotako/rikako/internal/admin"
 	"github.com/takoikatakotako/rikako/internal/adminapi"
+	"github.com/takoikatakotako/rikako/internal/dbconn"
 	"github.com/takoikatakotako/rikako/internal/logging"
 	"github.com/takoikatakotako/rikako/internal/secrets"
 )
@@ -33,6 +34,8 @@ func main() {
 	if dsn == "" {
 		dsn = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
 	}
+	// DB_USE_POOLER=true のとき Neon の pooled endpoint 用に host を変換する（Issue #281）。
+	dsn = dbconn.Pooled(dsn, os.Getenv("DB_USE_POOLER") == "true")
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {

@@ -72,6 +72,8 @@ module "lambda" {
     LATEST_VERSION                   = "1.0.0"
     OPENAI_API_KEY                   = "ssm:/${local.project}/${local.environment}/openai-api-key"
     SLACK_WEBHOOK_URL                = "ssm:/${local.project}/${local.environment}/slack-contact-webhook-url"
+    # Neon pooled endpoint を使う（Issue #281）。SSM は direct のまま、アプリが host を -pooler に変換。
+    DB_USE_POOLER = "true"
   }
 
   ssm_parameter_arns = [for name in local.api_ssm_param_names : "${local.ssm_param_arn_prefix}${name}"]
@@ -129,6 +131,8 @@ module "lambda_admin" {
     AWS_LWA_READINESS_CHECK_PROTOCOL = "http"
     AWS_LWA_READINESS_CHECK_PORT     = "8080"
     AWS_LWA_READINESS_CHECK_PATH     = "/health"
+    # Neon pooled endpoint を使う（Issue #281）。
+    DB_USE_POOLER = "true"
   }
 
   ssm_parameter_arns = [for name in local.admin_api_ssm_param_names : "${local.ssm_param_arn_prefix}${name}"]

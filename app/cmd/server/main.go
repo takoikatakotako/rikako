@@ -15,6 +15,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/appslug"
 	"github.com/takoikatakotako/rikako/internal/auth"
+	"github.com/takoikatakotako/rikako/internal/dbconn"
 	"github.com/takoikatakotako/rikako/internal/handler"
 	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/logging"
@@ -35,6 +36,9 @@ func main() {
 	if dsn == "" {
 		dsn = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
 	}
+	// DB_USE_POOLER=true のとき Neon の pooled endpoint 用に host を変換する（Issue #281）。
+	// SSM の DATABASE_URL は direct のままにし、切替はこのフラグ（terraform 環境変数）で行う。
+	dsn = dbconn.Pooled(dsn, os.Getenv("DB_USE_POOLER") == "true")
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
