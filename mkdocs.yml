@@ -15,6 +15,7 @@ nav:
   - 管理API設計: admin-api.md
   - 問題形式仕様書: question-types.md
   - iOSアプリ: ios.md
+  - メールログイン設計: email-login-design.md
   - 公開API: api/index.html
   - 管理API (Swagger): admin-api/index.html
   - データ同期: datasync.md
