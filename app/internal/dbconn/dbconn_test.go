@@ -24,8 +24,8 @@ func TestPooled_addsPoolerAndFixesParams(t *testing.T) {
 	if u.Hostname() != "ep-abc-pooler.ap-southeast-1.aws.neon.tech" {
 		t.Errorf("host に -pooler が付いていない: %s", u.Hostname())
 	}
-	if u.Query().Get("channel_binding") != "" {
-		t.Errorf("channel_binding が除去されていない: %s", got)
+	if u.Query().Get("channel_binding") != "require" {
+		t.Errorf("channel_binding が保持されていない（pgx は対応済みのため尊重する）: %s", got)
 	}
 	if u.Query().Get("sslmode") != "require" {
 		t.Errorf("sslmode=require が維持されていない: %s", got)

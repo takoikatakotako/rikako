@@ -11,8 +11,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/takoikatakotako/rikako/internal/datasync"
+	"github.com/takoikatakotako/rikako/internal/dbconn"
 )
 
 const (
@@ -68,7 +69,8 @@ Flags:
 	// 接続先を表示（CIログ等に出るためパスワードは必ずマスクする）
 	fmt.Printf("Connecting to [%s]: %s\n", *env, redactDSN(dsn))
 
-	db, err := sql.Open("postgres", dsn)
+	dsn = dbconn.SimpleProtocol(dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
