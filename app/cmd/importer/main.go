@@ -8,7 +8,8 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/takoikatakotako/rikako/internal/dbconn"
 	"github.com/takoikatakotako/rikako/internal/importer"
 	"github.com/takoikatakotako/rikako/internal/secrets"
 )
@@ -29,7 +30,8 @@ func main() {
 		dsn = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
 	}
 
-	db, err := sql.Open("postgres", dsn)
+	dsn = dbconn.SimpleProtocol(dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

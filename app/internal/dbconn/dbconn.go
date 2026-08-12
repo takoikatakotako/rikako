@@ -40,7 +40,7 @@ func Pooled(dsn string, usePooler bool) string {
 		u.Host = newHost
 	}
 
-	// lib/pq 非対応の channel_binding を除去、sslmode を担保。
+	// channel_binding を除去、sslmode を担保。
 	q := u.Query()
 	q.Del("channel_binding")
 	if q.Get("sslmode") == "" {
@@ -48,5 +48,21 @@ func Pooled(dsn string, usePooler bool) string {
 	}
 	u.RawQuery = q.Encode()
 
+	return u.String()
+}
+
+// SimpleProtocol は pgx ドライバ向けに default_query_exec_mode=simple_protocol を
+// DSN に付与する（冪等）。simple protocol では server-side prepared statement を使わず
+// クエリ文を毎回そのまま送るため、接続リセット時に prepared statement のメタデータが
+// 混線する不整合（Issue #291）を構造的に回避でき、pooled endpoint とも互換になる。
+// パースできない場合はそのまま返す（フェイルセーフ）。
+func SimpleProtocol(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return dsn
+	}
+	q := u.Query()
+	q.Set("default_query_exec_mode", "simple_protocol")
+	u.RawQuery = q.Encode()
 	return u.String()
 }

@@ -9,7 +9,7 @@ Rikako - 問題集アプリ
 ## 技術スタック
 
 ### ローカル開発
-- **バックエンド**: Go 1.24 + Echo v4.15.0
+- **バックエンド**: Go 1.25 + Echo v4.15.0
 - **データベース**: PostgreSQL 18
 - **マイグレーション**: golang-migrate/migrate
 - **API仕様**: OpenAPI 3.0.3（oapi-codegenでコード生成）

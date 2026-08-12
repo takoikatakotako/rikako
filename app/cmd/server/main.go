@@ -11,7 +11,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/appslug"
 	"github.com/takoikatakotako/rikako/internal/auth"
@@ -39,8 +39,10 @@ func main() {
 	// DB_USE_POOLER=true のとき Neon の pooled endpoint 用に host を変換する（Issue #281）。
 	// SSM の DATABASE_URL は direct のままにし、切替はこのフラグ（terraform 環境変数）で行う。
 	dsn = dbconn.Pooled(dsn, os.Getenv("DB_USE_POOLER") == "true")
+	// pgx を simple protocol で駆動し、prepared statement 混線（Issue #291）を回避する。
+	dsn = dbconn.SimpleProtocol(dsn)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		logger.Error("failed to connect to database", "error", err)
 		os.Exit(1)
