@@ -7,8 +7,9 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/dbconn"
 	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/openai"
 )
@@ -23,7 +24,8 @@ func TestMain(m *testing.M) {
 	}
 
 	var err error
-	testDB, err = sql.Open("postgres", dsn)
+	// 本番と同じ pgx + simple protocol でクエリの encode/scan 互換を検証する。
+	testDB, err = sql.Open("pgx", dbconn.SimpleProtocol(dsn))
 	if err != nil {
 		panic(err)
 	}

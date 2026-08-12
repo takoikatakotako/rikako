@@ -9,8 +9,10 @@ import (
 // Pooled は usePooler=true のとき、Neon の pooled endpoint（PgBouncer）用に DSN を変換する。
 //
 //   - host の先頭ラベルに "-pooler" を付与（例: ep-xxx... → ep-xxx-pooler...）。既に付いていれば冪等。
-//   - lib/pq は SCRAM channel binding 非対応のため channel_binding パラメータを除去する。
 //   - sslmode が未指定なら require を付与する。
+//
+// channel_binding は削除しない。pgx は SCRAM channel binding に対応しており、
+// 呼び出し側が要求した認証保護（channel_binding=require）をそのまま尊重する。
 //
 // これにより、SSM の DATABASE_URL には direct のフル接続文字列（パスワード込み）を
 // そのまま置いたまま、環境変数フラグだけで pooled/direct を切り替えられる。
@@ -40,9 +42,8 @@ func Pooled(dsn string, usePooler bool) string {
 		u.Host = newHost
 	}
 
-	// channel_binding を除去、sslmode を担保。
+	// sslmode を担保（channel_binding は保持する。pgx は対応済み）。
 	q := u.Query()
-	q.Del("channel_binding")
 	if q.Get("sslmode") == "" {
 		q.Set("sslmode", "require")
 	}
