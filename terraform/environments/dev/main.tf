@@ -72,9 +72,9 @@ module "lambda" {
     LATEST_VERSION                   = "1.0.0"
     OPENAI_API_KEY                   = "ssm:/${local.project}/${local.environment}/openai-api-key"
     SLACK_WEBHOOK_URL                = "ssm:/${local.project}/${local.environment}/slack-contact-webhook-url"
-    # Neon pooled endpoint は現状 false（direct 接続）。lib/pq が PgBouncer transaction pooling と
-    # 非互換で複数クエリのハンドラが 500 になるため（Issue #281）。pgx 移行後に true 化する。
-    DB_USE_POOLER = "false"
+    # pgx(stdlib) + simple protocol へ移行済み（#292）。server-side prepared statement を
+    # 使わないため PgBouncer transaction pooling と互換。Neon pooled endpoint を有効化する。
+    DB_USE_POOLER = "true"
   }
 
   ssm_parameter_arns = [for name in local.api_ssm_param_names : "${local.ssm_param_arn_prefix}${name}"]
@@ -132,8 +132,8 @@ module "lambda_admin" {
     AWS_LWA_READINESS_CHECK_PROTOCOL = "http"
     AWS_LWA_READINESS_CHECK_PORT     = "8080"
     AWS_LWA_READINESS_CHECK_PATH     = "/health"
-    # lib/pq × PgBouncer 非互換のため現状 false（Issue #281）。pgx 移行後に true 化。
-    DB_USE_POOLER = "false"
+    # pgx + simple protocol へ移行済み（#292）で PgBouncer 互換。pooled endpoint を有効化。
+    DB_USE_POOLER = "true"
   }
 
   ssm_parameter_arns = [for name in local.admin_api_ssm_param_names : "${local.ssm_param_arn_prefix}${name}"]
