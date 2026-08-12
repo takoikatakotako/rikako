@@ -546,12 +546,9 @@ aws lambda delete-function-concurrency \
 cd terraform/environments/dev
 terraform plan
 terraform apply
-
-# Plan/Apply（shared）
-cd terraform/environments/shared
-terraform plan
-terraform apply
 ```
+
+> **Shared（ECR）は別リポジトリ `aws-iac`（`terraform/accounts/shared`）で管理**。このリポジトリでは扱わない。
 
 > **注意**: PRで `terraform/` 配下を変更するとGitHub Actionsで自動的にplanが実行され、結果がPRにコメントされる。
 

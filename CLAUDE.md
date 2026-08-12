@@ -24,7 +24,7 @@ Rikako - 問題集アプリ
   - 管理API: CloudFront + Basic Auth → Lambda Function URL (AWS_IAM + OAC)（`admin.dev.rikako.org/api` / `admin.rikako.org/api`）
 - **画像配信**: S3 + CloudFront (OAC)
 - **コンテンツ配信**: S3 + CloudFront（静的JSON）
-- **コンテナレジストリ**: Amazon ECR (shared環境で管理)
+- **コンテナレジストリ**: Amazon ECR (shared アカウント。IaC は別リポジトリ `aws-iac` で管理)
 - **シークレット管理**: AWS SSM Parameter Store (SecureString)。Lambda 環境変数には `ssm:/path` 形式の参照のみを保存し、アプリ起動時に `app/internal/secrets.Resolve` が実値を取得して `os.Setenv` で展開する
 - **認証（API）**: Amazon Cognito User Pool（JWT検証）+ Cognito Identity Pool（匿名認証）
 - **認証（CI/CD）**: GitHub Actions OIDC
@@ -65,11 +65,9 @@ Rikako - 問題集アプリ
 │   │   ├── cloudfront/     # CloudFrontモジュール
 │   │   ├── cognito/        # Cognito User Poolモジュール
 │   │   ├── cognito_identity/ # Cognito Identity Poolモジュール
-│   │   ├── ecr/            # ECRモジュール
 │   │   ├── lambda/         # Lambdaモジュール
 │   │   └── s3/             # S3モジュール
 │   └── environments/
-│       ├── shared/         # ECR（全環境共有）
 │       ├── dev/            # Dev環境（Lambda + Neon + Image/Content CDN）
 │       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
@@ -224,9 +222,9 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 ### Terraform構成
 
 - **State管理**: 各環境のAWSアカウントにS3バケットで管理（S3ネイティブロック使用）
-- **Shared環境** (AWSアカウント: 579039992557)
-  - ECR（全環境で共有）
-  - リポジトリ: `rikako-api`, `rikako-admin-api`
+- **Shared環境** (AWSアカウント: 579039992557) — **このリポジトリでは管理しない**
+  - ECR（`rikako-api` / `rikako-admin-api`、全環境で共有）は組織横断の IaC リポジトリ `aws-iac`（`terraform/accounts/shared`）で管理。
+  - dev/prod の Lambda は `579039992557.dkr.ecr.ap-northeast-1.amazonaws.com/...` を pull で参照するのみ。CI の push は `rikako-ecr-push` ロール（aws-iac 管理）を使用。
 - **Dev環境** (AWSアカウント: 197865631794) — `apply-terraform-dev.yml` で main push 時に自動 apply
   - Lambda Function（公開API: API Gateway 経由、管理API: Function URL + OAC）
   - Neon PostgreSQL
@@ -271,7 +269,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - 自動 apply 無し、ローカルから `AWS_PROFILE=rikako-production-sso terraform apply` で反映
 
 - **Shared環境** (AWSアカウント: 579039992557)
-  - ECR: `rikako-api` / `rikako-admin-api`
+  - ECR: `rikako-api` / `rikako-admin-api`（IaC は別リポジトリ `aws-iac` で管理）
 
 ### GitHub Actions ワークフロー
 
@@ -286,7 +284,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 3. **plan-terraform.yml** - Terraform Plan CI
    - PRでterraform/以下の変更時に自動実行
-   - shared/devの各環境でplanを実行
+   - dev環境でplanを実行（shared は `aws-iac` リポジトリで管理）
    - tfcmtでPRにplan結果をコメント
 
 4. **apply-terraform-dev.yml** - Dev Terraform 自動 apply
