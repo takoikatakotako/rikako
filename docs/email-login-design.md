@@ -3,7 +3,7 @@
 複数端末・Web で同じ学習記録を閲覧・継続できるよう、Cognito **User Pool** による本ログインを導入する。本書は実装前の設計合意を目的とし、データモデル・API・段階的な実装計画・未決事項をまとめる。
 
 - 対象 Issue: [#283](https://github.com/takoikatakotako/rikako/issues/283)
-- ステータス: **Draft（レビュー中）** — 実装は本書の合意後に着手する
+- ステータス: **Phase 1 着手（2026-08-13）** — `accounts` migration は PR #299。跨ぎ SSO 無し等の方針は確定。5.2 / 5.4 / 5.5 / 5.6 は未決。
 - 関連: [アーキテクチャ](architecture.md) / [iOSアプリ](ios.md) / 既存の機種変引き継ぎ（Transfer / QR）
 
 ---
@@ -63,7 +63,7 @@
 - ログイン端末は、自分の匿名 `users` 行を canonical 行へ**マージ**（`user_answers` などを付け替え）し、以降は canonical 行を使う。
 
 ```sql
--- 20260xxx_add_accounts.up.sql（案）
+-- migrations/20260813_add_accounts.up.sql（PR #299 で追加。実ファイルはインデックスも作成）
 CREATE TABLE accounts (
     id            BIGSERIAL PRIMARY KEY,
     cognito_sub   VARCHAR(255) NOT NULL UNIQUE,   -- User Pool の sub
@@ -176,6 +176,6 @@ iOS/Web とも Amplify を使わず、Cognito の HTTPS API を直叩きする�
 
 ## 7. リスク / 留意
 
-- **DB ドライバは lib/pq、Neon pooler 非互換**（複数クエリで 500）。マージはトランザクション内で複数クエリを流すため、直接エンドポイント接続前提を維持するか pgx 移行（#288）の状況を確認する。
+- **マージはトランザクション内で複数クエリを流す**。旧 lib/pq は Neon pooler 非互換（複数クエリで 500）だったが、**pgx(stdlib) + simple protocol へ移行済み（#292）で dev/prod とも pooled endpoint で安定動作（#293 / #294）**。この懸念は解消済み。
 - 既存の全学習クエリが `user_id` 依存なので、**解決ロジックの一点集約が肝**。ここを誤ると匿名データの取りこぼし/二重計上が起きる。
 - Transfer(QR) とアカウントの二重引き継ぎ経路が並存するため、ユーザー体験の整理（5.4）を UI 文言含めて決める。
