@@ -123,13 +123,13 @@ locals {
 
 resource "aws_cloudwatch_metric_alarm" "public_api_errors" {
   alarm_name          = "${local.project}-${local.environment}-public-api-errors"
-  alarm_description   = "Public API Lambda が 5分間で 5 件以上エラーを出した"
+  alarm_description   = "Public API Lambda が 5分間で 1 件以上エラーを出した"
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"
   period              = 300
   evaluation_periods  = 1
-  threshold           = 5
+  threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   dimensions          = { FunctionName = module.lambda.function_name }
@@ -156,7 +156,7 @@ resource "aws_cloudwatch_metric_alarm" "public_api_throttles" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "public_api_p99_latency" {
-  alarm_name          = "${local.project}-${local.environment}-public-api-p99-latency"
+  alarm_name = "${local.project}-${local.environment}-public-api-p99-latency"
   # AIチャット(OpenAI同期呼び出し)が遅くp99を押し上げるため、当面30秒に緩和して様子見
   alarm_description   = "Public API Lambda の p99 レイテンシが 30 秒を超えた"
   namespace           = "AWS/Lambda"
@@ -213,17 +213,59 @@ resource "aws_cloudwatch_metric_alarm" "admin_api_throttles" {
 
 resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
   alarm_name          = "${local.project}-${local.environment}-api-gateway-5xx"
-  alarm_description   = "API Gateway が 5分間で 5 件以上の 5xx を返した"
+  alarm_description   = "API Gateway が 5分間で 1 件以上の 5xx を返した"
   namespace           = "AWS/ApiGateway"
   metric_name         = "5xx"
   statistic           = "Sum"
   period              = 300
   evaluation_periods  = 1
-  threshold           = 5
+  threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   dimensions          = { ApiId = module.api_gateway.api_id }
   alarm_actions       = local.alarm_actions
   ok_actions          = local.alarm_actions
   tags                = local.alarm_tags
+}
+
+# =============================================================================
+# アプリ ERROR ログ → Slack（CloudWatch Logs サブスクリプション → slack_notifier）
+# =============================================================================
+# アプリの構造化ログ（slog JSON）の level=ERROR 行を slack_notifier へ直送し、本文を Slack に流す。
+# 件数アラーム（AWS/Lambda Errors 等）に依らず、アプリが ERROR を出したら検知できる。
+
+# --- Public API ---
+resource "aws_lambda_permission" "slack_notifier_logs_public" {
+  statement_id   = "AllowExecutionFromCWLogsPublic"
+  action         = "lambda:InvokeFunction"
+  function_name  = aws_lambda_function.slack_notifier.function_name
+  principal      = "logs.${var.region}.amazonaws.com"
+  source_arn     = "${module.lambda.log_group_arn}:*"
+  source_account = data.aws_caller_identity.current.account_id
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "public_api_error_logs" {
+  name            = "${local.project}-${local.environment}-public-api-error-logs"
+  log_group_name  = module.lambda.log_group_name
+  filter_pattern  = "{ $.level = \"ERROR\" }"
+  destination_arn = aws_lambda_function.slack_notifier.arn
+  depends_on      = [aws_lambda_permission.slack_notifier_logs_public]
+}
+
+# --- Admin API ---
+resource "aws_lambda_permission" "slack_notifier_logs_admin" {
+  statement_id   = "AllowExecutionFromCWLogsAdmin"
+  action         = "lambda:InvokeFunction"
+  function_name  = aws_lambda_function.slack_notifier.function_name
+  principal      = "logs.${var.region}.amazonaws.com"
+  source_arn     = "${module.lambda_admin.log_group_arn}:*"
+  source_account = data.aws_caller_identity.current.account_id
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "admin_api_error_logs" {
+  name            = "${local.project}-${local.environment}-admin-api-error-logs"
+  log_group_name  = module.lambda_admin.log_group_name
+  filter_pattern  = "{ $.level = \"ERROR\" }"
+  destination_arn = aws_lambda_function.slack_notifier.arn
+  depends_on      = [aws_lambda_permission.slack_notifier_logs_admin]
 }
