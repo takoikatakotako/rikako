@@ -170,21 +170,15 @@ docker run --rm \
   - 管理画面: https://admin.rikako.org/
   - Image CDN: https://image.rikako.org/
   - Content CDN: https://content.rikako.org/
-- **Shared環境** (AWSアカウント: 579039992557): ECR (`rikako-api`, `rikako-admin-api`)
+- **Shared環境** (AWSアカウント: 579039992557): ECR (`rikako-api`, `rikako-admin-api`)。IaC は別リポジトリ `aws-iac` で管理（このリポジトリでは扱わない）
 
 ### 初回セットアップ
 
 #### 1. Terraform State管理用S3バケットの作成
 
-各環境のAWSアカウントにS3バケットを作成します：
+各環境のAWSアカウントにS3バケットを作成します（shared は `aws-iac` リポジトリ側で管理）：
 
 ```bash
-# Shared環境（579039992557）
-aws s3api create-bucket \
-  --bucket rikako-terraform-state \
-  --region ap-northeast-1 \
-  --create-bucket-configuration LocationConstraint=ap-northeast-1
-
 # Dev環境（197865631794）
 aws s3api create-bucket \
   --bucket rikako-dev-terraform-state \
@@ -227,15 +221,9 @@ aws ssm put-parameter --name "/rikako/development/slack-alert-webhook-url" \
 
 > GitHub SecretsへのAWSキー登録は不要です（OIDC認証を使用）。
 
-#### 4. Shared環境のデプロイ（ECR）
+> **Shared環境（ECR）はこのリポジトリでは管理しない**。組織横断の IaC リポジトリ `aws-iac`（`terraform/accounts/shared`）で管理する。dev/prod は ECR を pull で参照するのみ。
 
-```bash
-cd terraform/environments/shared
-terraform init
-terraform apply
-```
-
-#### 5. Dev環境のデプロイ
+#### 4. Dev環境のデプロイ
 
 ```bash
 cd terraform/environments/dev
@@ -243,7 +231,7 @@ AWS_PROFILE=rikako-development-sso terraform init
 AWS_PROFILE=rikako-development-sso terraform apply
 ```
 
-#### 6. Prod環境のデプロイ（手動のみ）
+#### 5. Prod環境のデプロイ（手動のみ）
 
 ```bash
 cd terraform/environments/prod
@@ -300,11 +288,6 @@ terraform output admin_function_url     # 管理APIの Function URL（CloudFront
 cd terraform/environments/dev
 terraform destroy
 
-# Shared環境の削除
-cd terraform/environments/shared
-terraform destroy
-
 # S3バケットの削除（必要に応じて）
 aws s3 rb s3://rikako-dev-terraform-state --force
-aws s3 rb s3://rikako-terraform-state --force
 ```

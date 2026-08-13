@@ -18,10 +18,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: shared
-            working_directory: terraform/environments/shared
-            aws_account_id: "579039992557"
-            role_name: rikako-shared-github-actions
           - environment: dev
             working_directory: terraform/environments/dev
             aws_account_id: "197865631794"
