@@ -13,6 +13,7 @@ import (
 )
 
 type Handler struct {
+	db               *sql.DB
 	queries          *db.Queries
 	imageBaseURL     string
 	minimumVersion   string
@@ -25,6 +26,7 @@ type Handler struct {
 
 func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider, openaiClient *openai.Client, slackWebhookURL string) *Handler {
 	return &Handler{
+		db:               d,
 		queries:          db.New(d),
 		imageBaseURL:     imageBaseURL,
 		minimumVersion:   minimumVersion,
@@ -118,7 +120,7 @@ func buildQuestionsFromRows(rows []questionWithChoicesRow) []api.Question {
 		qd := qmap[id]
 		q := api.Question{
 			Id:      qd.id,
-			Type:    api.SingleChoice,
+			Type:    api.QuestionTypeSingleChoice,
 			Text:    qd.text,
 			Choices: qd.choices,
 			Correct: &qd.correct,
@@ -180,7 +182,7 @@ func (h *Handler) buildQuestion(ctx context.Context, id int64, text string, expl
 
 	q := api.Question{
 		Id:      id,
-		Type:    api.SingleChoice,
+		Type:    api.QuestionTypeSingleChoice,
 		Text:    text,
 		Choices: choices,
 		Correct: &correct,

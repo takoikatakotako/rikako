@@ -743,6 +743,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /account/link:
+    post:
+      summary: 匿名データをアカウントへ紐付け・マージ
+      description: >-
+        Cognito User Pool でログイン後に呼ぶ。JWT の sub からアカウントを解決（無ければ作成）し、
+        X-Device-ID の匿名ユーザーの学習データを canonical user へマージする。冪等。
+      operationId: linkAccount
+      tags:
+        - Account
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkAccountRequest'
+      responses:
+        '200':
+          description: 紐付け成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 指定した端末が別のアカウントに紐付いている
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   parameters:
     DeviceID:
@@ -1354,3 +1397,23 @@ components:
         message:
           type: string
           description: 人間可読なエラーメッセージ
+
+    LinkAccountRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          description: 表示用メールアドレス（任意。正は Cognito 側）
+
+    AccountResponse:
+      type: object
+      required:
+        - accountId
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          description: アカウントID
+        email:
+          type: string
+          description: 表示用メールアドレス
