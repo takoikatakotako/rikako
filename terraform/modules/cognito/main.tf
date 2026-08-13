@@ -34,6 +34,10 @@ resource "aws_cognito_user_pool_client" "main" {
   # モバイル/SPA用（シークレットなし）
   generate_secret = false
 
+  # ユーザー不存在を認証・パスワード回復の応答差から悟らせない（メアド列挙対策）。
+  # 直接パスワード認証を持つネット配布クライアントのため ENABLED を明示（#283）。
+  prevent_user_existence_errors = "ENABLED"
+
   # 認証フロー
   # - USER_SRP_AUTH: SRP（将来利用）
   # - USER_PASSWORD_AUTH: email+password を TLS でそのまま送る。Amplify 非依存で
