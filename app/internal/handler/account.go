@@ -41,6 +41,7 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 		h.logger.Error(msg, "error", err)
 		return api.LinkAccount500JSONResponse{Code: "INTERNAL_ERROR", Message: "failed to link account"}, nil
 	}
+	conflict := api.LinkAccount409JSONResponse{Code: "DEVICE_ALREADY_LINKED", Message: "device is linked to another account"}
 
 	tx, err := h.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -59,28 +60,39 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 		return fail("failed to lock device user", err)
 	}
 
-	// sub のアカウントを解決（無ければ並行安全に作成）。
 	acct, err := q.GetAccountByCognitoSub(ctx, sub)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
+	accountExists := err == nil
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fail("failed to get account", err)
+	}
+
+	// 端末が既にどこかのアカウントに紐付いている場合。
+	// （所有証明のない X-Device-ID で他アカウントのデータを移動＝横取りを防ぐ。CreateAccount 前に判定する。）
+	if deviceAccountID.Valid {
+		if accountExists && deviceAccountID.Int64 == acct.ID {
+			// 既にこのアカウントに紐付いている → 冪等 no-op。
+			return commitLink(tx, acct.ID, acct.Email)
+		}
+		return conflict, nil
+	}
+
+	// 端末は未リンク。アカウントが無ければ並行安全に作成（この端末が primary）。
+	if !accountExists {
 		created, cerr := q.CreateAccountIfNotExists(ctx, db.CreateAccountIfNotExistsParams{
 			CognitoSub:    sub,
 			Email:         email,
 			PrimaryUserID: deviceUserID,
 		})
-		if errors.Is(cerr, sql.ErrNoRows) {
+		switch {
+		case errors.Is(cerr, sql.ErrNoRows):
 			// 並行初回リンクで負けた側: 既存アカウントを再取得してマージ経路へ。
 			acct, err = q.GetAccountByCognitoSub(ctx, sub)
 			if err != nil {
 				return fail("failed to refetch account after conflict", err)
 			}
-		} else if cerr != nil {
+		case cerr != nil:
 			return fail("failed to create account", cerr)
-		} else {
-			// 新規作成: この端末が primary。ただし端末が既に別アカウントに紐付いていたら横取りになるため拒否。
-			if deviceAccountID.Valid && deviceAccountID.Int64 != created.ID {
-				return api.LinkAccount409JSONResponse{Code: "DEVICE_ALREADY_LINKED", Message: "device is linked to another account"}, nil
-			}
+		default:
 			if serr := q.SetUserAccountID(ctx, db.SetUserAccountIDParams{
 				AccountID: sql.NullInt64{Int64: created.ID, Valid: true},
 				ID:        deviceUserID,
@@ -89,18 +101,10 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 			}
 			return commitLink(tx, created.ID, created.Email)
 		}
-	case err != nil:
-		return fail("failed to get account", err)
 	}
 
-	// ここに来るのは「既存アカウント」経路（新規作成は上で return 済み）。
-	// 端末が別アカウントに紐付いていたら拒否（横取り防止）。
-	if deviceAccountID.Valid && deviceAccountID.Int64 != acct.ID {
-		return api.LinkAccount409JSONResponse{Code: "DEVICE_ALREADY_LINKED", Message: "device is linked to another account"}, nil
-	}
-
-	// 端末が未リンク かつ primary と異なる場合のみマージ（冪等: 既にこのアカウントなら no-op）。
-	if !deviceAccountID.Valid && deviceUserID != acct.PrimaryUserID {
+	// 既存アカウント + 未リンク端末 → primary へマージ（deviceUser == primary なら no-op＝冪等）。
+	if deviceUserID != acct.PrimaryUserID {
 		if merr := q.RepointUserAnswersToUser(ctx, db.RepointUserAnswersToUserParams{
 			Dst: acct.PrimaryUserID,
 			Src: deviceUserID,
