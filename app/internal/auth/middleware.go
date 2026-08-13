@@ -64,29 +64,31 @@ func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer string) strict
 		return provider.GetKey(kid)
 	}
 
-	// validateSub は Authorization ヘッダの Bearer トークンを検証し sub を返す。
-	// 検証できなければ ok=false（エラーは返さない）。
-	validateSub := func(authHeader string) (string, bool) {
+	// parseSub は Authorization ヘッダを解釈する。
+	//   present=false            : ヘッダ無し（匿名）
+	//   present=true, err==nil   : 有効なトークン。sub を返す
+	//   present=true, err!=nil   : ヘッダはあるが無効（期限切れ・署名不正・issuer不一致・形式不正）
+	parseSub := func(authHeader string) (sub string, present bool, err error) {
 		if authHeader == "" {
-			return "", false
+			return "", false, nil
 		}
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			return "", false
+			return "", true, fmt.Errorf("invalid authorization header format")
 		}
-		token, err := jwt.Parse(parts[1], keyFunc, jwt.WithIssuer(issuer))
-		if err != nil || !token.Valid {
-			return "", false
+		token, perr := jwt.Parse(parts[1], keyFunc, jwt.WithIssuer(issuer))
+		if perr != nil || !token.Valid {
+			return "", true, fmt.Errorf("invalid token")
 		}
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			return "", false
+			return "", true, fmt.Errorf("invalid token claims")
 		}
-		sub, ok := claims["sub"].(string)
-		if !ok || sub == "" {
-			return "", false
+		s, ok := claims["sub"].(string)
+		if !ok || s == "" {
+			return "", true, fmt.Errorf("missing sub claim")
 		}
-		return sub, true
+		return s, true, nil
 	}
 
 	setSub := func(ctx echo.Context, sub string) {
@@ -96,19 +98,23 @@ func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer string) strict
 
 	return func(f strictecho.StrictEchoHandlerFunc, operationID string) strictecho.StrictEchoHandlerFunc {
 		return func(ctx echo.Context, request interface{}) (interface{}, error) {
-			sub, ok := validateSub(ctx.Request().Header.Get("Authorization"))
+			sub, present, err := parseSub(ctx.Request().Header.Get("Authorization"))
 
-			// 公開オペレーションは best-effort 認証: 有効なトークンがあれば sub を積む
-			// （無ければ従来どおり匿名 X-Device-ID で解決される）。
 			if publicOperations[operationID] {
-				if ok {
-					setSub(ctx, sub)
+				// ヘッダ無しは匿名で許可。ただしヘッダがあって無効なら 401（期限切れトークンで
+				// 静かに匿名フォールバックし、書き込み先が account→device に切り替わるのを防ぐ）。
+				if !present {
+					return f(ctx, request)
 				}
+				if err != nil {
+					return nil, echo.NewHTTPError(401, "invalid token")
+				}
+				setSub(ctx, sub)
 				return f(ctx, request)
 			}
 
 			// 認証必須オペレーション。
-			if !ok {
+			if !present || err != nil {
 				return nil, echo.NewHTTPError(401, "invalid or missing token")
 			}
 			setSub(ctx, sub)
