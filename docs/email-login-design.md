@@ -63,21 +63,24 @@
 - ログイン端末は、自分の匿名 `users` 行を canonical 行へ**マージ**（`user_answers` などを付け替え）し、以降は canonical 行を使う。
 
 ```sql
--- migrations/20260813_add_accounts.up.sql（PR #299 で追加。実ファイルはインデックスも作成）
+-- migrations/20260813_add_accounts.up.sql（PR #299）
 CREATE TABLE accounts (
     id            BIGSERIAL PRIMARY KEY,
     cognito_sub   VARCHAR(255) NOT NULL UNIQUE,   -- User Pool の sub
     email         VARCHAR(255),                    -- 表示用（正は Cognito 側）
     primary_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT, -- canonical users 行
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- users にアカウント紐付けを追加（NULL = 匿名のまま）
+-- 「1 account = 1 canonical users 行」（認可境界）を UNIQUE 制約で担保
+CREATE UNIQUE INDEX idx_accounts_primary_user_id ON accounts(primary_user_id);
+
+-- users にアカウント紐付けを追加（NULL = 匿名のまま。複数 users を 1 account に束ねるので非 UNIQUE）
 ALTER TABLE users ADD COLUMN account_id BIGINT REFERENCES accounts(id) ON DELETE SET NULL;
 ```
 
-> `email` は表示用の非正規コピー。認証・変更の正は Cognito。
+> `email` は表示用の非正規コピー。認証・変更の正は Cognito。`primary_user_id` は UNIQUE（1 account = 1 canonical user、認可境界）。`updated_at` は自動更新されないため、更新クエリで明示的に `updated_at = CURRENT_TIMESTAMP` を設定する。
 
 ### 3.2 解決ロジック（サーバー）
 
