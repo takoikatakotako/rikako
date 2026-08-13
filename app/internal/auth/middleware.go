@@ -53,59 +53,65 @@ func NewAuthMiddleware(region, userPoolID string) strictecho.StrictEchoMiddlewar
 }
 
 func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer string) strictecho.StrictEchoMiddlewareFunc {
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing kid in token header")
+		}
+		return provider.GetKey(kid)
+	}
+
+	// validateSub は Authorization ヘッダの Bearer トークンを検証し sub を返す。
+	// 検証できなければ ok=false（エラーは返さない）。
+	validateSub := func(authHeader string) (string, bool) {
+		if authHeader == "" {
+			return "", false
+		}
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			return "", false
+		}
+		token, err := jwt.Parse(parts[1], keyFunc, jwt.WithIssuer(issuer))
+		if err != nil || !token.Valid {
+			return "", false
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return "", false
+		}
+		sub, ok := claims["sub"].(string)
+		if !ok || sub == "" {
+			return "", false
+		}
+		return sub, true
+	}
+
+	setSub := func(ctx echo.Context, sub string) {
+		reqCtx := context.WithValue(ctx.Request().Context(), UserSubContextKey, sub)
+		ctx.SetRequest(ctx.Request().WithContext(reqCtx))
+	}
+
 	return func(f strictecho.StrictEchoHandlerFunc, operationID string) strictecho.StrictEchoHandlerFunc {
 		return func(ctx echo.Context, request interface{}) (interface{}, error) {
-			// Skip authentication for public operations
+			sub, ok := validateSub(ctx.Request().Header.Get("Authorization"))
+
+			// 公開オペレーションは best-effort 認証: 有効なトークンがあれば sub を積む
+			// （無ければ従来どおり匿名 X-Device-ID で解決される）。
 			if publicOperations[operationID] {
+				if ok {
+					setSub(ctx, sub)
+				}
 				return f(ctx, request)
 			}
 
-			// Extract token from Authorization header
-			authHeader := ctx.Request().Header.Get("Authorization")
-			if authHeader == "" {
-				return nil, echo.NewHTTPError(401, "missing authorization header")
-			}
-
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-				return nil, echo.NewHTTPError(401, "invalid authorization header format")
-			}
-			tokenString := parts[1]
-
-			// Parse and validate the JWT
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				// Verify signing method
-				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-				}
-
-				kid, ok := token.Header["kid"].(string)
-				if !ok {
-					return nil, fmt.Errorf("missing kid in token header")
-				}
-
-				return provider.GetKey(kid)
-			}, jwt.WithIssuer(issuer))
-
-			if err != nil || !token.Valid {
-				return nil, echo.NewHTTPError(401, "invalid token")
-			}
-
-			// Extract user sub and set in context
-			claims, ok := token.Claims.(jwt.MapClaims)
+			// 認証必須オペレーション。
 			if !ok {
-				return nil, echo.NewHTTPError(401, "invalid token claims")
+				return nil, echo.NewHTTPError(401, "invalid or missing token")
 			}
-
-			sub, ok := claims["sub"].(string)
-			if !ok {
-				return nil, echo.NewHTTPError(401, "missing sub claim")
-			}
-
-			// Store user sub in request context
-			reqCtx := context.WithValue(ctx.Request().Context(), UserSubContextKey, sub)
-			ctx.SetRequest(ctx.Request().WithContext(reqCtx))
-
+			setSub(ctx, sub)
 			return f(ctx, request)
 		}
 	}

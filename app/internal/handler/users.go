@@ -18,13 +18,13 @@ func (h *Handler) GetUserProfile(ctx context.Context, request api.GetUserProfile
 		return api.GetUserProfile400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-App-Slug is required"}, nil
 	}
 
-	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
-	if err == sql.ErrNoRows {
-		return api.GetUserProfile200JSONResponse{IdentityId: deviceID}, nil
-	}
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
+	}
+	if !found {
+		return api.GetUserProfile200JSONResponse{IdentityId: deviceID}, nil
 	}
 
 	profile, err := h.queries.GetUserProfile(ctx, userID)
@@ -83,10 +83,10 @@ func (h *Handler) UpdateUserProfile(ctx context.Context, request api.UpdateUserP
 		return api.UpdateUserProfile400JSONResponse{Code: "INVALID_PARAMETER", Message: "request body is required"}, nil
 	}
 
-	// Upsert user
-	userID, err := h.queries.UpsertUser(ctx, deviceID)
+	// ログイン中はアカウントの primary user、そうでなければ device の user を解決。
+	userID, err := h.resolveUserIDForWrite(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to upsert user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
 	}
 
