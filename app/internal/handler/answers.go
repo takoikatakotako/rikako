@@ -311,7 +311,7 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 	for i, q := range questions {
 		wrongAnswerQuestions[i] = api.WrongAnswerQuestion{
 			Id:          q.Id,
-			Type:        q.Type,
+			Type:        api.WrongAnswerQuestionType(q.Type),
 			Text:        q.Text,
 			Choices:     q.Choices,
 			Correct:     q.Correct,

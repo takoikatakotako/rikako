@@ -6,7 +6,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -39,17 +41,41 @@ func (e ChatMessageRole) Valid() bool {
 
 // Defines values for QuestionType.
 const (
-	SingleChoice QuestionType = "single_choice"
+	QuestionTypeSingleChoice QuestionType = "single_choice"
 )
 
 // Valid indicates whether the value is a known member of the QuestionType enum.
 func (e QuestionType) Valid() bool {
 	switch e {
-	case SingleChoice:
+	case QuestionTypeSingleChoice:
 		return true
 	default:
 		return false
 	}
+}
+
+// Defines values for WrongAnswerQuestionType.
+const (
+	WrongAnswerQuestionTypeSingleChoice WrongAnswerQuestionType = "single_choice"
+)
+
+// Valid indicates whether the value is a known member of the WrongAnswerQuestionType enum.
+func (e WrongAnswerQuestionType) Valid() bool {
+	switch e {
+	case WrongAnswerQuestionTypeSingleChoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccountResponse defines model for AccountResponse.
+type AccountResponse struct {
+	// AccountId アカウントID
+	AccountId int64 `json:"accountId"`
+
+	// Email 表示用メールアドレス
+	Email *string `json:"email,omitempty"`
 }
 
 // Announcement defines model for Announcement.
@@ -225,6 +251,12 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
+// LinkAccountRequest defines model for LinkAccountRequest.
+type LinkAccountRequest struct {
+	// Email 表示用メールアドレス（任意。正は Cognito 側）
+	Email *string `json:"email,omitempty"`
+}
+
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
 	Message string `json:"message"`
@@ -351,17 +383,18 @@ type WrongAnswerQuestion struct {
 	Correct *int `json:"correct,omitempty"`
 
 	// Explanation 解説
-	Explanation *string `json:"explanation,omitempty"`
-	Id          int64   `json:"id"`
-
-	// Images 画像URL
-	Images *[]string    `json:"images,omitempty"`
-	Text   string       `json:"text"`
-	Type   QuestionType `json:"type"`
+	Explanation *string                 `json:"explanation,omitempty"`
+	Id          int64                   `json:"id"`
+	Images      *[]string               `json:"images,omitempty"`
+	Text        string                  `json:"text"`
+	Type        WrongAnswerQuestionType `json:"type"`
 
 	// WorkbookId この問題を最後に回答した問題集のID
 	WorkbookId int64 `json:"workbookId"`
 }
+
+// WrongAnswerQuestionType defines model for WrongAnswerQuestion.Type.
+type WrongAnswerQuestionType string
 
 // WrongAnswersResponse defines model for WrongAnswersResponse.
 type WrongAnswersResponse struct {
@@ -371,6 +404,12 @@ type WrongAnswersResponse struct {
 
 // DeviceID defines model for DeviceID.
 type DeviceID = string
+
+// LinkAccountParams defines parameters for LinkAccount.
+type LinkAccountParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
 
 // SubmitAnswersParams defines parameters for SubmitAnswers.
 type SubmitAnswersParams struct {
@@ -478,6 +517,9 @@ type GetWorkbooksParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// LinkAccountJSONRequestBody defines body for LinkAccount for application/json ContentType.
+type LinkAccountJSONRequestBody = LinkAccountRequest
+
 // SubmitAnswersJSONRequestBody defines body for SubmitAnswers for application/json ContentType.
 type SubmitAnswersJSONRequestBody = SubmitAnswersRequest
 
@@ -498,6 +540,9 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// 匿名データをアカウントへ紐付け・マージ
+	// (POST /account/link)
+	LinkAccount(ctx echo.Context, params LinkAccountParams) error
 	// お知らせ一覧取得
 	// (GET /announcements)
 	GetAnnouncements(ctx echo.Context) error
@@ -586,6 +631,39 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// LinkAccount converts echo context to params.
+func (w *ServerInterfaceWrapper) LinkAccount(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LinkAccountParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.LinkAccount(ctx, params)
 	return err
 }
 
@@ -1287,6 +1365,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.POST(baseURL+"/account/link", wrapper.LinkAccount)
 	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
 	router.GET(baseURL+"/announcements/:announcementId", wrapper.GetAnnouncement)
 	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
@@ -1327,6 +1406,42 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LinkAccountRequestObject struct {
+	Params LinkAccountParams
+	Body   *LinkAccountJSONRequestBody
+}
+
+type LinkAccountResponseObject interface {
+	VisitLinkAccountResponse(w http.ResponseWriter) error
+}
+
+type LinkAccount200JSONResponse AccountResponse
+
+func (response LinkAccount200JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LinkAccount401JSONResponse Error
+
+func (response LinkAccount401JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LinkAccount500JSONResponse Error
+
+func (response LinkAccount500JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2022,6 +2137,9 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// 匿名データをアカウントへ紐付け・マージ
+	// (POST /account/link)
+	LinkAccount(ctx context.Context, request LinkAccountRequestObject) (LinkAccountResponseObject, error)
 	// お知らせ一覧取得
 	// (GET /announcements)
 	GetAnnouncements(ctx context.Context, request GetAnnouncementsRequestObject) (GetAnnouncementsResponseObject, error)
@@ -2128,6 +2246,40 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LinkAccount operation middleware
+func (sh *strictHandler) LinkAccount(ctx echo.Context, params LinkAccountParams) error {
+	var request LinkAccountRequestObject
+
+	request.Params = params
+
+	var body LinkAccountJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return err
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkAccount(ctx.Request().Context(), request.(LinkAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkAccount")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LinkAccountResponseObject); ok {
+		return validResponse.VisitLinkAccountResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

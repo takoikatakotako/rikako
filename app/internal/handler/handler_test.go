@@ -104,7 +104,7 @@ func TestGetQuestions(t *testing.T) {
 		if len(q.Choices) == 0 {
 			t.Error("expected choices to be non-empty")
 		}
-		if q.Type != api.SingleChoice {
+		if q.Type != api.QuestionTypeSingleChoice {
 			t.Errorf("expected type 'single_choice', got '%s'", q.Type)
 		}
 	})

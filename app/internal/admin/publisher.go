@@ -269,7 +269,7 @@ func (h *Handler) buildWorkbookDetail(ctx context.Context, workbookID int64) (ap
 		if !exists {
 			q := api.Question{
 				Id:   row.ID,
-				Type: api.SingleChoice,
+				Type: api.QuestionTypeSingleChoice,
 				Text: row.Text,
 			}
 			if row.Explanation.Valid {
