@@ -108,6 +108,57 @@ func TestPublicOperationsPassWithoutToken(t *testing.T) {
 	}
 }
 
+// 公開オペレーションでも有効なトークンがあれば sub を context に積む。
+func TestPublicOperationWithValidTokenSetsSub(t *testing.T) {
+	privateKey, issuer, mw, jwksServer := createMiddleware(t)
+	defer jwksServer.Close()
+
+	token := createTestToken(privateKey, issuer, "pub-user-1")
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/questions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	handler := mw(stubHandler, "GetQuestions")
+	result, err := handler(ctx, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if result != "ok" {
+		t.Fatalf("expected 'ok', got: %v", result)
+	}
+	if sub := ctx.Request().Context().Value(UserSubContextKey); sub != "pub-user-1" {
+		t.Fatalf("expected sub 'pub-user-1' set for public op with valid token, got: %v", sub)
+	}
+}
+
+// 公開オペレーションでも「ヘッダはあるが無効」なトークンは 401（静かな匿名フォールバックを防ぐ）。
+func TestPublicOperationWithInvalidTokenReturns401(t *testing.T) {
+	_, _, mw, jwksServer := createMiddleware(t)
+	defer jwksServer.Close()
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/questions", nil)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	handler := mw(stubHandler, "GetQuestions")
+	_, err := handler(ctx, nil)
+	if err == nil {
+		t.Fatal("expected 401 for public operation with invalid token")
+	}
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok {
+		t.Fatalf("expected echo.HTTPError, got: %T", err)
+	}
+	if httpErr.Code != 401 {
+		t.Fatalf("expected 401, got: %d", httpErr.Code)
+	}
+}
+
 func TestProtectedOperationWithoutToken(t *testing.T) {
 	_, _, mw, jwksServer := createMiddleware(t)
 	defer jwksServer.Close()

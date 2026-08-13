@@ -19,10 +19,10 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 		return api.SubmitAnswers400JSONResponse{Code: "INVALID_PARAMETER", Message: "answers are required"}, nil
 	}
 
-	// Upsert user
-	userID, err := h.queries.UpsertUser(ctx, deviceID)
+	// ログイン中はアカウントの primary user、そうでなければ device の user を解決。
+	userID, err := h.resolveUserIDForWrite(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to upsert user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
 	}
 
@@ -89,13 +89,13 @@ func (h *Handler) GetWorkbookProgress(ctx context.Context, request api.GetWorkbo
 		return api.GetWorkbookProgress400JSONResponse{Code: "INVALID_PARAMETER", Message: "workbook_id is required"}, nil
 	}
 
-	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
-	if err == sql.ErrNoRows {
-		return api.GetWorkbookProgress200JSONResponse{Results: []api.QuestionProgressItem{}}, nil
-	}
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
+	}
+	if !found {
+		return api.GetWorkbookProgress200JSONResponse{Results: []api.QuestionProgressItem{}}, nil
 	}
 
 	rows, err := h.queries.ListWorkbookProgress(ctx, db.ListWorkbookProgressParams{
@@ -124,17 +124,17 @@ func (h *Handler) GetUserSummary(ctx context.Context, request api.GetUserSummary
 		return api.GetUserSummary400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
 	}
 
-	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
-	if err == sql.ErrNoRows {
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if err != nil {
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+	if !found {
 		return api.GetUserSummary200JSONResponse{
 			TotalAnswered: 0, TotalCorrect: 0,
 			WeeklyAnswered: 0, WeeklyCorrect: 0,
 			StudyDates: []string{}, WeeklyWorkbookIds: []int64{},
 		}, nil
-	}
-	if err != nil {
-		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
-		return nil, err
 	}
 
 	weekStart := isoWeekStart(time.Now())
@@ -212,13 +212,13 @@ func (h *Handler) GetAnswerLogs(ctx context.Context, request api.GetAnswerLogsRe
 		return api.GetAnswerLogs400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
-	if err == sql.ErrNoRows {
-		return api.GetAnswerLogs200JSONResponse{Logs: []api.AnswerLogItem{}, Total: 0}, nil
-	}
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
+	}
+	if !found {
+		return api.GetAnswerLogs200JSONResponse{Logs: []api.AnswerLogItem{}, Total: 0}, nil
 	}
 
 	total, err := h.queries.CountUserAnswerLogs(ctx, userID)
@@ -265,13 +265,13 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 		return api.GetWrongAnswers400JSONResponse{Code: "INVALID_PARAMETER", Message: err.Error()}, nil
 	}
 
-	userID, err := h.queries.GetUserByIdentityID(ctx, deviceID)
-	if err == sql.ErrNoRows {
-		return api.GetWrongAnswers200JSONResponse{Questions: []api.WrongAnswerQuestion{}, Total: 0}, nil
-	}
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
 	if err != nil {
-		h.logger.Error("failed to get user", "error", err, "device_id", deviceID)
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
+	}
+	if !found {
+		return api.GetWrongAnswers200JSONResponse{Questions: []api.WrongAnswerQuestion{}, Total: 0}, nil
 	}
 
 	total, err := h.queries.CountWrongAnswers(ctx, userID)

@@ -267,6 +267,60 @@ func TestLinkAccount_ConcurrentFirstLink(t *testing.T) {
 	}
 }
 
+// ログイン中（JWT sub あり）は別の未リンク端末からでも account の primary データが見える。
+// 未ログインの未リンク端末では空になる（＝解決が account 優先で端末に依らない）。
+func TestResolveUserID_AccountAcrossDevices(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("resolve-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1 := prefix + "-dev1"
+	dev2 := prefix + "-dev2"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM user_answers WHERE user_id IN (SELECT id FROM users WHERE identity_id LIKE $1)`, prefix+"%")
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	linkAccount(t, h, sub, dev1)
+	primary := userIDByIdentity(t, dev1)
+	if _, err := testDB.Exec(
+		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
+		 VALUES ($1, 1, 1, 0, true)`, primary); err != nil {
+		t.Fatalf("insert answer: %v", err)
+	}
+
+	// (1) ログイン中 + 別の未リンク端末 dev2 → account primary のデータが見える。
+	resp, err := h.GetUserSummary(ctxWithSub(sub), api.GetUserSummaryRequestObject{
+		Params: api.GetUserSummaryParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetUserSummary(logged in): %v", err)
+	}
+	s, ok := resp.(api.GetUserSummary200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	if s.TotalAnswered < 1 {
+		t.Errorf("logged-in summary TotalAnswered=%d; want >=1 (account primary data)", s.TotalAnswered)
+	}
+
+	// (2) 未ログイン + dev2(未リンク) → 空。
+	resp2, err := h.GetUserSummary(context.Background(), api.GetUserSummaryRequestObject{
+		Params: api.GetUserSummaryParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetUserSummary(anon): %v", err)
+	}
+	s2, ok := resp2.(api.GetUserSummary200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp2)
+	}
+	if s2.TotalAnswered != 0 {
+		t.Errorf("anon dev2 summary TotalAnswered=%d; want 0", s2.TotalAnswered)
+	}
+}
+
 func TestLinkAccount_MissingSub(t *testing.T) {
 	h := newTestHandler()
 	resp, err := h.LinkAccount(context.Background(), api.LinkAccountRequestObject{
