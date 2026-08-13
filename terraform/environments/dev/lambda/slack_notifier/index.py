@@ -1,4 +1,6 @@
-"""CloudWatch アラームの SNS 通知を Slack Incoming Webhook へ転送する。"""
+"""CloudWatch アラームの SNS 通知、および ERROR ログ（CloudWatch Logs サブスクリプション）を Slack Incoming Webhook へ転送する。"""
+import base64
+import gzip
 import json
 import os
 import urllib.request
@@ -24,7 +26,30 @@ def _resolve_ssm(env_name: str) -> str:
 WEBHOOK_URL = _resolve_ssm("SLACK_WEBHOOK_URL")
 
 
+# Slack の 1 メッセージ上限は大きいが、payload が過大だと拒否されるため上限を設ける。
+# panic のスタックトレース等の長いログも極力残すよう緩めに設定。
+MAX_LOG_LEN = 8000
+
+
 def handler(event, _context):
+    # CloudWatch Logs サブスクリプション（ERROR ログ直送）か、SNS（CloudWatch アラーム）かで分岐。
+    if "awslogs" in event:
+        handle_logs(event)
+        return
+    handle_sns(event)
+
+
+def handle_logs(event) -> None:
+    payload = json.loads(gzip.decompress(base64.b64decode(event["awslogs"]["data"])))
+    if payload.get("messageType") != "DATA_MESSAGE":
+        return  # CONTROL_MESSAGE（購読確認）や空イベントは無視
+    log_group = payload.get("logGroup", "")
+    for e in payload.get("logEvents", []):
+        message = str(e.get("message", ""))[:MAX_LOG_LEN]
+        post_to_slack(f":rotating_light: *{log_group}*\n```{message}```")
+
+
+def handle_sns(event) -> None:
     for record in event.get("Records", []):
         sns = record.get("Sns", {})
         raw = sns.get("Message", "")

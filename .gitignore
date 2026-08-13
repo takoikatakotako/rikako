@@ -39,3 +39,7 @@ ios/build/
 
 # Firebase CLI のデバッグログ
 firebase-debug.log
+
+# Python
+__pycache__/
+*.pyc
