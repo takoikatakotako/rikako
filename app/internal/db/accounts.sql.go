@@ -10,28 +10,31 @@ import (
 	"database/sql"
 )
 
-const createAccount = `-- name: CreateAccount :one
+const createAccountIfNotExists = `-- name: CreateAccountIfNotExists :one
 INSERT INTO accounts (cognito_sub, email, primary_user_id)
 VALUES ($1, $2, $3)
+ON CONFLICT (cognito_sub) DO NOTHING
 RETURNING id, cognito_sub, email, primary_user_id
 `
 
-type CreateAccountParams struct {
+type CreateAccountIfNotExistsParams struct {
 	CognitoSub    string         `json:"cognito_sub"`
 	Email         sql.NullString `json:"email"`
 	PrimaryUserID int64          `json:"primary_user_id"`
 }
 
-type CreateAccountRow struct {
+type CreateAccountIfNotExistsRow struct {
 	ID            int64          `json:"id"`
 	CognitoSub    string         `json:"cognito_sub"`
 	Email         sql.NullString `json:"email"`
 	PrimaryUserID int64          `json:"primary_user_id"`
 }
 
-func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error) {
-	row := q.db.QueryRowContext(ctx, createAccount, arg.CognitoSub, arg.Email, arg.PrimaryUserID)
-	var i CreateAccountRow
+// 同一 sub の並行初回リンクに耐えるため ON CONFLICT DO NOTHING。
+// 競合した側は行が返らない（sql.ErrNoRows）ので、呼び出し側が再取得してマージ経路へ進む。
+func (q *Queries) CreateAccountIfNotExists(ctx context.Context, arg CreateAccountIfNotExistsParams) (CreateAccountIfNotExistsRow, error) {
+	row := q.db.QueryRowContext(ctx, createAccountIfNotExists, arg.CognitoSub, arg.Email, arg.PrimaryUserID)
+	var i CreateAccountIfNotExistsRow
 	err := row.Scan(
 		&i.ID,
 		&i.CognitoSub,
@@ -71,6 +74,18 @@ func (q *Queries) GetAccountByCognitoSub(ctx context.Context, cognitoSub string)
 		&i.PrimaryUserID,
 	)
 	return i, err
+}
+
+const getUserAccountIDForUpdate = `-- name: GetUserAccountIDForUpdate :one
+SELECT account_id FROM users WHERE id = $1 FOR UPDATE
+`
+
+// 対象 users 行をロックし、現在の account_id を読む（リンクの直列化・横取り防止）。
+func (q *Queries) GetUserAccountIDForUpdate(ctx context.Context, id int64) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getUserAccountIDForUpdate, id)
+	var account_id sql.NullInt64
+	err := row.Scan(&account_id)
+	return account_id, err
 }
 
 const moveUserAppSettingsToUser = `-- name: MoveUserAppSettingsToUser :exec

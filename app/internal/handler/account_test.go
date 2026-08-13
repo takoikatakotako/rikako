@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -120,6 +121,149 @@ func TestLinkAccount_CreateIdempotentAndMerge(t *testing.T) {
 	}
 	if leftOnDev2 != 0 {
 		t.Errorf("dev2 still has %d answers after merge; want 0", leftOnDev2)
+	}
+}
+
+// (a) 別アカウントに紐付いた Device-ID の拒否 + (d) 途中失敗時のロールバック。
+// 既存アカウント A に紐付いた dev1 を、別 sub B のログイン中に指定すると 409。
+// このとき B の account 作成は INSERT 済みでもトランザクションごとロールバックされる。
+func TestLinkAccount_RejectCrossAccountAndRollback(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("linkxacct-%d", time.Now().UnixNano())
+	subA := prefix + "-subA"
+	subB := prefix + "-subB"
+	dev1 := prefix + "-dev1"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub IN ($1, $2)`, subA, subB)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	a := linkAccount(t, h, subA, dev1)
+
+	// dev1 を subB でリンクしようとすると 409。
+	resp, err := h.LinkAccount(ctxWithSub(subB), api.LinkAccountRequestObject{
+		Params: api.LinkAccountParams{XDeviceID: dev1},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := resp.(api.LinkAccount409JSONResponse); !ok {
+		t.Fatalf("expected 409 for cross-account device, got %T", resp)
+	}
+
+	// ロールバック: subB の account は作られていない。
+	var cnt int
+	if err := testDB.QueryRow(`SELECT COUNT(*) FROM accounts WHERE cognito_sub = $1`, subB).Scan(&cnt); err != nil {
+		t.Fatalf("count subB accounts: %v", err)
+	}
+	if cnt != 0 {
+		t.Errorf("account for subB was created despite 409 (rollback failed)")
+	}
+	// dev1 は依然 A に紐付いたまま。
+	dev1User := userIDByIdentity(t, dev1)
+	var dev1Acct int64
+	if err := testDB.QueryRow(`SELECT COALESCE(account_id,0) FROM users WHERE id = $1`, dev1User).Scan(&dev1Acct); err != nil {
+		t.Fatalf("dev1 account_id: %v", err)
+	}
+	if dev1Acct != a.AccountId {
+		t.Errorf("dev1 account_id changed to %d; want %d (unchanged)", dev1Acct, a.AccountId)
+	}
+}
+
+// (c) user_app_settings が同一 app_id で衝突したとき primary 側を優先する（source は破棄）。
+func TestLinkAccount_SettingsPrimaryWins(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("linkset-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1 := prefix + "-dev1"
+	dev2 := prefix + "-dev2"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM user_app_settings WHERE user_id IN (SELECT id FROM users WHERE identity_id LIKE $1)`, prefix+"%")
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	linkAccount(t, h, sub, dev1)
+	primary := userIDByIdentity(t, dev1)
+	// primary 側: app 1 = workbook 1
+	if _, err := testDB.Exec(
+		`INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id) VALUES ($1, 1, 1)`, primary); err != nil {
+		t.Fatalf("insert primary setting: %v", err)
+	}
+	// dev2 側: app 1 = workbook 2（衝突）
+	dev2User, err := h.queries.UpsertUser(context.Background(), dev2)
+	if err != nil {
+		t.Fatalf("upsert dev2: %v", err)
+	}
+	if _, err := testDB.Exec(
+		`INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id) VALUES ($1, 1, 2)`, dev2User); err != nil {
+		t.Fatalf("insert dev2 setting: %v", err)
+	}
+
+	linkAccount(t, h, sub, dev2)
+
+	// primary の app 1 設定は 1 のまま（primary 優先）。
+	var wb int64
+	if err := testDB.QueryRow(
+		`SELECT selected_workbook_id FROM user_app_settings WHERE user_id = $1 AND app_id = 1`, primary).Scan(&wb); err != nil {
+		t.Fatalf("primary setting lookup: %v", err)
+	}
+	if wb != 1 {
+		t.Errorf("primary app1 selected_workbook_id = %d; want 1 (primary wins)", wb)
+	}
+	// dev2 の設定は消えている。
+	var dev2Cnt int
+	if err := testDB.QueryRow(`SELECT COUNT(*) FROM user_app_settings WHERE user_id = $1`, dev2User).Scan(&dev2Cnt); err != nil {
+		t.Fatalf("dev2 setting count: %v", err)
+	}
+	if dev2Cnt != 0 {
+		t.Errorf("dev2 still has %d settings after merge; want 0", dev2Cnt)
+	}
+}
+
+// (b) 同一 sub の並行初回リンクが冪等（両方 200・同一 account、500 を出さない）。
+func TestLinkAccount_ConcurrentFirstLink(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("linkconc-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev3 := prefix + "-dev3"
+	dev4 := prefix + "-dev4"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	var wg sync.WaitGroup
+	results := make([]api.LinkAccountResponseObject, 2)
+	errs := make([]error, 2)
+	devices := []string{dev3, dev4}
+	for i := range devices {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = h.LinkAccount(ctxWithSub(sub), api.LinkAccountRequestObject{
+				Params: api.LinkAccountParams{XDeviceID: devices[idx]},
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	var accountIDs []int64
+	for i := range devices {
+		if errs[i] != nil {
+			t.Fatalf("goroutine %d error: %v", i, errs[i])
+		}
+		ok, isOK := results[i].(api.LinkAccount200JSONResponse)
+		if !isOK {
+			t.Fatalf("goroutine %d: expected 200, got %T (%+v)", i, results[i], results[i])
+		}
+		accountIDs = append(accountIDs, ok.AccountId)
+	}
+	if accountIDs[0] != accountIDs[1] {
+		t.Errorf("concurrent first-link produced different accounts: %d != %d", accountIDs[0], accountIDs[1])
 	}
 }
 

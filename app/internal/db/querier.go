@@ -23,7 +23,9 @@ type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
 	CountWorkbooks(ctx context.Context) (int64, error)
 	CountWrongAnswers(ctx context.Context, userID int64) (int64, error)
-	CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error)
+	// 同一 sub の並行初回リンクに耐えるため ON CONFLICT DO NOTHING。
+	// 競合した側は行が返らない（sql.ErrNoRows）ので、呼び出し側が再取得してマージ経路へ進む。
+	CreateAccountIfNotExists(ctx context.Context, arg CreateAccountIfNotExistsParams) (CreateAccountIfNotExistsRow, error)
 	CreateAnnouncement(ctx context.Context, arg CreateAnnouncementParams) (int64, error)
 	CreateApp(ctx context.Context, arg CreateAppParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (int64, error)
@@ -69,6 +71,8 @@ type Querier interface {
 	GetQuestionByID(ctx context.Context, id int64) (GetQuestionByIDRow, error)
 	GetSingleChoiceID(ctx context.Context, questionID int64) (int64, error)
 	GetTransferTokenIdentityID(ctx context.Context, token string) (string, error)
+	// 対象 users 行をロックし、現在の account_id を読む（リンクの直列化・横取り防止）。
+	GetUserAccountIDForUpdate(ctx context.Context, id int64) (sql.NullInt64, error)
 	GetUserAppSetting(ctx context.Context, arg GetUserAppSettingParams) (GetUserAppSettingRow, error)
 	GetUserByIdentityID(ctx context.Context, identityID string) (int64, error)
 	GetUserProfile(ctx context.Context, id int64) (GetUserProfileRow, error)

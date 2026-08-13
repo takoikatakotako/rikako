@@ -1437,6 +1437,15 @@ func (response LinkAccount401JSONResponse) VisitLinkAccountResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type LinkAccount409JSONResponse Error
+
+func (response LinkAccount409JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type LinkAccount500JSONResponse Error
 
 func (response LinkAccount500JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
