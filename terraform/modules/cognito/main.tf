@@ -34,9 +34,14 @@ resource "aws_cognito_user_pool_client" "main" {
   # モバイル/SPA用（シークレットなし）
   generate_secret = false
 
-  # SRP認証フロー
+  # 認証フロー
+  # - USER_SRP_AUTH: SRP（将来利用）
+  # - USER_PASSWORD_AUTH: email+password を TLS でそのまま送る。Amplify 非依存で
+  #   cognito-idp を直叩きする iOS/Web の実装コストを抑えるため有効化（設計 §5.1 / #283）。
+  # - REFRESH_TOKEN_AUTH: トークン更新
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
+    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
   ]
 
