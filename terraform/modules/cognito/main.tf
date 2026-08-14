@@ -19,9 +19,12 @@ resource "aws_cognito_user_pool" "main" {
     require_uppercase = true
   }
 
-  # メール設定
+  # メール設定。email_source_arn（SES ID の ARN）を渡すと SES(DEVELOPER)経由、
+  # 空なら Cognito 既定（COGNITO_DEFAULT、1日50通・差出人固定）。
   email_configuration {
-    email_sending_account = "COGNITO_DEFAULT"
+    email_sending_account = var.email_source_arn != "" ? "DEVELOPER" : "COGNITO_DEFAULT"
+    source_arn            = var.email_source_arn != "" ? var.email_source_arn : null
+    from_email_address    = var.email_from_address != "" ? var.email_from_address : null
   }
 
   tags = var.tags
