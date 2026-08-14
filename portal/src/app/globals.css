@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* iOSアプリのブランドカラーに合わせる（Assets.xcassets の main / correctPink / incorrectBlue） */
+@theme {
+  --color-brand: #48ac01;
+  --color-brand-strong: #3c9101;
+  --color-brand-soft: #eef7e6;
+  --color-correct: #ee7b77;
+  --color-incorrect: #73d0ff;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", Meiryo, sans-serif;
+}

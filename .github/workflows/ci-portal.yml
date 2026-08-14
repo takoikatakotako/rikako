@@ -1,0 +1,40 @@
+name: CI Portal
+
+on:
+  pull_request:
+    paths:
+      - "portal/**"
+      - ".github/workflows/ci-portal.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "portal/**"
+      - ".github/workflows/ci-portal.yml"
+
+jobs:
+  build:
+    name: Lint & Build (portal)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install
+        working-directory: portal
+        run: npm ci
+
+      - name: Lint
+        working-directory: portal
+        run: npm run lint
+
+      - name: Build (static export)
+        working-directory: portal
+        run: npm run build
