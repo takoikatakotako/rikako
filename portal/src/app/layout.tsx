@@ -8,7 +8,10 @@ export const metadata: Metadata = {
     template: "%s | Rikako アカウント",
   },
   description: "Rikako のアカウント（ログイン・新規登録）。iOS / Web で学習記録を共有できます。",
-  metadataBase: new URL("https://rikako.org"),
+  // 配信ドメインは環境で変わる（dev=account.dev.rikako.org / prod=account.rikako.org）。
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_PORTAL_URL ?? "https://account.rikako.org",
+  ),
 };
 
 export default function RootLayout({

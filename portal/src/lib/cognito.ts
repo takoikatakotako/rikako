@@ -135,8 +135,22 @@ export async function confirmForgotPassword(
   });
 }
 
-export function signOut(): void {
-  clearTokens();
+// ログアウト。保持中の refresh token を Cognito 側で失効（RevokeToken, secret 不要）
+// させたうえで、成否にかかわらずローカルのトークンを消す。
+export async function signOut(): Promise<void> {
+  const current = loadTokens();
+  try {
+    if (current?.refreshToken) {
+      await idpCall("RevokeToken", {
+        Token: current.refreshToken,
+        ClientId: config.cognitoClientId,
+      });
+    }
+  } catch {
+    // 失効に失敗してもローカルは必ず消す（下の finally）。
+  } finally {
+    clearTokens();
+  }
 }
 
 // Cognito のエラーコードを日本語メッセージに寄せる。

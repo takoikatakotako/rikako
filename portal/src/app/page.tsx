@@ -16,7 +16,9 @@ export default function Home() {
         </div>
         <button
           type="button"
-          onClick={() => signOut()}
+          onClick={() => {
+            void signOut();
+          }}
           className="w-full rounded-xl border border-slate-300 py-3 font-semibold text-slate-700 hover:bg-slate-100"
         >
           ログアウト

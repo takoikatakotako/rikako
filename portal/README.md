@@ -13,6 +13,7 @@ Next.js 16（App Router / 静的 export、S3+CloudFront 配信想定）。
 | `NEXT_PUBLIC_COGNITO_REGION` | `ap-northeast-1` | cognito-idp のリージョン |
 | `NEXT_PUBLIC_COGNITO_CLIENT_ID` | App Client ID | SignUp/InitiateAuth の ClientId |
 | `NEXT_PUBLIC_API_BASE_URL` | `https://api.rikako.org` | API（/account/link 等、後続 PR で使用）|
+| `NEXT_PUBLIC_PORTAL_URL` | `https://account.dev.rikako.org` | metadataBase（配信ドメイン。環境別）|
 
 ## コマンド
 
