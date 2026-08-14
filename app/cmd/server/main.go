@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/appslug"
 	"github.com/takoikatakotako/rikako/internal/auth"
@@ -55,10 +55,10 @@ func main() {
 	}
 
 	// DB接続プーリング設定（Lambda最適化）
-	db.SetMaxOpenConns(10)                  // 最大接続数
-	db.SetMaxIdleConns(2)                   // アイドル接続数
-	db.SetConnMaxLifetime(5 * time.Minute)  // 接続の最大ライフタイム
-	db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
+	db.SetMaxOpenConns(10)                 // 最大接続数
+	db.SetMaxIdleConns(2)                  // アイドル接続数
+	db.SetConnMaxLifetime(5 * time.Minute) // 接続の最大ライフタイム
+	db.SetConnMaxIdleTime(1 * time.Minute) // アイドル接続の最大時間
 
 	// 画像のベースURL
 	imageBaseURL := os.Getenv("IMAGE_BASE_URL")
@@ -104,10 +104,13 @@ func main() {
 
 	// 認証ミドルウェア
 	cognitoUserPoolID := os.Getenv("COGNITO_USER_POOL_ID")
+	cognitoClientID := os.Getenv("COGNITO_CLIENT_ID")
 
 	var middlewares []api.StrictMiddlewareFunc
-	if cognitoRegion != "" && cognitoUserPoolID != "" {
-		middlewares = append(middlewares, auth.NewAuthMiddleware(cognitoRegion, cognitoUserPoolID))
+	if cognitoRegion != "" && cognitoUserPoolID != "" && cognitoClientID != "" {
+		middlewares = append(middlewares, auth.NewAuthMiddleware(cognitoRegion, cognitoUserPoolID, cognitoClientID))
+	} else if cognitoRegion != "" && cognitoUserPoolID != "" {
+		logger.Warn("auth middleware disabled: COGNITO_CLIENT_ID not set")
 	}
 
 	// OpenAI クライアント

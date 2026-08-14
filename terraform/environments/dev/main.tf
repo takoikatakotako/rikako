@@ -68,6 +68,7 @@ module "lambda" {
     COGNITO_USER_POOL_ID             = module.cognito.user_pool_id
     COGNITO_REGION                   = "ap-northeast-1"
     COGNITO_IDENTITY_POOL_ID         = module.cognito_identity.identity_pool_id
+    COGNITO_CLIENT_ID                = module.cognito.client_id
     MINIMUM_VERSION                  = "1.0.0"
     LATEST_VERSION                   = "1.0.0"
     OPENAI_API_KEY                   = "ssm:/${local.project}/${local.environment}/openai-api-key"

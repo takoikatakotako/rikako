@@ -194,7 +194,7 @@ cd app && oapi-codegen --config oapi-codegen.yaml ../openapi.yaml
    - 匿名ユーザーは `X-Device-ID` ヘッダーで Identity ID を送信
    - サーバーはIdentity IDをユーザー識別子として `users` テーブルに保存
    - サーバーはJWT検証のみ（`app/internal/auth/`パッケージ）
-   - 環境変数: `COGNITO_USER_POOL_ID`, `COGNITO_REGION`, `COGNITO_IDENTITY_POOL_ID`
+   - 環境変数: `COGNITO_USER_POOL_ID`, `COGNITO_REGION`, `COGNITO_IDENTITY_POOL_ID`, `COGNITO_CLIENT_ID`（ID token の aud 検証用。3つ揃って認証有効）
    - 環境変数未設定時は認証スキップ（ローカル開発・CI用）
    - 認証不要エンドポイント: `GET /`, `GET /health`, `POST /answers`, `GET /users/me/wrong-answers`
    - JWKSはkid単位でRSA公開鍵をキャッシュ（TTL 1時間）
