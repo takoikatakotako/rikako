@@ -47,19 +47,24 @@ func setupTestJWKS(t *testing.T) (*rsa.PrivateKey, *httptest.Server) {
 	return privateKey, jwksServer
 }
 
-func createTestToken(privateKey *rsa.PrivateKey, issuer string, sub string) string {
-	claims := jwt.MapClaims{
-		"sub": sub,
-		"iss": issuer,
-		"exp": time.Now().Add(1 * time.Hour).Unix(),
-		"iat": time.Now().Unix(),
-	}
+const testClientID = "test-client-id"
 
+func signTestToken(privateKey *rsa.PrivateKey, claims jwt.MapClaims) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = testKid
-
 	tokenString, _ := token.SignedString(privateKey)
 	return tokenString
+}
+
+func createTestToken(privateKey *rsa.PrivateKey, issuer string, sub string) string {
+	return signTestToken(privateKey, jwt.MapClaims{
+		"sub":       sub,
+		"iss":       issuer,
+		"aud":       testClientID,
+		"token_use": "id",
+		"exp":       time.Now().Add(1 * time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
+	})
 }
 
 func createMiddleware(t *testing.T) (*rsa.PrivateKey, string, strictecho.StrictEchoMiddlewareFunc, *httptest.Server) {
@@ -68,7 +73,7 @@ func createMiddleware(t *testing.T) (*rsa.PrivateKey, string, strictecho.StrictE
 	privateKey, jwksServer := setupTestJWKS(t)
 	issuer := "https://cognito-idp.ap-northeast-1.amazonaws.com/test-pool"
 	provider := newJWKSProviderWithURL(jwksServer.URL)
-	mw := newAuthMiddlewareWithProvider(provider, issuer)
+	mw := newAuthMiddlewareWithProvider(provider, issuer, testClientID)
 
 	return privateKey, issuer, mw, jwksServer
 }
@@ -156,6 +161,50 @@ func TestPublicOperationWithInvalidTokenReturns401(t *testing.T) {
 	}
 	if httpErr.Code != 401 {
 		t.Fatalf("expected 401, got: %d", httpErr.Code)
+	}
+}
+
+// aud（App Client ID）が一致しないトークンは 401。
+func TestTokenWithWrongAudienceReturns401(t *testing.T) {
+	privateKey, issuer, mw, jwksServer := createMiddleware(t)
+	defer jwksServer.Close()
+
+	token := signTestToken(privateKey, jwt.MapClaims{
+		"sub": "u1", "iss": issuer, "aud": "other-client", "token_use": "id",
+		"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
+	})
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	ctx := e.NewContext(req, httptest.NewRecorder())
+
+	_, err := mw(stubHandler, "SomeProtectedOperation")(ctx, nil)
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok || httpErr.Code != 401 {
+		t.Fatalf("expected 401 for wrong aud, got: %v", err)
+	}
+}
+
+// token_use が id 以外（例: access token）は 401。
+func TestAccessTokenIsRejected(t *testing.T) {
+	privateKey, issuer, mw, jwksServer := createMiddleware(t)
+	defer jwksServer.Close()
+
+	token := signTestToken(privateKey, jwt.MapClaims{
+		"sub": "u1", "iss": issuer, "aud": testClientID, "token_use": "access",
+		"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
+	})
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	ctx := e.NewContext(req, httptest.NewRecorder())
+
+	_, err := mw(stubHandler, "SomeProtectedOperation")(ctx, nil)
+	httpErr, ok := err.(*echo.HTTPError)
+	if !ok || httpErr.Code != 401 {
+		t.Fatalf("expected 401 for access token (token_use!=id), got: %v", err)
 	}
 }
 

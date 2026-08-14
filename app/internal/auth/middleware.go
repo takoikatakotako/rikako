@@ -45,14 +45,15 @@ var publicOperations = map[string]bool{
 }
 
 // NewAuthMiddleware creates a StrictMiddlewareFunc that validates Cognito JWT tokens.
-func NewAuthMiddleware(region, userPoolID string) strictecho.StrictEchoMiddlewareFunc {
+// clientID は受け付ける ID token の aud（App Client ID）。
+func NewAuthMiddleware(region, userPoolID, clientID string) strictecho.StrictEchoMiddlewareFunc {
 	provider := NewJWKSProvider(region, userPoolID)
 	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", region, userPoolID)
 
-	return newAuthMiddlewareWithProvider(provider, issuer)
+	return newAuthMiddlewareWithProvider(provider, issuer, clientID)
 }
 
-func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer string) strictecho.StrictEchoMiddlewareFunc {
+func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer, clientID string) strictecho.StrictEchoMiddlewareFunc {
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -76,13 +77,19 @@ func newAuthMiddlewareWithProvider(provider *JWKSProvider, issuer string) strict
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			return "", true, fmt.Errorf("invalid authorization header format")
 		}
-		token, perr := jwt.Parse(parts[1], keyFunc, jwt.WithIssuer(issuer))
+		// issuer・署名・期限に加え、audience（= App Client ID）を検証する。
+		// このAPIは ID token を受け付ける（Cognito の ID token は aud に App Client ID を持つ）。
+		token, perr := jwt.Parse(parts[1], keyFunc, jwt.WithIssuer(issuer), jwt.WithAudience(clientID))
 		if perr != nil || !token.Valid {
 			return "", true, fmt.Errorf("invalid token")
 		}
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			return "", true, fmt.Errorf("invalid token claims")
+		}
+		// access token（token_use=access, client_id を持つ）ではなく ID token のみ受理する。
+		if tu, _ := claims["token_use"].(string); tu != "id" {
+			return "", true, fmt.Errorf("unexpected token_use: %v", claims["token_use"])
 		}
 		s, ok := claims["sub"].(string)
 		if !ok || s == "" {
