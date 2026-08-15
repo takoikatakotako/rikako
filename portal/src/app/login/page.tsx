@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn, cognitoErrorMessage, CognitoError } from "@/lib/cognito";
+import { linkAccount } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      // アカウント作成/紐付け（冪等）。失敗してもログイン自体は成立させ、ホームで再取得。
+      await linkAccount().catch(() => {});
       router.push("/");
     } catch (err) {
       // メール未確認なら確認画面へ誘導。

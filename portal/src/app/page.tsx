@@ -1,11 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAuthEmail } from "@/lib/hooks";
 import { signOut } from "@/lib/cognito";
+import { getServices, Service } from "@/lib/api";
 
 export default function Home() {
   const email = useAuthEmail();
+  const [services, setServices] = useState<Service[] | null>(null);
+
+  useEffect(() => {
+    if (!email) return;
+    let active = true;
+    getServices()
+      .then((s) => {
+        if (active) setServices(s);
+      })
+      .catch(() => {
+        if (active) setServices([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [email]);
 
   if (email) {
     return (
@@ -14,6 +32,29 @@ export default function Home() {
           <p className="text-sm text-slate-500">ログイン中</p>
           <p className="mt-1 font-semibold break-all">{email}</p>
         </div>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h2 className="text-sm font-semibold text-slate-500">利用中のサービス</h2>
+          {services === null ? (
+            <p className="mt-3 text-sm text-slate-400">読み込み中…</p>
+          ) : services.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              まだ利用中のサービスはありません。iOS / Web アプリで学習すると、ここに表示されます。
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {services.map((s) => (
+                <li
+                  key={s.slug}
+                  className="rounded-xl border border-slate-200 px-4 py-3 font-medium"
+                >
+                  {s.title}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <button
           type="button"
           onClick={() => {
