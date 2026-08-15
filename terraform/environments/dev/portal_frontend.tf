@@ -57,10 +57,11 @@ resource "aws_cloudfront_function" "portal_dir_index" {
   EOF
 }
 
-# 厳格 CSP + セキュリティヘッダ。connect-src を self + Cognito + API に限定し、
-# XSS 時のトークン持ち出し先を塞ぐ。第三者スクリプトは載せない。
-# script/style の 'unsafe-inline' は Next 静的エクスポートのインライン hydration
-# スクリプト/スタイルのため（nonce はサーバーレス配信では付けられない）。
+# CSP + セキュリティヘッダ。connect-src を self + Cognito + API に限定し、第三者
+# スクリプトを禁止することで XSS 時のトークン持ち出しリスクを低減する（完全遮断ではない：
+# script-src に 'unsafe-inline' が残るため、注入コードは許可済み API を操作しうる）。
+# 'unsafe-inline' は Next 静的エクスポートのインライン hydration のため（nonce はサーバーレス
+# 配信では付けられない）。本番前に CSP report-only / hash ベース運用の可否を検討する。
 resource "aws_cloudfront_response_headers_policy" "portal" {
   name = "${local.project}-portal-security-${local.environment}"
 

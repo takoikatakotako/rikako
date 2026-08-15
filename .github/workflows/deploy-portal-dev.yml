@@ -53,31 +53,49 @@ jobs:
           role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
           aws-region: ${{ env.AWS_REGION }}
 
+      # インフラは Apply Terraform Dev が並行作成するため、S3 バケットと CloudFront
+      # distribution が揃うまで上限付きで待つ（初回マージの race を吸収）。
+      - name: Wait for infrastructure
+        run: |
+          echo "Waiting for S3 bucket ${S3_BUCKET} ..."
+          for i in $(seq 1 60); do
+            if aws s3api head-bucket --bucket "${S3_BUCKET}" 2>/dev/null; then
+              echo "bucket ready"; break
+            fi
+            if [ "$i" = "60" ]; then echo "bucket not ready (timeout 10m)"; exit 1; fi
+            sleep 10
+          done
+          echo "Waiting for CloudFront distribution for ${CF_ALIAS} ..."
+          for i in $(seq 1 60); do
+            DIST_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?contains(Aliases.Items, '${CF_ALIAS}')].Id | [0]" \
+              --output text 2>/dev/null)
+            if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]; then
+              echo "distribution ready: $DIST_ID"
+              echo "DIST_ID=$DIST_ID" >> "$GITHUB_ENV"
+              break
+            fi
+            if [ "$i" = "60" ]; then echo "distribution not ready (timeout 10m)"; exit 1; fi
+            sleep 10
+          done
+
       - name: Deploy to S3
         working-directory: portal
         run: |
-          # 全ファイル同期（stale 削除）。html/txt/xml は毎回検証させる。
-          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ \
+          # content-hash 付きの _next/static 以外を同期（stale 削除・毎回検証）。
+          # _next/static は除外し削除対象からも外す（下で別途 immutable 同期）。
+          aws s3 sync out/ s3://${S3_BUCKET}/ \
             --delete \
+            --exclude "_next/static/*" \
             --cache-control "public, max-age=0, must-revalidate"
-          # ハッシュ付きアセットのみ長期 immutable に上書き（削除なし）。
-          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "*.html" \
-            --exclude "*.txt" \
-            --exclude "*.xml"
+          # content-hash 付きアセットのみ長期 immutable（不変なので stale 削除はしない）。
+          aws s3 sync out/_next/static/ s3://${S3_BUCKET}/_next/static/ \
+            --cache-control "public, max-age=31536000, immutable"
 
       - name: Invalidate CloudFront cache
         run: |
-          DIST_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?contains(Aliases.Items, '${{ env.CF_ALIAS }}')].Id | [0]" \
-            --output text)
-          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
-            echo "CloudFront distribution for ${{ env.CF_ALIAS }} not found (terraform 未適用?)"
-            exit 1
-          fi
-          echo "Invalidating $DIST_ID"
-          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+          echo "Invalidating ${DIST_ID}"
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/*"
 
       - name: Print summary
         run: |
