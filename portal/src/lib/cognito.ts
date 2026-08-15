@@ -2,6 +2,7 @@
 // App Client は generate_secret=false なので SECRET_HASH は不要。
 import { config, cognitoIdpEndpoint } from "./config";
 import { AuthTokens, saveTokens, clearTokens, loadTokens } from "./tokens";
+import { clearDeviceId } from "./deviceId";
 
 export class CognitoError extends Error {
   code: string;
@@ -150,6 +151,9 @@ export async function signOut(): Promise<void> {
     // 失効に失敗してもローカルは必ず消す（下の finally）。
   } finally {
     clearTokens();
+    // 別アカウントへ切り替えた際に device id が前アカウントに紐付いたままだと 409 に
+    // なるため、ログアウトで消す（次ログイン時に新しい UUID を発行）。
+    clearDeviceId();
   }
 }
 
