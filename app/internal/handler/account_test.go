@@ -321,6 +321,72 @@ func TestResolveUserID_AccountAcrossDevices(t *testing.T) {
 	}
 }
 
+// 認証済みアカウントの利用サービス（user_app_settings のアプリ）を JWT sub から返す。
+// X-Device-ID は不要（呼び出し端末に依らず account primary のサービスが返る）。
+func TestGetAccountServices(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("svc-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1 := prefix + "-dev1"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM user_app_settings WHERE user_id IN (SELECT id FROM users WHERE identity_id LIKE $1)`, prefix+"%")
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	linkAccount(t, h, sub, dev1)
+	primary := userIDByIdentity(t, dev1)
+	if _, err := testDB.Exec(
+		`INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id) VALUES ($1, 1, 1)`, primary); err != nil {
+		t.Fatalf("insert setting: %v", err)
+	}
+
+	// JWT sub のみ（X-Device-ID なし）で account primary のサービスが返る。
+	resp, err := h.GetAccountServices(ctxWithSub(sub), api.GetAccountServicesRequestObject{})
+	if err != nil {
+		t.Fatalf("GetAccountServices: %v", err)
+	}
+	s, ok := resp.(api.GetAccountServices200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	if len(s.Services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(s.Services))
+	}
+	if s.Services[0].Slug == "" || s.Services[0].Title == "" {
+		t.Errorf("service slug/title empty: %+v", s.Services[0])
+	}
+}
+
+// sub はあるが account 未作成（未 link）→ 200 空配列。
+func TestGetAccountServices_NoAccount(t *testing.T) {
+	h := newTestHandler()
+	resp, err := h.GetAccountServices(ctxWithSub(fmt.Sprintf("svc-noacct-%d", time.Now().UnixNano())), api.GetAccountServicesRequestObject{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	s, ok := resp.(api.GetAccountServices200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	if len(s.Services) != 0 {
+		t.Errorf("services = %d; want 0 for unlinked account", len(s.Services))
+	}
+}
+
+// sub 無し（未認証）→ 401（middleware が本来 401 にするが handler も防御）。
+func TestGetAccountServices_MissingSub(t *testing.T) {
+	h := newTestHandler()
+	resp, err := h.GetAccountServices(context.Background(), api.GetAccountServicesRequestObject{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := resp.(api.GetAccountServices401JSONResponse); !ok {
+		t.Fatalf("expected 401 when sub missing, got %T", resp)
+	}
+}
+
 func TestLinkAccount_MissingSub(t *testing.T) {
 	h := newTestHandler()
 	resp, err := h.LinkAccount(context.Background(), api.LinkAccountRequestObject{

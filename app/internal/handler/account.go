@@ -133,6 +133,37 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 	return commitLink(tx, acct.ID, acct.Email)
 }
 
+// GetAccountServices は認証済みアカウント（JWT の sub）が利用しているアプリ
+// （IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。認証必須。
+func (h *Handler) GetAccountServices(ctx context.Context, request api.GetAccountServicesRequestObject) (api.GetAccountServicesResponseObject, error) {
+	sub, _ := ctx.Value(auth.UserSubContextKey).(string)
+	if sub == "" {
+		// 認証必須（publicOperations 外）だが念のため防御。
+		return api.GetAccountServices401JSONResponse{Code: "UNAUTHORIZED", Message: "authentication required"}, nil
+	}
+
+	acct, err := h.queries.GetAccountByCognitoSub(ctx, sub)
+	if errors.Is(err, sql.ErrNoRows) {
+		// ログイン済みだが未 link（account 未作成）→ 空。通常はポータルが先に /account/link を呼ぶ。
+		return api.GetAccountServices200JSONResponse{Services: []api.ServiceItem{}}, nil
+	}
+	if err != nil {
+		h.logger.Error("failed to get account", "error", err)
+		return nil, err
+	}
+
+	rows, err := h.queries.ListUserAppSettings(ctx, acct.PrimaryUserID)
+	if err != nil {
+		h.logger.Error("failed to list user app settings", "error", err)
+		return nil, err
+	}
+	services := make([]api.ServiceItem, len(rows))
+	for i, r := range rows {
+		services[i] = api.ServiceItem{Slug: r.AppSlug, Title: r.AppTitle}
+	}
+	return api.GetAccountServices200JSONResponse{Services: services}, nil
+}
+
 func commitLink(tx *sql.Tx, accountID int64, email sql.NullString) (api.LinkAccountResponseObject, error) {
 	if err := tx.Commit(); err != nil {
 		return api.LinkAccount500JSONResponse{Code: "INTERNAL_ERROR", Message: "failed to link account"}, nil
