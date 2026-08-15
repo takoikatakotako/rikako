@@ -1,0 +1,81 @@
+name: Deploy Portal Prod
+
+# 本番（account.rikako.org）は自動デプロイしない。更新したいときに手動実行する。
+# 事前に prod の Terraform（portal_frontend.tf）を apply して S3/CloudFront を作っておくこと。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET: rikako-portal-production
+  CF_ALIAS: account.rikako.org
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Portal (prod)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install dependencies
+        working-directory: portal
+        run: npm ci
+
+      - name: Build
+        working-directory: portal
+        run: npm run build
+        env:
+          # いずれも公開値（ビルド成果物に含まれる）。prod の App Client ID。
+          NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: 4sqsett62vuckqt68d72nf2083
+          NEXT_PUBLIC_API_BASE_URL: https://api.rikako.org
+          NEXT_PUBLIC_PORTAL_URL: https://account.rikako.org
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        working-directory: portal
+        run: |
+          # content-hash 付きの _next/static 以外を同期（stale 削除・毎回検証）。
+          # _next/static は除外し削除対象からも外す（下で別途 immutable 同期）。
+          aws s3 sync out/ s3://${S3_BUCKET}/ \
+            --delete \
+            --exclude "_next/static/*" \
+            --cache-control "public, max-age=0, must-revalidate"
+          # content-hash 付きアセットのみ長期 immutable（不変なので stale 削除はしない）。
+          aws s3 sync out/_next/static/ s3://${S3_BUCKET}/_next/static/ \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${CF_ALIAS}')].Id | [0]" \
+            --output text)
+          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
+            echo "CloudFront distribution for ${CF_ALIAS} not found (terraform 未適用?)"
+            exit 1
+          fi
+          echo "Invalidating $DIST_ID"
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Print summary
+        run: |
+          echo "## Portal Deploy Complete (prod) 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ env.CF_ALIAS }}/" >> $GITHUB_STEP_SUMMARY
