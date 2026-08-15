@@ -18,6 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      // アカウントの作成/紐付けはホームで ensureAccountLinked() が担う（失敗時は再試行UI）。
       router.push("/");
     } catch (err) {
       // メール未確認なら確認画面へ誘導。

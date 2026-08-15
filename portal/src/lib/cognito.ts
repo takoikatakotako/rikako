@@ -150,6 +150,9 @@ export async function signOut(): Promise<void> {
     // 失効に失敗してもローカルは必ず消す（下の finally）。
   } finally {
     clearTokens();
+    // device id は消さない（安定保持）。同ユーザー再ログインは同 id で冪等 no-op、
+    // 別アカウントは link の 409 → rotate で対応する。消すと再ログインごとに空の
+    // users 行が増えるため。
   }
 }
 
