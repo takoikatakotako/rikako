@@ -133,6 +133,35 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 	return commitLink(tx, acct.ID, acct.Email)
 }
 
+// GetAccountServices はアカウント（ログイン中は JWT の sub、なければ X-Device-ID）が
+// 利用しているアプリ（IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。
+func (h *Handler) GetAccountServices(ctx context.Context, request api.GetAccountServicesRequestObject) (api.GetAccountServicesResponseObject, error) {
+	deviceID := string(request.Params.XDeviceID)
+	if deviceID == "" {
+		return api.GetAccountServices400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	}
+
+	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if err != nil {
+		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
+		return nil, err
+	}
+	if !found {
+		return api.GetAccountServices200JSONResponse{Services: []api.ServiceItem{}}, nil
+	}
+
+	rows, err := h.queries.ListUserAppSettings(ctx, userID)
+	if err != nil {
+		h.logger.Error("failed to list user app settings", "error", err)
+		return nil, err
+	}
+	services := make([]api.ServiceItem, len(rows))
+	for i, r := range rows {
+		services[i] = api.ServiceItem{Slug: r.AppSlug, Title: r.AppTitle}
+	}
+	return api.GetAccountServices200JSONResponse{Services: services}, nil
+}
+
 func commitLink(tx *sql.Tx, accountID int64, email sql.NullString) (api.LinkAccountResponseObject, error) {
 	if err := tx.Commit(); err != nil {
 		return api.LinkAccount500JSONResponse{Code: "INTERNAL_ERROR", Message: "failed to link account"}, nil

@@ -321,6 +321,62 @@ func TestResolveUserID_AccountAcrossDevices(t *testing.T) {
 	}
 }
 
+// ログイン中は account primary の利用サービス（user_app_settings のアプリ）を返す。
+// 別の未リンク端末からでも同じ結果になる。
+func TestGetAccountServices(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("svc-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1 := prefix + "-dev1"
+	dev2 := prefix + "-dev2"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM user_app_settings WHERE user_id IN (SELECT id FROM users WHERE identity_id LIKE $1)`, prefix+"%")
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	linkAccount(t, h, sub, dev1)
+	primary := userIDByIdentity(t, dev1)
+	if _, err := testDB.Exec(
+		`INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id) VALUES ($1, 1, 1)`, primary); err != nil {
+		t.Fatalf("insert setting: %v", err)
+	}
+
+	// ログイン中(sub あり) + 別の未リンク端末 dev2 → account primary のサービスが見える。
+	resp, err := h.GetAccountServices(ctxWithSub(sub), api.GetAccountServicesRequestObject{
+		Params: api.GetAccountServicesParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetAccountServices: %v", err)
+	}
+	s, ok := resp.(api.GetAccountServices200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	if len(s.Services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(s.Services))
+	}
+	if s.Services[0].Slug == "" || s.Services[0].Title == "" {
+		t.Errorf("service slug/title empty: %+v", s.Services[0])
+	}
+
+	// 未ログインの未リンク端末 → 空。
+	resp2, err := h.GetAccountServices(context.Background(), api.GetAccountServicesRequestObject{
+		Params: api.GetAccountServicesParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetAccountServices(anon): %v", err)
+	}
+	s2, ok := resp2.(api.GetAccountServices200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp2)
+	}
+	if len(s2.Services) != 0 {
+		t.Errorf("anon services = %d; want 0", len(s2.Services))
+	}
+}
+
 func TestLinkAccount_MissingSub(t *testing.T) {
 	h := newTestHandler()
 	resp, err := h.LinkAccount(context.Background(), api.LinkAccountRequestObject{

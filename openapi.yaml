@@ -786,6 +786,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /account/services:
+    get:
+      summary: 利用中サービス（アプリ）一覧
+      description: >-
+        アカウント（ログイン中は JWT の sub、なければ X-Device-ID）が利用している
+        アプリ（IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。
+      operationId: getAccountServices
+      tags:
+        - Account
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        '200':
+          description: 利用中サービス一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServicesResponse'
+        '400':
+          description: パラメータ不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   parameters:
     DeviceID:
@@ -1417,3 +1449,26 @@ components:
         email:
           type: string
           description: 表示用メールアドレス
+
+    ServiceItem:
+      type: object
+      required:
+        - slug
+        - title
+      properties:
+        slug:
+          type: string
+          description: "アプリの slug（例: high-school-chemistry / it-passport）"
+        title:
+          type: string
+          description: アプリの表示名
+
+    ServicesResponse:
+      type: object
+      required:
+        - services
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceItem'

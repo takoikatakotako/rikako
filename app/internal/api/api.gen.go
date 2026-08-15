@@ -296,6 +296,20 @@ type QuestionsResponse struct {
 	Total int `json:"total"`
 }
 
+// ServiceItem defines model for ServiceItem.
+type ServiceItem struct {
+	// Slug アプリの slug（例: high-school-chemistry / it-passport）
+	Slug string `json:"slug"`
+
+	// Title アプリの表示名
+	Title string `json:"title"`
+}
+
+// ServicesResponse defines model for ServicesResponse.
+type ServicesResponse struct {
+	Services []ServiceItem `json:"services"`
+}
+
 // SubmitAnswersRequest defines model for SubmitAnswersRequest.
 type SubmitAnswersRequest struct {
 	Answers    []AnswerItem `json:"answers"`
@@ -407,6 +421,12 @@ type DeviceID = string
 
 // LinkAccountParams defines parameters for LinkAccount.
 type LinkAccountParams struct {
+	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
+	XDeviceID DeviceID `json:"X-Device-ID"`
+}
+
+// GetAccountServicesParams defines parameters for GetAccountServices.
+type GetAccountServicesParams struct {
 	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
 	XDeviceID DeviceID `json:"X-Device-ID"`
 }
@@ -543,6 +563,9 @@ type ServerInterface interface {
 	// 匿名データをアカウントへ紐付け・マージ
 	// (POST /account/link)
 	LinkAccount(ctx echo.Context, params LinkAccountParams) error
+	// 利用中サービス（アプリ）一覧
+	// (GET /account/services)
+	GetAccountServices(ctx echo.Context, params GetAccountServicesParams) error
 	// お知らせ一覧取得
 	// (GET /announcements)
 	GetAnnouncements(ctx echo.Context) error
@@ -664,6 +687,37 @@ func (w *ServerInterfaceWrapper) LinkAccount(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.LinkAccount(ctx, params)
+	return err
+}
+
+// GetAccountServices converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAccountServices(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountServicesParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Device-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
+		var XDeviceID DeviceID
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
+		}
+
+		params.XDeviceID = XDeviceID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAccountServices(ctx, params)
 	return err
 }
 
@@ -1366,6 +1420,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/", wrapper.Root)
 	router.POST(baseURL+"/account/link", wrapper.LinkAccount)
+	router.GET(baseURL+"/account/services", wrapper.GetAccountServices)
 	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
 	router.GET(baseURL+"/announcements/:announcementId", wrapper.GetAnnouncement)
 	router.POST(baseURL+"/answers", wrapper.SubmitAnswers)
@@ -1449,6 +1504,41 @@ func (response LinkAccount409JSONResponse) VisitLinkAccountResponse(w http.Respo
 type LinkAccount500JSONResponse Error
 
 func (response LinkAccount500JSONResponse) VisitLinkAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountServicesRequestObject struct {
+	Params GetAccountServicesParams
+}
+
+type GetAccountServicesResponseObject interface {
+	VisitGetAccountServicesResponse(w http.ResponseWriter) error
+}
+
+type GetAccountServices200JSONResponse ServicesResponse
+
+func (response GetAccountServices200JSONResponse) VisitGetAccountServicesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountServices400JSONResponse Error
+
+func (response GetAccountServices400JSONResponse) VisitGetAccountServicesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAccountServices500JSONResponse Error
+
+func (response GetAccountServices500JSONResponse) VisitGetAccountServicesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -2149,6 +2239,9 @@ type StrictServerInterface interface {
 	// 匿名データをアカウントへ紐付け・マージ
 	// (POST /account/link)
 	LinkAccount(ctx context.Context, request LinkAccountRequestObject) (LinkAccountResponseObject, error)
+	// 利用中サービス（アプリ）一覧
+	// (GET /account/services)
+	GetAccountServices(ctx context.Context, request GetAccountServicesRequestObject) (GetAccountServicesResponseObject, error)
 	// お知らせ一覧取得
 	// (GET /announcements)
 	GetAnnouncements(ctx context.Context, request GetAnnouncementsRequestObject) (GetAnnouncementsResponseObject, error)
@@ -2289,6 +2382,31 @@ func (sh *strictHandler) LinkAccount(ctx echo.Context, params LinkAccountParams)
 		return err
 	} else if validResponse, ok := response.(LinkAccountResponseObject); ok {
 		return validResponse.VisitLinkAccountResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAccountServices operation middleware
+func (sh *strictHandler) GetAccountServices(ctx echo.Context, params GetAccountServicesParams) error {
+	var request GetAccountServicesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountServices(ctx.Request().Context(), request.(GetAccountServicesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountServices")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAccountServicesResponseObject); ok {
+		return validResponse.VisitGetAccountServicesResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
