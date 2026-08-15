@@ -15,15 +15,10 @@ export function getDeviceId(): string {
 
 // 別アカウントに紐付き済みの device id で 409 になった場合に、新しい UUID へ切り替える。
 // ポータルの device 行には匿名学習データを積まないため、rotate による損失はない。
+// （ログアウトでは消さない: 消すと再ログインごとに空の users 行が増えるため。）
 export function rotateDeviceId(): string {
   if (typeof window === "undefined") return "";
   const id = crypto.randomUUID();
   window.localStorage.setItem(DEVICE_ID_KEY, id);
   return id;
-}
-
-// ログアウト時に消す（同ブラウザで別アカウントへ切り替えた際の 409 を避ける）。
-export function clearDeviceId(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(DEVICE_ID_KEY);
 }
