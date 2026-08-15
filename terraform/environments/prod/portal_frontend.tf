@@ -181,6 +181,8 @@ data "aws_iam_policy_document" "portal_cdn_s3_access" {
 # =============================================================================
 # GitHub Actions - S3 portal frontend upload access
 # （prod の github_actions ロールは最小権限。dev は AdministratorAccess なので不要）
+# （deploy ワークフローの cloudfront ListDistributions は docs_cdn.tf の
+#   github_actions_s3_docs で同ロールに付与済み。ここでは invalidation のみ明示する）
 # =============================================================================
 
 resource "aws_iam_role_policy" "github_actions_s3_portal" {

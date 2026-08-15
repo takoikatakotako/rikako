@@ -18,6 +18,9 @@ jobs:
   build-and-deploy:
     name: Build and Deploy Portal (prod)
     runs-on: ubuntu-latest
+    # 公開中の S3 更新 + CloudFront invalidation を直接実行するため、apply-terraform-prod
+    # と同様に GitHub Environment の承認・保護ルールを通す。
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
