@@ -790,14 +790,11 @@ paths:
     get:
       summary: 利用中サービス（アプリ）一覧
       description: >-
-        アカウント（ログイン中は JWT の sub、なければ X-Device-ID）が利用している
-        アプリ（IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。
+        認証済みアカウント（JWT の sub）が利用しているアプリ（IT / 化学など）の
+        一覧を返す。ポータルのプロフィール表示に使う。認証必須。
       operationId: getAccountServices
       tags:
         - Account
-      security: []
-      parameters:
-        - $ref: '#/components/parameters/DeviceID'
       responses:
         '200':
           description: 利用中サービス一覧
@@ -805,8 +802,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ServicesResponse'
-        '400':
-          description: パラメータ不正
+        '401':
+          description: 認証エラー
           content:
             application/json:
               schema:

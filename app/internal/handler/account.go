@@ -133,24 +133,26 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 	return commitLink(tx, acct.ID, acct.Email)
 }
 
-// GetAccountServices はアカウント（ログイン中は JWT の sub、なければ X-Device-ID）が
-// 利用しているアプリ（IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。
+// GetAccountServices は認証済みアカウント（JWT の sub）が利用しているアプリ
+// （IT / 化学など）の一覧を返す。ポータルのプロフィール表示に使う。認証必須。
 func (h *Handler) GetAccountServices(ctx context.Context, request api.GetAccountServicesRequestObject) (api.GetAccountServicesResponseObject, error) {
-	deviceID := string(request.Params.XDeviceID)
-	if deviceID == "" {
-		return api.GetAccountServices400JSONResponse{Code: "INVALID_PARAMETER", Message: "X-Device-ID is required"}, nil
+	sub, _ := ctx.Value(auth.UserSubContextKey).(string)
+	if sub == "" {
+		// 認証必須（publicOperations 外）だが念のため防御。
+		return api.GetAccountServices401JSONResponse{Code: "UNAUTHORIZED", Message: "authentication required"}, nil
 	}
 
-	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
-	if err != nil {
-		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
-		return nil, err
-	}
-	if !found {
+	acct, err := h.queries.GetAccountByCognitoSub(ctx, sub)
+	if errors.Is(err, sql.ErrNoRows) {
+		// ログイン済みだが未 link（account 未作成）→ 空。通常はポータルが先に /account/link を呼ぶ。
 		return api.GetAccountServices200JSONResponse{Services: []api.ServiceItem{}}, nil
 	}
+	if err != nil {
+		h.logger.Error("failed to get account", "error", err)
+		return nil, err
+	}
 
-	rows, err := h.queries.ListUserAppSettings(ctx, userID)
+	rows, err := h.queries.ListUserAppSettings(ctx, acct.PrimaryUserID)
 	if err != nil {
 		h.logger.Error("failed to list user app settings", "error", err)
 		return nil, err

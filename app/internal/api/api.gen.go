@@ -425,12 +425,6 @@ type LinkAccountParams struct {
 	XDeviceID DeviceID `json:"X-Device-ID"`
 }
 
-// GetAccountServicesParams defines parameters for GetAccountServices.
-type GetAccountServicesParams struct {
-	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
-	XDeviceID DeviceID `json:"X-Device-ID"`
-}
-
 // SubmitAnswersParams defines parameters for SubmitAnswers.
 type SubmitAnswersParams struct {
 	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
@@ -565,7 +559,7 @@ type ServerInterface interface {
 	LinkAccount(ctx echo.Context, params LinkAccountParams) error
 	// 利用中サービス（アプリ）一覧
 	// (GET /account/services)
-	GetAccountServices(ctx echo.Context, params GetAccountServicesParams) error
+	GetAccountServices(ctx echo.Context) error
 	// お知らせ一覧取得
 	// (GET /announcements)
 	GetAnnouncements(ctx echo.Context) error
@@ -694,30 +688,10 @@ func (w *ServerInterfaceWrapper) LinkAccount(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetAccountServices(ctx echo.Context) error {
 	var err error
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetAccountServicesParams
-
-	headers := ctx.Request().Header
-	// ------------- Required header parameter "X-Device-ID" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Device-ID")]; found {
-		var XDeviceID DeviceID
-		n := len(valueList)
-		if n != 1 {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Device-ID, got %d", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Device-ID", valueList[0], &XDeviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Device-ID: %s", err))
-		}
-
-		params.XDeviceID = XDeviceID
-	} else {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Device-ID is required, but not found"))
-	}
+	ctx.Set(BearerAuthScopes, []string{})
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetAccountServices(ctx, params)
+	err = w.Handler.GetAccountServices(ctx)
 	return err
 }
 
@@ -1511,7 +1485,6 @@ func (response LinkAccount500JSONResponse) VisitLinkAccountResponse(w http.Respo
 }
 
 type GetAccountServicesRequestObject struct {
-	Params GetAccountServicesParams
 }
 
 type GetAccountServicesResponseObject interface {
@@ -1527,11 +1500,11 @@ func (response GetAccountServices200JSONResponse) VisitGetAccountServicesRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetAccountServices400JSONResponse Error
+type GetAccountServices401JSONResponse Error
 
-func (response GetAccountServices400JSONResponse) VisitGetAccountServicesResponse(w http.ResponseWriter) error {
+func (response GetAccountServices401JSONResponse) VisitGetAccountServicesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2389,10 +2362,8 @@ func (sh *strictHandler) LinkAccount(ctx echo.Context, params LinkAccountParams)
 }
 
 // GetAccountServices operation middleware
-func (sh *strictHandler) GetAccountServices(ctx echo.Context, params GetAccountServicesParams) error {
+func (sh *strictHandler) GetAccountServices(ctx echo.Context) error {
 	var request GetAccountServicesRequestObject
-
-	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetAccountServices(ctx.Request().Context(), request.(GetAccountServicesRequestObject))

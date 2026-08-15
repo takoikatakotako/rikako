@@ -42,7 +42,6 @@ var publicOperations = map[string]bool{
 	"IssueTransferToken":  true,
 	"ApplyTransferToken":  true,
 	"ChatWithQuestion":    true,
-	"GetAccountServices":  true,
 }
 
 // NewAuthMiddleware creates a StrictMiddlewareFunc that validates Cognito JWT tokens.
