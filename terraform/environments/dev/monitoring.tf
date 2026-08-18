@@ -249,6 +249,41 @@ resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate" {
   tags                = local.alarm_tags
 }
 
+# 件数ベース（少量運用向けの早期警告）。率は分母が小さいとブレて分かりにくいため、
+# 「1件でも起きたら気づきたい」用途は件数（Sum >= 1）で見る。上の率アラームは
+# 送信量が増えたとき自動的に意味を持つ保険として残す。
+resource "aws_cloudwatch_metric_alarm" "ses_bounce_count" {
+  alarm_name          = "${local.project}-${local.environment}-ses-bounce-count"
+  alarm_description   = "SES バウンスが発生した（少量運用のため 1 件で警告）"
+  namespace           = "AWS/SES"
+  metric_name         = "Bounce"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ses_complaint_count" {
+  alarm_name          = "${local.project}-${local.environment}-ses-complaint-count"
+  alarm_description   = "SES 苦情（スパム報告）が発生した（1 件で警告）"
+  namespace           = "AWS/SES"
+  metric_name         = "Complaint"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
 # --- API Gateway (Public API) ---
 
 resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
