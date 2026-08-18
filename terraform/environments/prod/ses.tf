@@ -51,3 +51,17 @@ resource "aws_ses_domain_identity_verification" "main" {
   domain     = aws_ses_domain_identity.main.id
   depends_on = [cloudflare_record.ses_verification]
 }
+
+# DMARC（_dmarc.rikako.org）。まず p=none で観測から始め、なりすまし/到達性の
+# 実態を確認してから p=quarantine → p=reject と段階的に強化する。カスタム MAIL FROM
+# は設定しないため、DKIM alignment（送信ドメイン = rikako.org）で DMARC を通す。
+# rua（集計レポート送付先）は rikako.org の受信メールを未設定のため今は付けない。
+# レポートを受け取りたくなったら受信可能なアドレスを rua= で追加する。
+resource "cloudflare_record" "dmarc" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "_dmarc"
+  type    = "TXT"
+  content = "v=DMARC1; p=none"
+  ttl     = 1
+  proxied = false
+}
