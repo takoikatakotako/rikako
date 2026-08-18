@@ -209,6 +209,81 @@ resource "aws_cloudwatch_metric_alarm" "admin_api_throttles" {
   tags                = local.alarm_tags
 }
 
+# --- SES 送信レピュテーション ---
+# 送信元を SES に切替（#283 Phase 2）したため、バウンス率・苦情率を監視する。
+# 値は割合（0〜1）。Reputation メトリクスはアカウント単位（ディメンションなし）で
+# publish され、実送信が無い間は出ないため treat_missing_data=notBreaching。
+# 閾値は AWS の「review ライン」（バウンス 5% / 苦情 0.1%）で、送信停止（10% / 0.5%）
+# の手前で自分が気づけるようにする。送信量が少ないため率は跳ねやすく、運用しながら
+# 評価期間/閾値を調整する前提。
+
+resource "aws_cloudwatch_metric_alarm" "ses_bounce_rate" {
+  alarm_name          = "${local.project}-${local.environment}-ses-bounce-rate"
+  alarm_description   = "SES バウンス率が 5% を超えた（AWS は 5% で review, 10% で送信停止）"
+  namespace           = "AWS/SES"
+  metric_name         = "Reputation.BounceRate"
+  statistic           = "Average"
+  period              = 3600
+  evaluation_periods  = 1
+  threshold           = 0.05
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ses_complaint_rate" {
+  alarm_name          = "${local.project}-${local.environment}-ses-complaint-rate"
+  alarm_description   = "SES 苦情率が 0.1% を超えた（AWS は 0.1% で review, 0.5% で送信停止）"
+  namespace           = "AWS/SES"
+  metric_name         = "Reputation.ComplaintRate"
+  statistic           = "Average"
+  period              = 3600
+  evaluation_periods  = 1
+  threshold           = 0.001
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
+# 件数ベース（少量運用向けの早期警告）。率は分母が小さいとブレて分かりにくいため、
+# 「1件でも起きたら気づきたい」用途は件数（Sum >= 1）で見る。上の率アラームは
+# 送信量が増えたとき自動的に意味を持つ保険として残す。
+resource "aws_cloudwatch_metric_alarm" "ses_bounce_count" {
+  alarm_name          = "${local.project}-${local.environment}-ses-bounce-count"
+  alarm_description   = "SES バウンスが発生した（少量運用のため 1 件で警告）"
+  namespace           = "AWS/SES"
+  metric_name         = "Bounce"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "ses_complaint_count" {
+  alarm_name          = "${local.project}-${local.environment}-ses-complaint-count"
+  alarm_description   = "SES 苦情（スパム報告）が発生した（1 件で警告）"
+  namespace           = "AWS/SES"
+  metric_name         = "Complaint"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+  tags                = local.alarm_tags
+}
+
 # --- API Gateway (Public API) ---
 
 resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx" {
