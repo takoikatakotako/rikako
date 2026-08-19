@@ -15,13 +15,11 @@ variable "tags" {
 }
 
 variable "email_source_arn" {
-  description = "SES identity ARN for sending emails (DEVELOPER). 空なら COGNITO_DEFAULT を使う。"
+  description = "SES identity ARN for sending emails (DEVELOPER)。本モジュールは常に SES 送信のため必須。"
   type        = string
-  default     = ""
 }
 
 variable "email_from_address" {
-  description = "SES 経由メールの差出人（例: no-reply@dev.rikako.org）。email_source_arn 指定時に使う。"
+  description = "SES 経由メールの差出人（例: no-reply@rikako.org）。"
   type        = string
-  default     = ""
 }

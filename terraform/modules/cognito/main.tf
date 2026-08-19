@@ -19,25 +19,19 @@ resource "aws_cognito_user_pool" "main" {
     require_uppercase = true
   }
 
-  # メール設定。email_source_arn（SES ID の ARN）を渡すと SES(DEVELOPER)経由、
-  # 空なら Cognito 既定（COGNITO_DEFAULT、1日50通・差出人固定）。
+  # メール設定。本モジュールは常に SES(DEVELOPER) 経由で送信する（email_source_arn は必須）。
   email_configuration {
-    email_sending_account = var.email_source_arn != "" ? "DEVELOPER" : "COGNITO_DEFAULT"
-    source_arn            = var.email_source_arn != "" ? var.email_source_arn : null
-    from_email_address    = var.email_from_address != "" ? var.email_from_address : null
+    email_sending_account = "DEVELOPER"
+    source_arn            = var.email_source_arn
+    from_email_address    = var.email_from_address
   }
 
   # 確認コードメールの日本語化。サインアップ確認コードとパスワード再設定コードの
   # 両方に適用される。本文には必ずコード差し込みの {####} を含める。
-  # カスタムメール文面は SES(DEVELOPER) 経路が前提のため、email_source_arn を渡した
-  # ときだけ生成する（COGNITO_DEFAULT 経路の後方互換を壊さない）。
-  dynamic "verification_message_template" {
-    for_each = var.email_source_arn != "" ? [1] : []
-    content {
-      default_email_option = "CONFIRM_WITH_CODE"
-      email_subject        = "【Rikako】確認コード"
-      email_message        = "Rikako の確認コードは {####} です。アプリの画面に入力してください。心当たりのない場合は、このメールを破棄してください。"
-    }
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
+    email_subject        = "【Rikako】確認コード"
+    email_message        = "Rikako の確認コードは {####} です。アプリの画面に入力してください。心当たりのない場合は、このメールを破棄してください。"
   }
 
   tags = var.tags
