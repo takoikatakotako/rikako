@@ -3,6 +3,7 @@ import SwiftUI
 struct MyPageView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = MyPageViewModel()
+    @State private var session = AppContainer.shared.accountSession
 
     var body: some View {
         NavigationStack {
@@ -37,7 +38,8 @@ struct MyPageView: View {
                     Text(appState.displayName ?? "ゲストユーザー")
                         .font(.headline.bold())
                         .foregroundStyle(.primary)
-                    Text(appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員")
+                    // ログイン中はメールアドレスを出す（どのアカウントで記録が残るかを示す）。
+                    Text(session.email ?? (appState.anonymousUserId == nil ? "ゲストユーザー" : "無料会員"))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }

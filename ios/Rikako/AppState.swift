@@ -16,7 +16,6 @@ final class AppState {
     }
 
     var hasCompletedOnboarding: Bool
-    var isLoggedIn: Bool
     var anonymousUserId: String?
     var userId: Int64?
     var displayName: String?
@@ -36,7 +35,6 @@ final class AppState {
         #else
         self.hasCompletedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
         #endif
-        self.isLoggedIn = false
         self.anonymousUserId = userDefaults.string(forKey: DefaultsKey.anonymousUserId)
         self.userId = nil
         self.displayName = nil
@@ -50,13 +48,8 @@ final class AppState {
         userDefaults.set(true, forKey: DefaultsKey.hasCompletedOnboarding)
     }
 
-    func setLoggedIn(_ value: Bool) {
-        isLoggedIn = value
-    }
-
     func resetToInitialState() {
         hasCompletedOnboarding = false
-        isLoggedIn = false
         anonymousUserId = nil
         userId = nil
         displayName = nil

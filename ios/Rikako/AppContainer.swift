@@ -8,6 +8,7 @@ final class AppContainer {
     let deviceIdentityProvider: DeviceIdentityProviding
     let anonymousSignIn: () async throws -> String
     let analytics: AnalyticsClient
+    let accountSession: AccountSession
 
     private init() {
         #if DEBUG
@@ -18,6 +19,10 @@ final class AppContainer {
             self.deviceIdentityProvider = PreviewDeviceIdentityProvider()
             self.anonymousSignIn = { try await repository.anonymousSignIn() }
             self.analytics = NoopAnalyticsClient()
+            self.accountSession = AccountSession(
+                client: CognitoUserPoolClient(httpClient: URLSessionHTTPClient(session: .shared), clientId: ""),
+                store: InMemoryAuthTokenStore()
+            )
             return
         }
         #endif
@@ -38,6 +43,10 @@ final class AppContainer {
         self.learningUseCases = LearningUseCases(repository: repository)
         self.deviceIdentityProvider = deviceIdentityProvider
         self.anonymousSignIn = { try await repository.anonymousSignIn() }
+        self.accountSession = AccountSession(
+            client: CognitoUserPoolClient(httpClient: httpClient, clientId: flavor.cognitoClientId),
+            store: KeychainAuthTokenStore()
+        )
 
         // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。
         // dev は Console にも出力（コンソール即確認 + DebugView 検証の両立）。

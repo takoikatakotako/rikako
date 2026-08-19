@@ -3,7 +3,10 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = SettingsViewModel()
-    @State private var showLogoutConfirmation = false
+    @State private var session = AppContainer.shared.accountSession
+    @State private var showResetConfirmation = false
+    @State private var showSignOutConfirmation = false
+    @State private var showLogin = false
     @State private var versionTapCount = 0
     @State private var showDebug = false
     @AppStorage(UserPreferencesKey.soundEnabled) private var isSoundEnabled = true
@@ -12,9 +15,10 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
+                accountCard
                 feedbackCard
                 aboutCard
-                logoutButton
+                resetButton
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -25,13 +29,24 @@ struct SettingsView: View {
         .navigationDestination(isPresented: $showDebug) {
             DebugView()
         }
-        .alert("ログアウト", isPresented: $showLogoutConfirmation) {
+        .navigationDestination(isPresented: $showLogin) {
+            LoginView(onLoggedIn: { showLogin = false })
+        }
+        .alert("ログアウト", isPresented: $showSignOutConfirmation) {
             Button("キャンセル", role: .cancel) {}
             Button("ログアウト", role: .destructive) {
+                Task { await session.signOut() }
+            }
+        } message: {
+            Text("ログアウトしても、この端末の学習データは残ります。")
+        }
+        .alert("データをリセット", isPresented: $showResetConfirmation) {
+            Button("キャンセル", role: .cancel) {}
+            Button("リセット", role: .destructive) {
                 appState.resetToInitialState()
             }
         } message: {
-            Text("ログアウトすると学習データがリセットされます。よろしいですか？")
+            Text("この端末の学習データがすべて消えます。よろしいですか？")
         }
     }
 
@@ -82,13 +97,63 @@ struct SettingsView: View {
         }
     }
 
-    private var logoutButton: some View {
+    /// アカウント欄。未ログインなら任意ログインへの導線、ログイン中はメールアドレスとログアウト。
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("アカウント")
+
+            VStack(spacing: 0) {
+                if session.isLoggedIn {
+                    infoRow(
+                        symbol: "person.crop.circle.fill",
+                        title: "メールアドレス",
+                        trailing: session.email ?? "-",
+                        accentColor: Color(.main)
+                    )
+                    Divider().padding(.leading, 48)
+                    Button {
+                        showSignOutConfirmation = true
+                    } label: {
+                        infoRow(
+                            symbol: "rectangle.portrait.and.arrow.right",
+                            title: "ログアウト",
+                            trailing: "",
+                            accentColor: .red
+                        )
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        showLogin = true
+                    } label: {
+                        infoRow(
+                            symbol: "person.crop.circle.badge.plus",
+                            title: "ログイン / アカウント作成",
+                            accentColor: Color(.main)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("ログインすると、機種変更しても学習記録を引き継げます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+    }
+
+    private var resetButton: some View {
         Button(role: .destructive) {
-            showLogoutConfirmation = true
+            showResetConfirmation = true
         } label: {
             HStack {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                Text("ログアウト")
+                Image(systemName: "arrow.counterclockwise")
+                Text("データをリセット")
                     .fontWeight(.bold)
             }
             .frame(maxWidth: .infinity)
