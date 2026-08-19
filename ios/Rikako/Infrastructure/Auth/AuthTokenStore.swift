@@ -20,8 +20,10 @@ protocol AuthTokenStoring {
     func clear()
 }
 
-/// Keychain にトークンを保存する。匿名 identity 用の `KeychainIdentityStore` と同じ流儀
-/// （kSecClassGenericPassword + AfterFirstUnlock）に揃えている。
+/// Keychain にトークンを保存する。匿名 identity 用の `KeychainIdentityStore` と同じ
+/// kSecClassGenericPassword を使うが、アクセシビリティは *ThisDeviceOnly にしている。
+/// refresh token は匿名 identity より機密度が高く、かつ「別端末で入り直す」ための
+/// アカウントログインなので、セッション自体をバックアップ経由で端末外へ持ち出す必要がない。
 struct KeychainAuthTokenStore: AuthTokenStoring {
     private let keychainKey = "jp.conol.rikako.authTokens"
 
@@ -56,7 +58,7 @@ struct KeychainAuthTokenStore: AuthTokenStoring {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainKey,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
         SecItemAdd(addQuery as CFDictionary, nil)
     }

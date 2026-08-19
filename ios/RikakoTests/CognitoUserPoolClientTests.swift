@@ -139,6 +139,17 @@ struct CognitoUserPoolClientTests {
         }
     }
 
+    /// client ID が未設定なら、Cognito に投げる前に設定不備として弾く。
+    @Test func missingClientIdIsRejectedBeforeRequest() async throws {
+        let stub = StubHTTPClient()
+        let client = CognitoUserPoolClient(httpClient: stub, clientId: "", region: "ap-northeast-1")
+
+        await #expect(throws: CognitoError(code: "MissingClientId", message: "アプリの設定に問題があります。")) {
+            try await client.signUp(email: "a@example.com", password: "Passw0rd!")
+        }
+        #expect(stub.requests.isEmpty)
+    }
+
     /// 既知のエラーコードは日本語文言に、未知のコードはサーバー文言にフォールバックする。
     @Test func japaneseMessages() {
         #expect(
@@ -158,6 +169,9 @@ struct CognitoUserPoolClientTests {
         )
         #expect(
             CognitoError(code: "SomethingNewException", message: "").errorDescription == "エラーが発生しました。"
+        )
+        #expect(
+            CognitoError(code: "MissingClientId", message: "x").errorDescription == "アプリの設定に問題があります。"
         )
     }
 }

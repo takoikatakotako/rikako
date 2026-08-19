@@ -41,6 +41,9 @@ struct CognitoError: LocalizedError, Equatable {
             return "メール確認が完了していません。確認コードを入力してください。"
         case "LimitExceededException", "TooManyRequestsException":
             return "試行回数が多すぎます。しばらくしてから再度お試しください。"
+        case "MissingClientId":
+            // 設定不備。ユーザーの操作では直らないので、汎用の文言に留める。
+            return "アプリの設定に問題があります。"
         default:
             return fallback.isEmpty ? "エラーが発生しました。" : fallback
         }
@@ -139,6 +142,12 @@ struct CognitoUserPoolClient: CognitoUserPoolClienting {
     // MARK: - 内部
 
     private func call(_ action: String, body: [String: Any]) async throws -> [String: Any] {
+        // xcconfig / Info.plist の受け渡し漏れを、Cognito の不透明な 400 ではなく
+        // 設定不備として明示する（後続 PR で初めて使ったときに原因を追いやすくするため）。
+        guard !clientId.isEmpty else {
+            throw CognitoError(code: "MissingClientId", message: "アプリの設定に問題があります。")
+        }
+
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
