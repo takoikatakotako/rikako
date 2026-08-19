@@ -612,6 +612,7 @@
 				APP_SLUG = "high-school-chemistry";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				COGNITO_CLIENT_ID = 2buo6t5fbneujoknvrdph8flda;
 				CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
@@ -653,6 +654,7 @@
 				APP_SLUG = "high-school-chemistry";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				COGNITO_CLIENT_ID = 2buo6t5fbneujoknvrdph8flda;
 				CONTENT_BASE_URL = "https://content.dev.rikako.org/v1";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
@@ -916,6 +918,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_COGNITO_CLIENT_ID = "$(COGNITO_CLIENT_ID)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -953,6 +956,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_COGNITO_CLIENT_ID = "$(COGNITO_CLIENT_ID)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -991,6 +995,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_COGNITO_CLIENT_ID = "$(COGNITO_CLIENT_ID)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1028,6 +1033,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_RIKAKO_API_BASE_URL = "$(API_BASE_URL)";
 				INFOPLIST_KEY_RIKAKO_APP_SLUG = "$(APP_SLUG)";
+				INFOPLIST_KEY_RIKAKO_COGNITO_CLIENT_ID = "$(COGNITO_CLIENT_ID)";
 				INFOPLIST_KEY_RIKAKO_CONTENT_BASE_URL = "$(CONTENT_BASE_URL)";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
