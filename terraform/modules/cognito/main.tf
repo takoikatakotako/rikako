@@ -27,6 +27,14 @@ resource "aws_cognito_user_pool" "main" {
     from_email_address    = var.email_from_address != "" ? var.email_from_address : null
   }
 
+  # 確認コードメールの日本語化。サインアップ確認コードとパスワード再設定コードの
+  # 両方に適用される。本文には必ずコード差し込みの {####} を含める。
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
+    email_subject        = "【Rikako】確認コード"
+    email_message        = "Rikako の確認コードは {####} です。アプリの画面に入力してください。心当たりのない場合は、このメールを破棄してください。"
+  }
+
   tags = var.tags
 }
 
