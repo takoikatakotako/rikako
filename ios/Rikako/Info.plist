@@ -26,6 +26,8 @@
 	<string>$(API_BASE_URL)</string>
 	<key>RIKAKO_APP_SLUG</key>
 	<string>$(APP_SLUG)</string>
+	<key>RIKAKO_COGNITO_CLIENT_ID</key>
+	<string>$(COGNITO_CLIENT_ID)</string>
 	<key>RIKAKO_CONTENT_BASE_URL</key>
 	<string>$(CONTENT_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
