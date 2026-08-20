@@ -4,7 +4,7 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = SettingsViewModel()
     @State private var session = AppContainer.shared.accountSession
-    @State private var showResetConfirmation = false
+    @State private var showRestartOnboardingConfirmation = false
     @State private var showSignOutConfirmation = false
     @State private var showLogin = false
     @State private var versionTapCount = 0
@@ -18,7 +18,7 @@ struct SettingsView: View {
                 accountCard
                 feedbackCard
                 aboutCard
-                resetButton
+                restartOnboardingButton
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -40,13 +40,13 @@ struct SettingsView: View {
         } message: {
             Text("ログアウトしても、この端末の学習データは残ります。")
         }
-        .alert("データをリセット", isPresented: $showResetConfirmation) {
+        .alert("初期設定をやり直す", isPresented: $showRestartOnboardingConfirmation) {
             Button("キャンセル", role: .cancel) {}
-            Button("リセット", role: .destructive) {
+            Button("やり直す") {
                 appState.resetToInitialState()
             }
         } message: {
-            Text("この端末の学習データがすべて消えます。よろしいですか？")
+            Text("オンボーディングから設定をやり直します。学習記録は削除されず、同じ端末の記録として復元されます。ログイン中の場合、ログイン状態もそのまま保たれます。")
         }
     }
 
@@ -147,18 +147,19 @@ struct SettingsView: View {
         }
     }
 
-    private var resetButton: some View {
-        Button(role: .destructive) {
-            showResetConfirmation = true
+    /// オンボーディングをやり直すだけのボタン。データ削除ではないので破壊的な見た目にはしない。
+    private var restartOnboardingButton: some View {
+        Button {
+            showRestartOnboardingConfirmation = true
         } label: {
             HStack {
                 Image(systemName: "arrow.counterclockwise")
-                Text("データをリセット")
+                Text("初期設定をやり直す")
                     .fontWeight(.bold)
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.red.opacity(0.10))
+            .background(Color.secondary.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)

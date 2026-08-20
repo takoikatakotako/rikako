@@ -45,8 +45,13 @@ final class AccountSession {
     }
 
     /// API 呼び出し用の有効な ID token。期限が近ければ refresh する。
-    /// refresh に失敗した場合はセッションを終了して nil を返す（呼び出し側は匿名として続行）。
-    func validIdToken() async -> String? {
+    ///
+    /// nil を返すのは「本当に未ログイン」のときだけ。refresh の失敗は
+    /// terminal（refresh token が失効・無効）と transient（オフライン、timeout、
+    /// Cognito の 5xx、レート制限）を区別し、transient では **セッションを保持したまま
+    /// throw する**。ここで匿名に降格させると、通信障害の瞬間からログインユーザーの
+    /// 学習記録が X-Device-ID 側に書かれ、アカウントと匿名行にデータが分岐するため。
+    func validIdToken() async throws -> String? {
         guard let tokens else { return nil }
         guard tokens.isExpired() else { return tokens.idToken }
 
@@ -54,9 +59,21 @@ final class AccountSession {
             let refreshed = try await client.refresh(refreshToken: tokens.refreshToken)
             apply(refreshed)
             return refreshed.idToken
-        } catch {
+        } catch let error as CognitoError where AccountSession.isTerminal(error) {
             clear()
             return nil
+        }
+        // transient は呼び出し側へ伝える（匿名にフォールバックさせない）。
+    }
+
+    /// 再ログインしない限り回復しないエラーかどうか。
+    /// refresh token の失効・無効・ユーザー削除だけを terminal として扱う。
+    private static func isTerminal(_ error: CognitoError) -> Bool {
+        switch error.code {
+        case "NotAuthorizedException", "UserNotFoundException", "UserNotConfirmedException":
+            return true
+        default:
+            return false
         }
     }
 

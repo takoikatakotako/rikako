@@ -101,39 +101,66 @@ struct AccountSessionTests {
     }
 
     /// 期限内なら refresh せずに手持ちの ID token を返す。
-    @Test func validIdTokenSkipsRefreshWhenFresh() async {
+    @Test func validIdTokenSkipsRefreshWhenFresh() async throws {
         let client = StubCognitoClient()
         let tokens = makeTokens(expiresIn: 3600)
         let session = AccountSession(client: client, store: InMemoryAuthTokenStore(tokens: tokens))
 
-        #expect(await session.validIdToken() == tokens.idToken)
+        #expect(try await session.validIdToken() == tokens.idToken)
         #expect(client.refreshCallCount == 0)
     }
 
     /// 期限切れなら refresh し、新しいトークンを保存する。
-    @Test func validIdTokenRefreshesWhenExpired() async {
+    @Test func validIdTokenRefreshesWhenExpired() async throws {
         let client = StubCognitoClient()
         let refreshed = makeTokens(email: "refreshed@example.com")
         client.refreshResult = .success(refreshed)
         let store = InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
         let session = AccountSession(client: client, store: store)
 
-        #expect(await session.validIdToken() == refreshed.idToken)
+        #expect(try await session.validIdToken() == refreshed.idToken)
         #expect(client.refreshCallCount == 1)
         #expect(session.email == "refreshed@example.com")
         #expect(store.load()?.idToken == refreshed.idToken)
     }
 
-    /// refresh に失敗したらセッションを終了する（匿名として続行できるように nil を返す）。
-    @Test func validIdTokenClearsSessionWhenRefreshFails() async {
-        let client = StubCognitoClient()
-        client.refreshResult = .failure(CognitoError(code: "NotAuthorizedException", message: ""))
-        let store = InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
-        let session = AccountSession(client: client, store: store)
+    /// terminal（refresh token が失効・無効）なら再ログインしないと回復しないので、
+    /// セッションを終了して nil を返す。
+    @Test func validIdTokenClearsSessionOnTerminalFailure() async throws {
+        for code in ["NotAuthorizedException", "UserNotFoundException", "UserNotConfirmedException"] {
+            let client = StubCognitoClient()
+            client.refreshResult = .failure(CognitoError(code: code, message: ""))
+            let store = InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
+            let session = AccountSession(client: client, store: store)
 
-        #expect(await session.validIdToken() == nil)
-        #expect(session.isLoggedIn == false)
-        #expect(store.load() == nil)
+            #expect(try await session.validIdToken() == nil)
+            #expect(session.isLoggedIn == false, "\(code) でセッションが残っている")
+            #expect(store.load() == nil, "\(code) でトークンが残っている")
+        }
+    }
+
+    /// transient（オフライン・timeout・5xx・レート制限）ではログアウトしない。
+    /// ここで匿名に降格すると、ログインユーザーの学習記録が匿名側に分岐するため。
+    @Test func validIdTokenKeepsSessionOnTransientFailure() async throws {
+        let transientErrors: [Error] = [
+            CognitoError(code: "TooManyRequestsException", message: ""),
+            CognitoError(code: "InternalErrorException", message: ""),
+            URLError(.notConnectedToInternet),
+            URLError(.timedOut),
+        ]
+
+        for error in transientErrors {
+            let client = StubCognitoClient()
+            client.refreshResult = .failure(error)
+            let store = InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
+            let session = AccountSession(client: client, store: store)
+
+            await #expect(throws: (any Error).self) {
+                _ = try await session.validIdToken()
+            }
+            #expect(session.isLoggedIn, "\(error) でログアウトしている")
+            #expect(store.load() != nil, "\(error) でトークンが消えている")
+        }
     }
 
     /// ログアウトは refresh token を失効させたうえでローカルを消す。
