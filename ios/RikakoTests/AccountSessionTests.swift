@@ -124,19 +124,36 @@ struct AccountSessionTests {
         #expect(store.load()?.idToken == refreshed.idToken)
     }
 
-    /// terminal（refresh token が失効・無効）なら再ログインしないと回復しないので、
-    /// セッションを終了して nil を返す。
-    @Test func validIdTokenClearsSessionOnTerminalFailure() async throws {
+    /// terminal（refresh token が失効・無効）なら再ログインしないと回復しない。
+    /// ローカルは消すが、この1回のリクエストは匿名で流さず sessionExpired を投げる。
+    @Test func validIdTokenClearsSessionAndThrowsOnTerminalFailure() async throws {
         for code in ["NotAuthorizedException", "UserNotFoundException", "UserNotConfirmedException"] {
             let client = StubCognitoClient()
             client.refreshResult = .failure(CognitoError(code: code, message: ""))
             let store = InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
             let session = AccountSession(client: client, store: store)
 
-            #expect(try await session.validIdToken() == nil)
+            await #expect(throws: AccountSessionError.sessionExpired) {
+                _ = try await session.validIdToken()
+            }
             #expect(session.isLoggedIn == false, "\(code) でセッションが残っている")
             #expect(store.load() == nil, "\(code) でトークンが残っている")
         }
+    }
+
+    /// セッション終了後の次の呼び出しで初めて nil（＝未ログイン）になる。
+    @Test func validIdTokenReturnsNilOnlyAfterSessionCleared() async throws {
+        let client = StubCognitoClient()
+        client.refreshResult = .failure(CognitoError(code: "NotAuthorizedException", message: ""))
+        let session = AccountSession(
+            client: client,
+            store: InMemoryAuthTokenStore(tokens: makeTokens(expiresIn: -10))
+        )
+
+        await #expect(throws: AccountSessionError.sessionExpired) {
+            _ = try await session.validIdToken()
+        }
+        #expect(try await session.validIdToken() == nil)
     }
 
     /// transient（オフライン・timeout・5xx・レート制限）ではログアウトしない。

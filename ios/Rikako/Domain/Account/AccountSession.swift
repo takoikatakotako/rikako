@@ -1,6 +1,19 @@
 import Foundation
 import Observation
 
+/// セッション由来のエラー。
+enum AccountSessionError: LocalizedError, Equatable {
+    /// refresh token が失効・無効になり、再ログインが必要な状態。
+    case sessionExpired
+
+    var errorDescription: String? {
+        switch self {
+        case .sessionExpired:
+            return "ログインの有効期限が切れました。もう一度ログインしてください。"
+        }
+    }
+}
+
 /// メールアドレスでのログイン状態を持つ。トークンは Keychain に永続化するので、
 /// アプリ再起動後もログインが続く。未ログインのときは従来どおり匿名（X-Device-ID）で動く。
 @Observable
@@ -46,11 +59,13 @@ final class AccountSession {
 
     /// API 呼び出し用の有効な ID token。期限が近ければ refresh する。
     ///
-    /// nil を返すのは「本当に未ログイン」のときだけ。refresh の失敗は
+    /// nil を返すのは「呼び出し時点で未ログイン」のときだけ。refresh の失敗は
     /// terminal（refresh token が失効・無効）と transient（オフライン、timeout、
-    /// Cognito の 5xx、レート制限）を区別し、transient では **セッションを保持したまま
-    /// throw する**。ここで匿名に降格させると、通信障害の瞬間からログインユーザーの
-    /// 学習記録が X-Device-ID 側に書かれ、アカウントと匿名行にデータが分岐するため。
+    /// Cognito の 5xx、レート制限）を区別し、どちらも throw する。
+    ///
+    /// terminal でもローカルをクリアしたうえで throw するのが要点で、nil を返すと
+    /// 期限切れを検知したその1回の書き込みだけが X-Device-ID 側へ流れてしまう。
+    /// 匿名フローに戻るのは、tokens が無くなった **次の呼び出し以降**。
     func validIdToken() async throws -> String? {
         guard let tokens else { return nil }
         guard tokens.isExpired() else { return tokens.idToken }
@@ -60,8 +75,9 @@ final class AccountSession {
             apply(refreshed)
             return refreshed.idToken
         } catch let error as CognitoError where AccountSession.isTerminal(error) {
+            // ローカルのセッションは終了するが、この1回のリクエストは匿名で流さず失敗させる。
             clear()
-            return nil
+            throw AccountSessionError.sessionExpired
         }
         // transient は呼び出し側へ伝える（匿名にフォールバックさせない）。
     }
