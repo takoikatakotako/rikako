@@ -28,6 +28,8 @@
 	<string>$(APP_SLUG)</string>
 	<key>RIKAKO_COGNITO_CLIENT_ID</key>
 	<string>$(COGNITO_CLIENT_ID)</string>
+	<key>RIKAKO_COGNITO_IDENTITY_POOL_ID</key>
+	<string>$(COGNITO_IDENTITY_POOL_ID)</string>
 	<key>RIKAKO_CONTENT_BASE_URL</key>
 	<string>$(CONTENT_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>

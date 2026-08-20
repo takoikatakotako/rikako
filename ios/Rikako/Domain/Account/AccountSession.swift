@@ -14,11 +14,19 @@ enum AccountSessionError: LocalizedError, Equatable {
     }
 }
 
+/// API 呼び出し側から見た認証トークンの供給元。
+protocol AuthTokenProviding {
+    /// 有効な ID token。未ログインなら nil。
+    func validIdToken() async throws -> String?
+    /// 期限に関係なく refresh する。サーバーが 401 を返したときの再試行に使う。
+    func forceRefresh() async throws -> String?
+}
+
 /// メールアドレスでのログイン状態を持つ。トークンは Keychain に永続化するので、
 /// アプリ再起動後もログインが続く。未ログインのときは従来どおり匿名（X-Device-ID）で動く。
 @Observable
 @MainActor
-final class AccountSession {
+final class AccountSession: AuthTokenProviding {
     private(set) var tokens: AuthTokens?
     /// ログイン中のメールアドレス。ID token の email クレームから取る（表示用）。
     private(set) var email: String?
@@ -80,6 +88,21 @@ final class AccountSession {
             throw AccountSessionError.sessionExpired
         }
         // transient は呼び出し側へ伝える（匿名にフォールバックさせない）。
+    }
+
+    /// 期限内でもサーバーが 401 を返すことがある（トークン失効など）ので、
+    /// その場合の再試行用に期限を見ずに refresh する。失敗時の扱いは validIdToken と同じ。
+    func forceRefresh() async throws -> String? {
+        guard let tokens else { return nil }
+
+        do {
+            let refreshed = try await client.refresh(refreshToken: tokens.refreshToken)
+            apply(refreshed)
+            return refreshed.idToken
+        } catch let error as CognitoError where AccountSession.isTerminal(error) {
+            clear()
+            throw AccountSessionError.sessionExpired
+        }
     }
 
     /// 再ログインしない限り回復しないエラーかどうか。

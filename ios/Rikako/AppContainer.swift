@@ -31,22 +31,25 @@ final class AppContainer {
         let httpClient = URLSessionHTTPClient(session: .shared)
         let deviceIdentityProvider = CognitoDeviceIdentityProvider(
             session: .shared,
-            keychainStore: KeychainIdentityStore()
+            keychainStore: KeychainIdentityStore(),
+            identityPoolId: flavor.cognitoIdentityPoolId
+        )
+        let accountSession = AccountSession(
+            client: CognitoUserPoolClient(httpClient: httpClient, clientId: flavor.cognitoClientId),
+            store: KeychainAuthTokenStore()
         )
         let repository = RemoteLearningRepository(
             flavor: flavor,
             httpClient: httpClient,
-            deviceIdentityProvider: deviceIdentityProvider
+            deviceIdentityProvider: deviceIdentityProvider,
+            tokenProvider: accountSession
         )
 
         self.appState = AppState.shared
         self.learningUseCases = LearningUseCases(repository: repository)
         self.deviceIdentityProvider = deviceIdentityProvider
         self.anonymousSignIn = { try await repository.anonymousSignIn() }
-        self.accountSession = AccountSession(
-            client: CognitoUserPoolClient(httpClient: httpClient, clientId: flavor.cognitoClientId),
-            store: KeychainAuthTokenStore()
-        )
+        self.accountSession = accountSession
 
         // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。
         // dev は Console にも出力（コンソール即確認 + DebugView 検証の両立）。

@@ -24,6 +24,7 @@ protocol LearningRepository {
     func fetchWorkbookProgress(workbookId: Int64) async throws -> WorkbookProgressResponse
     func fetchUserSummary() async throws -> UserSummary
     func anonymousSignIn() async throws -> String
+    func linkAccount() async throws -> AccountLink
     func fetchUserProfile(appSlug: String) async throws -> UserProfile
     func updateUserProfile(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile
     func fetchAnnouncements() async throws -> [Announcement]

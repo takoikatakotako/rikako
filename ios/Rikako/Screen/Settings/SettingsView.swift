@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var showRestartOnboardingConfirmation = false
     @State private var showSignOutConfirmation = false
     @State private var showLogin = false
+    @State private var linkErrorMessage: String?
     @State private var versionTapCount = 0
     @State private var showDebug = false
     @AppStorage(UserPreferencesKey.soundEnabled) private var isSoundEnabled = true
@@ -30,7 +31,15 @@ struct SettingsView: View {
             DebugView()
         }
         .navigationDestination(isPresented: $showLogin) {
-            LoginView(onLoggedIn: { showLogin = false })
+            LoginView(onLoggedIn: {
+                showLogin = false
+                Task { await linkAccount() }
+            })
+        }
+        .alert("学習記録の引き継ぎ", isPresented: .constant(linkErrorMessage != nil)) {
+            Button("OK") { linkErrorMessage = nil }
+        } message: {
+            Text(linkErrorMessage ?? "")
         }
         .alert("ログアウト", isPresented: $showSignOutConfirmation) {
             Button("キャンセル", role: .cancel) {}
@@ -94,6 +103,16 @@ struct SettingsView: View {
             }
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18))
+        }
+    }
+
+    /// ログイン直後にこの端末の匿名データをアカウントへ紐付ける（冪等）。
+    /// 失敗してもログイン自体は成立しているので、通知だけしてセッションは維持する。
+    private func linkAccount() async {
+        do {
+            try await AppContainer.shared.learningUseCases.linkAccount.execute()
+        } catch {
+            linkErrorMessage = "ログインはできましたが、この端末の学習記録の引き継ぎに失敗しました。通信環境の良い場所で、もう一度ログインし直してください。"
         }
     }
 

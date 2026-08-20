@@ -4,19 +4,29 @@ import Security
 protocol DeviceIdentityProviding {
     func getIdentityId() async throws -> String
     func overrideIdentityId(_ id: String)
+    /// 新しい匿名 identity を取り直す。既にほかのアカウントへ紐付いている device id で
+    /// /account/link が 409 になったときに使う。
+    func rotateIdentityId() async throws -> String
 }
 
 final class CognitoDeviceIdentityProvider: DeviceIdentityProviding {
-    private let identityPoolId = "ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222"
-    private let region = "ap-northeast-1"
+    private let identityPoolId: String
+    private let region: String
 
     private let session: URLSession
     private let keychainStore: KeychainIdentityStore
     private var cachedIdentityId: String?
 
-    init(session: URLSession, keychainStore: KeychainIdentityStore) {
+    init(
+        session: URLSession,
+        keychainStore: KeychainIdentityStore,
+        identityPoolId: String,
+        region: String = "ap-northeast-1"
+    ) {
         self.session = session
         self.keychainStore = keychainStore
+        self.identityPoolId = identityPoolId
+        self.region = region
         self.cachedIdentityId = keychainStore.load()
     }
 
@@ -34,6 +44,16 @@ final class CognitoDeviceIdentityProvider: DeviceIdentityProviding {
     func overrideIdentityId(_ id: String) {
         keychainStore.save(id)
         cachedIdentityId = id
+    }
+
+    /// GetId は logins 無しで呼ぶと毎回新しい identity を払い出すので、
+    /// キャッシュを捨てて取り直すだけでローテーションになる。
+    func rotateIdentityId() async throws -> String {
+        cachedIdentityId = nil
+        let identityId = try await fetchIdentityId()
+        keychainStore.save(identityId)
+        cachedIdentityId = identityId
+        return identityId
     }
 
     private func fetchIdentityId() async throws -> String {

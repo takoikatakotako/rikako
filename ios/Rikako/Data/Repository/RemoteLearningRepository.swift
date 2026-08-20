@@ -6,6 +6,8 @@ final class RemoteLearningRepository: LearningRepository {
     private let apiBaseURL: URL
     private let httpClient: HTTPClient
     private let deviceIdentityProvider: DeviceIdentityProviding
+    /// ログイン中のみ ID token を返す。未設定（ローカル/CI）なら常に匿名。
+    private let tokenProvider: AuthTokenProviding?
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
@@ -13,7 +15,13 @@ final class RemoteLearningRepository: LearningRepository {
     }()
     private let encoder = JSONEncoder()
 
-    init(flavor: AppFlavor, httpClient: HTTPClient, deviceIdentityProvider: DeviceIdentityProviding) {
+    init(
+        flavor: AppFlavor,
+        httpClient: HTTPClient,
+        deviceIdentityProvider: DeviceIdentityProviding,
+        tokenProvider: AuthTokenProviding? = nil
+    ) {
+        self.tokenProvider = tokenProvider
         self.flavor = flavor
         self.contentBaseURL = flavor.contentBaseURL
         self.apiBaseURL = flavor.apiBaseURL
@@ -92,11 +100,9 @@ final class RemoteLearningRepository: LearningRepository {
     func fetchUserProfile(appSlug: String) async throws -> UserProfile {
         let url = apiBaseURL.appendingPathComponent("users/me")
         var request = URLRequest(url: url)
-        let deviceId = try await deviceIdentityProvider.getIdentityId()
-        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         request.setValue(appSlug, forHTTPHeaderField: "X-App-Slug")
 
-        let (data, response) = try await httpClient.data(for: request)
+        let (data, response) = try await sendAuthenticated(request)
         try validateResponse(response)
         return try decoder.decode(UserProfile.self, from: data)
     }
@@ -106,12 +112,10 @@ final class RemoteLearningRepository: LearningRepository {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "PUT"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let deviceId = try await deviceIdentityProvider.getIdentityId()
-        urlRequest.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
         urlRequest.setValue(appSlug, forHTTPHeaderField: "X-App-Slug")
         urlRequest.httpBody = try encoder.encode(request)
 
-        let (data, response) = try await httpClient.data(for: urlRequest)
+        let (data, response) = try await sendAuthenticated(urlRequest)
         try validateResponse(response)
         return try decoder.decode(UserProfile.self, from: data)
     }
@@ -155,17 +159,73 @@ final class RemoteLearningRepository: LearningRepository {
         return try await getJSON(url: url, authenticated: true)
     }
 
+
+    /// 認証ヘッダーを付けて送る。ログイン中は Authorization も付け、401 なら
+    /// 1度だけ refresh して再試行する。
+    ///
+    /// トークン取得が throw した場合はそのまま伝播させる（匿名リクエストへ
+    /// フォールバックしない）。降格させると、ログイン中の学習記録が
+    /// X-Device-ID 側へ書かれてアカウントと匿名行にデータが分岐するため。
+    private func sendAuthenticated(_ original: URLRequest) async throws -> (Data, URLResponse) {
+        var request = original
+        let deviceId = try await deviceIdentityProvider.getIdentityId()
+        request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
+
+        let idToken = try await tokenProvider?.validIdToken()
+        if let idToken {
+            request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await httpClient.data(for: request)
+
+        // ログイン中に 401 が返るのは、期限内でもトークンが失効している場合。
+        // 1度だけ refresh して再試行する。
+        guard idToken != nil,
+              let http = response as? HTTPURLResponse,
+              http.statusCode == 401,
+              let refreshed = try await tokenProvider?.forceRefresh() else {
+            return (data, response)
+        }
+
+        var retry = request
+        retry.setValue("Bearer \(refreshed)", forHTTPHeaderField: "Authorization")
+        return try await httpClient.data(for: retry)
+    }
+
+    /// ログイン中のアカウントに、この端末の匿名データを紐付ける（冪等）。
+    /// device id が既に別アカウントへ紐付いている場合は 409 になるので、
+    /// 新しい identity を取り直して1度だけやり直す。
+    func linkAccount() async throws -> AccountLink {
+        do {
+            return try await postAccountLink()
+        } catch APIError.httpError(409) {
+            _ = try await deviceIdentityProvider.rotateIdentityId()
+            return try await postAccountLink()
+        }
+    }
+
+    private func postAccountLink() async throws -> AccountLink {
+        let url = apiBaseURL.appendingPathComponent("account/link")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
+        request.httpBody = try encoder.encode([String: String]())
+
+        let (data, response) = try await sendAuthenticated(request)
+        try validateResponse(response)
+        return try decoder.decode(AccountLink.self, from: data)
+    }
+
     private func getJSON<T: Decodable>(url: URL, authenticated: Bool) async throws -> T {
         var request = URLRequest(url: url)
         // X-App-Slug は常に送る。/status はアプリ別の minimumVersion/latestVersion を
         // 返せるように slug を必要とする（強制アップデートをアプリ単位で制御するため）。
         request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
-        if authenticated {
-            let deviceId = try await deviceIdentityProvider.getIdentityId()
-            request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
-        }
 
-        let (data, response) = try await httpClient.data(for: request)
+        let (data, response) = authenticated
+            ? try await sendAuthenticated(request)
+            : try await httpClient.data(for: request)
         try validateResponse(response)
         return try decoder.decode(T.self, from: data)
     }
@@ -175,13 +235,13 @@ final class RemoteLearningRepository: LearningRepository {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if authenticated {
-            let deviceId = try await deviceIdentityProvider.getIdentityId()
-            request.setValue(deviceId, forHTTPHeaderField: "X-Device-ID")
             request.setValue(flavor.slug, forHTTPHeaderField: "X-App-Slug")
         }
         request.httpBody = try encoder.encode(body)
 
-        let (data, response) = try await httpClient.data(for: request)
+        let (data, response) = authenticated
+            ? try await sendAuthenticated(request)
+            : try await httpClient.data(for: request)
         try validateResponse(response)
         return try decoder.decode(T.self, from: data)
     }
