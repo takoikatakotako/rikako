@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     /// ログイン完了時に呼ばれる。呼び出し側で画面を閉じる。
-    var onLoggedIn: () -> Void = {}
+    var onLoggedIn: () async -> Void = {}
 
     @State private var session = AppContainer.shared.accountSession
     @State private var email = ""
@@ -107,7 +107,7 @@ struct LoginView: View {
 
         do {
             try await session.signIn(email: email.trimmingCharacters(in: .whitespaces), password: password)
-            onLoggedIn()
+            await onLoggedIn()
         } catch let error as CognitoError {
             if error.code == "UserNotConfirmedException" {
                 pendingConfirmation = true

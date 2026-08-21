@@ -7,7 +7,7 @@ struct SettingsView: View {
     @State private var showRestartOnboardingConfirmation = false
     @State private var showSignOutConfirmation = false
     @State private var showLogin = false
-    @State private var linkErrorMessage: String?
+    @State private var linkCoordinator = AppContainer.shared.accountLinkCoordinator
     @State private var versionTapCount = 0
     @State private var showDebug = false
     @AppStorage(UserPreferencesKey.soundEnabled) private var isSoundEnabled = true
@@ -32,14 +32,9 @@ struct SettingsView: View {
         }
         .navigationDestination(isPresented: $showLogin) {
             LoginView(onLoggedIn: {
+                await linkCoordinator.ensureLinked()
                 showLogin = false
-                Task { await linkAccount() }
             })
-        }
-        .alert("学習記録の引き継ぎ", isPresented: .constant(linkErrorMessage != nil)) {
-            Button("OK") { linkErrorMessage = nil }
-        } message: {
-            Text(linkErrorMessage ?? "")
         }
         .alert("ログアウト", isPresented: $showSignOutConfirmation) {
             Button("キャンセル", role: .cancel) {}
@@ -106,16 +101,6 @@ struct SettingsView: View {
         }
     }
 
-    /// ログイン直後にこの端末の匿名データをアカウントへ紐付ける（冪等）。
-    /// 失敗してもログイン自体は成立しているので、通知だけしてセッションは維持する。
-    private func linkAccount() async {
-        do {
-            try await AppContainer.shared.learningUseCases.linkAccount.execute()
-        } catch {
-            linkErrorMessage = "ログインはできましたが、この端末の学習記録の引き継ぎに失敗しました。通信環境の良い場所で、もう一度ログインし直してください。"
-        }
-    }
-
     /// アカウント欄。未ログインなら任意ログインへの導線、ログイン中はメールアドレスとログアウト。
     private var accountCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -129,6 +114,10 @@ struct SettingsView: View {
                         trailing: session.email ?? "-",
                         accentColor: Color(.main)
                     )
+                    if linkCoordinator.state == .failed {
+                        Divider().padding(.leading, 48)
+                        linkFailedRow
+                    }
                     Divider().padding(.leading, 48)
                     Button {
                         showSignOutConfirmation = true
@@ -164,6 +153,44 @@ struct SettingsView: View {
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
+    }
+
+    /// リンク未完了の案内と再試行。失敗したままでも次回起動時に自動で再試行される。
+    private var linkFailedRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.orange)
+                    .frame(width: 28, height: 28)
+                    .background(Color.orange.opacity(0.10))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("学習記録の引き継ぎが未完了です")
+                        .font(.subheadline.bold())
+                    Text("この端末にログイン前から残っている学習記録が、まだアカウントに取り込まれていません。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+
+            Button {
+                Task { await linkCoordinator.retry() }
+            } label: {
+                if linkCoordinator.state == .linking {
+                    ProgressView()
+                } else {
+                    Text("再試行する")
+                        .font(.subheadline.bold())
+                }
+            }
+            .padding(.leading, 42)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     /// オンボーディングをやり直すだけのボタン。データ削除ではないので破壊的な見た目にはしない。

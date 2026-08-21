@@ -33,12 +33,20 @@ final class AccountSession: AuthTokenProviding {
 
     private let client: CognitoUserPoolClienting
     private let store: AuthTokenStoring
+    /// ログインしたら「未リンク」を立てておく。リンク完了までアプリを終了しても
+    /// 次回起動でやり直せるようにするため（AccountLinkCoordinator が下ろす）。
+    private let linkPendingStore: AccountLinkPendingStore
 
     var isLoggedIn: Bool { tokens != nil }
 
-    init(client: CognitoUserPoolClienting, store: AuthTokenStoring) {
+    init(
+        client: CognitoUserPoolClienting,
+        store: AuthTokenStoring,
+        linkPendingStore: AccountLinkPendingStore = AccountLinkPendingStore()
+    ) {
         self.client = client
         self.store = store
+        self.linkPendingStore = linkPendingStore
         let saved = store.load()
         self.tokens = saved
         self.email = saved.flatMap { AccountSession.email(fromIdToken: $0.idToken) }
@@ -63,6 +71,7 @@ final class AccountSession: AuthTokenProviding {
     func signIn(email: String, password: String) async throws {
         let tokens = try await client.signIn(email: email, password: password)
         apply(tokens)
+        linkPendingStore.set(true)
     }
 
     /// API 呼び出し用の有効な ID token。期限が近ければ refresh する。
@@ -149,6 +158,8 @@ final class AccountSession: AuthTokenProviding {
         tokens = nil
         email = nil
         store.clear()
+        // ログアウト/セッション終了後にリンクを走らせても意味がない。
+        linkPendingStore.set(false)
     }
 
     /// ID token（JWT）の payload から email を取り出す。表示専用なので署名検証はしない
