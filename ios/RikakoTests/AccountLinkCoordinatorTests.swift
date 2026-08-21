@@ -37,6 +37,27 @@ private func makePendingStore() -> AccountLinkPendingStore {
     )
 }
 
+/// save が呼ばれた瞬間に検証を差し込めるトークン保管。
+private final class ObservingAuthTokenStore: AuthTokenStoring, @unchecked Sendable {
+    private var tokens: AuthTokens?
+    private let onSave: () -> Void
+    private(set) var saveCallCount = 0
+
+    init(onSave: @escaping () -> Void) {
+        self.onSave = onSave
+    }
+
+    func load() -> AuthTokens? { tokens }
+
+    func save(_ tokens: AuthTokens) {
+        saveCallCount += 1
+        onSave()
+        self.tokens = tokens
+    }
+
+    func clear() { tokens = nil }
+}
+
 @MainActor
 struct AccountLinkCoordinatorTests {
     private func makeSession(
@@ -181,6 +202,40 @@ struct AccountLinkCoordinatorTests {
         try await session.signIn(email: "a@example.com", password: "Passw0rd!")
 
         #expect(store.isPending)
+    }
+
+    /// signIn は「トークン保存より先に」pending を立てる。
+    /// 途中で終了しても「ログイン済みなのに pending=false」にならないようにするため。
+    @Test func signInMarksPendingBeforePersistingTokens() async throws {
+        let store = makePendingStore()
+        let client = StubLinkCognitoClient()
+        client.tokens = linkTestTokens()
+
+        // トークン保存の瞬間に pending が既に立っていることを確認する。
+        let tokenStore = ObservingAuthTokenStore { #expect(store.isPending, "トークン保存時点で pending が立っていない") }
+        let session = AccountSession(client: client, store: tokenStore, linkPendingStore: store)
+
+        try await session.signIn(email: "a@example.com", password: "Passw0rd!")
+
+        #expect(tokenStore.saveCallCount == 1)
+        #expect(store.isPending)
+    }
+
+    /// pending キーを持たないビルドから持ち越した端末は、ログイン済みなら未完了として扱う。
+    @Test func treatsMissingPendingKeyAsPending() async {
+        let defaults = UserDefaults(suiteName: "jp.conol.rikako.tests.\(UUID().uuidString)")!
+        let store = AccountLinkPendingStore(userDefaults: defaults)
+        var callCount = 0
+        let coordinator = AccountLinkCoordinator(
+            session: makeSession(pendingStore: store, tokens: linkTestTokens()),
+            pendingStore: store,
+            link: { callCount += 1 }
+        )
+
+        await coordinator.ensureLinked()
+
+        #expect(callCount == 1, "持ち越し端末でリンクが実行されていない")
+        #expect(store.isPending == false)
     }
 
     /// ログアウトしたらフラグを下ろす（走らせても意味がないため）。

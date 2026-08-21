@@ -70,8 +70,12 @@ final class AccountSession: AuthTokenProviding {
 
     func signIn(email: String, password: String) async throws {
         let tokens = try await client.signIn(email: email, password: password)
-        apply(tokens)
+        // 2つのストアをトランザクションにはできないので、順序で安全側に倒す。
+        // 先に pending を立てておけば、トークン保存前に終了しても未ログインのままなので
+        // ensureLinked は動かず害がない。逆順だと「ログイン済みだが pending=false」になり、
+        // リンク漏れが永久に残る。
         linkPendingStore.set(true)
+        apply(tokens)
     }
 
     /// API 呼び出し用の有効な ID token。期限が近ければ refresh する。

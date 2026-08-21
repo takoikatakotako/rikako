@@ -12,7 +12,13 @@ struct AccountLinkPendingStore {
         self.userDefaults = userDefaults
     }
 
-    var isPending: Bool { userDefaults.bool(forKey: key) }
+    var isPending: Bool {
+        // キーが無い状態でログイン済みなら、pending を持たない頃のビルドから
+        // 持ち越した端末（リンク未実行）とみなす。新規インストールは未ログインなので
+        // ensureLinked 側の判定で弾かれ、余計なリクエストにはならない。
+        guard userDefaults.object(forKey: key) != nil else { return true }
+        return userDefaults.bool(forKey: key)
+    }
 
     func set(_ pending: Bool) {
         userDefaults.set(pending, forKey: key)
