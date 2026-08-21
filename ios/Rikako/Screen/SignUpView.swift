@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SignUpView: View {
-    var onLoggedIn: () -> Void = {}
+    var onLoggedIn: () async -> Void = {}
 
     @State private var session = AppContainer.shared.accountSession
     @State private var email = ""

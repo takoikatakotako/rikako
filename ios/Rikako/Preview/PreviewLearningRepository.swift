@@ -201,12 +201,21 @@ extension PreviewLearningRepository {
     }
 
     func submitContact(subject: String?, body: String, email: String?, userId: String?, deviceModel: String?, osVersion: String?, appVersion: String?) async throws {}
+
+    func linkAccount() async throws -> AccountLink {
+        AccountLink(accountId: 1, email: "preview@example.com")
+    }
 }
 
 final class PreviewDeviceIdentityProvider: DeviceIdentityProviding {
     private(set) var identityId = "preview-identity-id"
     func getIdentityId() async throws -> String { identityId }
     func overrideIdentityId(_ id: String) { identityId = id }
+
+    func rotateIdentityId() async throws -> String {
+        identityId = "preview-identity-id-\(UUID().uuidString)"
+        return identityId
+    }
 }
 
 enum PreviewAppContainer {

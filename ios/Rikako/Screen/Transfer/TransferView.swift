@@ -16,6 +16,8 @@ struct TransferView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            accountRecommendationBanner
+
             Picker("", selection: $selectedTab) {
                 Text("このデバイスから引き継ぐ").tag(0)
                 Text("別のデバイスに引き継ぐ").tag(1)
@@ -37,6 +39,29 @@ struct TransferView: View {
         } message: {
             Text("学習データを引き継ぎました。アプリを再起動するとデータが反映されます。")
         }
+    }
+
+    /// QR 引き継ぎはアカウント無しでの一時的な手段という位置づけにして、
+    /// アカウントログインを主導線として案内する（段階的に廃止していく想定）。
+    private var accountRecommendationBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(Color.accentColor)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("アカウントでのログインをおすすめします")
+                    .font(.subheadline.bold())
+                Text("設定からログインすると、QRコードを使わなくても複数の端末で学習記録を引き継げます。このQRコードでの引き継ぎは、アカウントを使わない場合の方法です。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
     }
 }
 

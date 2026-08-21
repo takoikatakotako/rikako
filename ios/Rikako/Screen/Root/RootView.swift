@@ -103,6 +103,9 @@ struct RootView: View {
             }
 
             if appState.hasCompletedOnboarding {
+                // 前回リンクに失敗したまま終了していた場合はここでやり直す。
+                // 通常 API より先に流して、取り残された匿名データを回収する。
+                await AppContainer.shared.accountLinkCoordinator.ensureLinked()
                 await syncProfile()
             }
             state = .ready

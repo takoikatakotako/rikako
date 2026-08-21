@@ -5,3 +5,4 @@ CONTENT_BASE_URL = https:/$()/content.dev.rikako.org/v1
 PRODUCT_BUNDLE_IDENTIFIER = org.rikako.it-passport.dev
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIconItPassportDev
 COGNITO_CLIENT_ID = 2buo6t5fbneujoknvrdph8flda
+COGNITO_IDENTITY_POOL_ID = ap-northeast-1:51acc74e-ec8d-4de4-bfa1-84648ea45222

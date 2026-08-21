@@ -17,7 +17,7 @@ struct URLSessionHTTPClient: HTTPClient {
     }
 }
 
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable {
     case invalidResponse
     case httpError(Int)
     case sameDevice

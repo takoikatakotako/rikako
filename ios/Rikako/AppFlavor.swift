@@ -6,6 +6,8 @@ struct AppFlavor {
     let contentBaseURL: URL
     /// Cognito User Pool の App Client ID（環境ごとに異なる）。generate_secret=false なので公開値でよい。
     let cognitoClientId: String
+    /// Cognito Identity Pool の ID（匿名認証用。環境ごとに異なる）。
+    let cognitoIdentityPoolId: String
 
     static let current = AppFlavor(bundle: .main)
 
@@ -28,6 +30,7 @@ struct AppFlavor {
         self.apiBaseURL = AppFlavor.urlValue(info["RIKAKO_API_BASE_URL"], fallback: "https://api.dev.rikako.org")
         self.contentBaseURL = AppFlavor.urlValue(info["RIKAKO_CONTENT_BASE_URL"], fallback: "https://content.dev.rikako.org/v1")
         self.cognitoClientId = info["RIKAKO_COGNITO_CLIENT_ID"] as? String ?? ""
+        self.cognitoIdentityPoolId = info["RIKAKO_COGNITO_IDENTITY_POOL_ID"] as? String ?? ""
     }
 
     private static func urlValue(_ value: Any?, fallback: String) -> URL {

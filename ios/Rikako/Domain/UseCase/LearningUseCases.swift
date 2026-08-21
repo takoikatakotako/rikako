@@ -19,6 +19,7 @@ struct LearningUseCases {
     let applyTransferToken: ApplyTransferTokenUseCase
     let chatWithQuestion: ChatWithQuestionUseCase
     let submitContact: SubmitContactUseCase
+    let linkAccount: LinkAccountUseCase
 
     init(repository: LearningRepository) {
         self.fetchAppStatus = FetchAppStatusUseCase(repository: repository)
@@ -39,6 +40,7 @@ struct LearningUseCases {
         self.applyTransferToken = ApplyTransferTokenUseCase(repository: repository)
         self.chatWithQuestion = ChatWithQuestionUseCase(repository: repository)
         self.submitContact = SubmitContactUseCase(repository: repository)
+        self.linkAccount = LinkAccountUseCase(repository: repository)
     }
 }
 
@@ -227,5 +229,17 @@ struct UpdateUserProfileUseCase {
 
     func execute(appSlug: String, request: UpdateUserProfileRequest) async throws -> UserProfile {
         try await repository.updateUserProfile(appSlug: appSlug, request: request)
+    }
+}
+
+
+/// ログイン直後に呼び、匿名データをアカウントへ紐付ける（冪等）。
+struct LinkAccountUseCase {
+    private let repository: LearningRepository
+    init(repository: LearningRepository) { self.repository = repository }
+
+    @discardableResult
+    func execute() async throws -> AccountLink {
+        try await repository.linkAccount()
     }
 }

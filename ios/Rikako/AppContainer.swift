@@ -9,6 +9,7 @@ final class AppContainer {
     let anonymousSignIn: () async throws -> String
     let analytics: AnalyticsClient
     let accountSession: AccountSession
+    let accountLinkCoordinator: AccountLinkCoordinator
 
     private init() {
         #if DEBUG
@@ -19,9 +20,15 @@ final class AppContainer {
             self.deviceIdentityProvider = PreviewDeviceIdentityProvider()
             self.anonymousSignIn = { try await repository.anonymousSignIn() }
             self.analytics = NoopAnalyticsClient()
-            self.accountSession = AccountSession(
+            let previewSession = AccountSession(
                 client: CognitoUserPoolClient(httpClient: URLSessionHTTPClient(session: .shared), clientId: ""),
                 store: InMemoryAuthTokenStore()
+            )
+            self.accountSession = previewSession
+            self.accountLinkCoordinator = AccountLinkCoordinator(
+                session: previewSession,
+                pendingStore: AccountLinkPendingStore(),
+                link: {}
             )
             return
         }
@@ -31,21 +38,29 @@ final class AppContainer {
         let httpClient = URLSessionHTTPClient(session: .shared)
         let deviceIdentityProvider = CognitoDeviceIdentityProvider(
             session: .shared,
-            keychainStore: KeychainIdentityStore()
+            keychainStore: KeychainIdentityStore(),
+            identityPoolId: flavor.cognitoIdentityPoolId
+        )
+        let accountSession = AccountSession(
+            client: CognitoUserPoolClient(httpClient: httpClient, clientId: flavor.cognitoClientId),
+            store: KeychainAuthTokenStore()
         )
         let repository = RemoteLearningRepository(
             flavor: flavor,
             httpClient: httpClient,
-            deviceIdentityProvider: deviceIdentityProvider
+            deviceIdentityProvider: deviceIdentityProvider,
+            tokenProvider: accountSession
         )
 
         self.appState = AppState.shared
         self.learningUseCases = LearningUseCases(repository: repository)
         self.deviceIdentityProvider = deviceIdentityProvider
         self.anonymousSignIn = { try await repository.anonymousSignIn() }
-        self.accountSession = AccountSession(
-            client: CognitoUserPoolClient(httpClient: httpClient, clientId: flavor.cognitoClientId),
-            store: KeychainAuthTokenStore()
+        self.accountSession = accountSession
+        self.accountLinkCoordinator = AccountLinkCoordinator(
+            session: accountSession,
+            pendingStore: AccountLinkPendingStore(),
+            link: { try await repository.linkAccount() }
         )
 
         // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。

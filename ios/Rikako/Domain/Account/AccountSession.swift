@@ -14,23 +14,39 @@ enum AccountSessionError: LocalizedError, Equatable {
     }
 }
 
+/// API 呼び出し側から見た認証トークンの供給元。
+protocol AuthTokenProviding {
+    /// 有効な ID token。未ログインなら nil。
+    func validIdToken() async throws -> String?
+    /// 期限に関係なく refresh する。サーバーが 401 を返したときの再試行に使う。
+    func forceRefresh() async throws -> String?
+}
+
 /// メールアドレスでのログイン状態を持つ。トークンは Keychain に永続化するので、
 /// アプリ再起動後もログインが続く。未ログインのときは従来どおり匿名（X-Device-ID）で動く。
 @Observable
 @MainActor
-final class AccountSession {
+final class AccountSession: AuthTokenProviding {
     private(set) var tokens: AuthTokens?
     /// ログイン中のメールアドレス。ID token の email クレームから取る（表示用）。
     private(set) var email: String?
 
     private let client: CognitoUserPoolClienting
     private let store: AuthTokenStoring
+    /// ログインしたら「未リンク」を立てておく。リンク完了までアプリを終了しても
+    /// 次回起動でやり直せるようにするため（AccountLinkCoordinator が下ろす）。
+    private let linkPendingStore: AccountLinkPendingStore
 
     var isLoggedIn: Bool { tokens != nil }
 
-    init(client: CognitoUserPoolClienting, store: AuthTokenStoring) {
+    init(
+        client: CognitoUserPoolClienting,
+        store: AuthTokenStoring,
+        linkPendingStore: AccountLinkPendingStore = AccountLinkPendingStore()
+    ) {
         self.client = client
         self.store = store
+        self.linkPendingStore = linkPendingStore
         let saved = store.load()
         self.tokens = saved
         self.email = saved.flatMap { AccountSession.email(fromIdToken: $0.idToken) }
@@ -54,6 +70,11 @@ final class AccountSession {
 
     func signIn(email: String, password: String) async throws {
         let tokens = try await client.signIn(email: email, password: password)
+        // 2つのストアをトランザクションにはできないので、順序で安全側に倒す。
+        // 先に pending を立てておけば、トークン保存前に終了しても未ログインのままなので
+        // ensureLinked は動かず害がない。逆順だと「ログイン済みだが pending=false」になり、
+        // リンク漏れが永久に残る。
+        linkPendingStore.set(true)
         apply(tokens)
     }
 
@@ -80,6 +101,21 @@ final class AccountSession {
             throw AccountSessionError.sessionExpired
         }
         // transient は呼び出し側へ伝える（匿名にフォールバックさせない）。
+    }
+
+    /// 期限内でもサーバーが 401 を返すことがある（トークン失効など）ので、
+    /// その場合の再試行用に期限を見ずに refresh する。失敗時の扱いは validIdToken と同じ。
+    func forceRefresh() async throws -> String? {
+        guard let tokens else { return nil }
+
+        do {
+            let refreshed = try await client.refresh(refreshToken: tokens.refreshToken)
+            apply(refreshed)
+            return refreshed.idToken
+        } catch let error as CognitoError where AccountSession.isTerminal(error) {
+            clear()
+            throw AccountSessionError.sessionExpired
+        }
     }
 
     /// 再ログインしない限り回復しないエラーかどうか。
@@ -126,6 +162,8 @@ final class AccountSession {
         tokens = nil
         email = nil
         store.clear()
+        // ログアウト/セッション終了後にリンクを走らせても意味がない。
+        linkPendingStore.set(false)
     }
 
     /// ID token（JWT）の payload から email を取り出す。表示専用なので署名検証はしない

@@ -6,7 +6,7 @@ struct ConfirmCodeView: View {
     let email: String
     /// サインアップ/ログイン画面から引き継いだパスワード。確認後の自動ログインに使う。
     var password: String?
-    var onLoggedIn: () -> Void = {}
+    var onLoggedIn: () async -> Void = {}
 
     @State private var session = AppContainer.shared.accountSession
     @State private var code = ""
@@ -116,7 +116,7 @@ struct ConfirmCodeView: View {
 
         do {
             try await session.signIn(email: email, password: password)
-            onLoggedIn()
+            await onLoggedIn()
         } catch {
             infoMessage = "確認が完了しました。ログイン画面からログインしてください。"
         }
