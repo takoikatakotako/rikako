@@ -132,6 +132,19 @@ final class AccountLinkE2ETests: XCTestCase {
     /// 差し替えて、実際に「ログインはできたがリンクだけ失敗した」状態を作る。
     @MainActor
     func test_リンクに失敗しても次の起動で自動的にやり直される() throws {
+        // === 0. アカウント側の基準値を読む ===
+        // 「未完了表示が消える」だけだと link の成功しか見ておらず、取り残された
+        // 匿名回答が回収されたかは分からないため、件数でも確かめる。
+        launchFresh(resetIdentity: true)
+        openSettings()
+        signInIfNeeded()
+        closeSettings()
+        let accountBefore = try readWeeklyAnswered()
+
+        openSettings()
+        signOut()
+        closeSettings()
+
         // === 1. 新しい匿名 identity で1問解く ===
         launchFresh(resetIdentity: true)
         XCTAssertEqual(try readWeeklyAnswered(), 0, "リセット直後の匿名ユーザーに回答が残っている")
@@ -167,11 +180,11 @@ final class AccountLinkE2ETests: XCTestCase {
         )
         closeSettings()
 
-        // 匿名で解いた回答がアカウント側に取り込まれている。
-        XCTAssertGreaterThan(
+        // 取り残されていた匿名の回答が、アカウント側に回収されている。
+        XCTAssertEqual(
             try readWeeklyAnswered(),
-            0,
-            "リンク回復後もアカウントに回答が取り込まれていない"
+            accountBefore + 1,
+            "リンク回復後も匿名の回答がアカウントへ回収されていない"
         )
     }
 
@@ -300,23 +313,24 @@ final class AccountLinkE2ETests: XCTestCase {
     }
 
     /// 要素がタップ可能になるまで待ってからタップする。
-    /// 画面外にある場合はスクロールして表示させる。
+    ///
+    /// 座標タップへフォールバックしないのは、この PR で直したいのが
+    /// 「通常の Button として当たり判定が十分にあること」だから。
+    /// 座標タップで回避すると、当たり判定が再び狭くなっても気づけない。
     @discardableResult
     private func tapWhenHittable(_ element: XCUIElement, timeout: TimeInterval = 20) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
+            // パスワード保存ダイアログはログイン完了より後に出ることがあり、
+            // 出ている間は下の要素が hittable にならない。
+            dismissPasswordSavePromptIfNeeded(timeout: 0.5)
             if element.isHittable {
                 element.tap()
                 return true
             }
             usleep(500_000)
         }
-
-        // hittable にならない場合でも座標なら届くことがある（親ビューの
-        // ヒットテスト設定などで isHittable が false のまま出続けるケース）。
-        guard element.exists else { return false }
-        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        return true
+        return false
     }
 
     private func openSettings() {
