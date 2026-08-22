@@ -8,6 +8,23 @@ import XCTest
 /// 実行は `ios/scripts/run-account-e2e.sh` を使うこと。アンインストールを含む
 /// 前提づくりをスクリプト側で行う。**`CODE_SIGNING_ALLOWED=NO` を付けてはいけない**
 /// （署名なしビルドは Keychain が使えず、トークンが保存されない）。
+/// E2E の途中で前提が崩れたことを表すエラー。
+/// 環境変数が無い場合の XCTSkip と違い、これは**アプリ側の回帰の可能性がある**ので
+/// 必ず失敗として扱う。
+enum E2EError: LocalizedError {
+    case elementNotFound(String)
+    case unreadableValue(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .elementNotFound(let what):
+            return "画面に要素が見つからない: \(what)"
+        case .unreadableValue(let label):
+            return "件数を読み取れない: '\(label)'"
+        }
+    }
+}
+
 final class AccountLinkE2ETests: XCTestCase {
 
     private var app: XCUIApplication!
@@ -104,25 +121,28 @@ final class AccountLinkE2ETests: XCTestCase {
     }
 
     /// 学習記録タブの「解答した問題」件数を読む。
+    ///
+    /// 要素が見つからない・値が読めない場合は **失敗** させる（skip にしない）。
+    /// identifier の付け忘れや画面遷移の不具合、表示形式の変更は、まさにこの E2E で
+    /// 検出したい回帰であり、skip にすると気づけないため。
     private func readWeeklyAnswered() throws -> Int {
         app.tabBars.buttons["学習記録"].tap()
 
         let value = app.staticTexts["stat.weeklyAnswered"]
-        guard value.waitForExistence(timeout: 60) else {
+        if !value.waitForExistence(timeout: 60) {
             // 取りこぼした場合に備えてもう一度だけタブを叩く
             app.tabBars.buttons["学習記録"].tap()
             guard value.waitForExistence(timeout: 60) else {
-                throw XCTSkip("学習記録が読み込めない（dev バックエンドの状態を確認）")
+                throw E2EError.elementNotFound("stat.weeklyAnswered（学習記録の「解答した問題」件数）")
             }
-            return try parseCount(value.label)
         }
         return try parseCount(value.label)
     }
 
     private func parseCount(_ label: String) throws -> Int {
         let digits = label.filter(\.isNumber)
-        guard let count = Int(digits) else {
-            throw XCTSkip("回答数を読み取れない: '\(label)'")
+        guard !digits.isEmpty, let count = Int(digits) else {
+            throw E2EError.unreadableValue(label)
         }
         return count
     }
