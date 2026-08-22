@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getWorkbookProgress } from "@/lib/api";
+import { getWorkbookProgress, waitForPendingSubmission } from "@/lib/api";
 import { useAuthEmail } from "@/lib/hooks";
 
 type ProgressMap = Record<string, "correct" | "incorrect">;
@@ -16,33 +16,45 @@ export function ExamProgress({
   questionIds: number[];
 }) {
   const router = useRouter();
-  const [progress, setProgress] = useState<ProgressMap>({});
-  const [loaded, setLoaded] = useState(false);
   // ログイン・ログアウトで見える記録が変わるので、変化したら取り直す。
   const email = useAuthEmail();
+
+  // 取得結果は「どの問題集・どの認証主体のものか」とセットで持つ。
+  // こうしておくと、問題集や認証主体が変わった瞬間に前の記録が自動的に
+  // 未ロード扱いになり、取得中に別ユーザーの進捗が見えることがない。
+  const key = `${workbookId}:${email ?? "anonymous"}`;
+  const [entry, setEntry] = useState<{ key: string; progress: ProgressMap } | null>(
+    null,
+  );
+  const loaded = entry?.key === key;
+  const progress = loaded ? entry.progress : {};
 
   // 記録はサーバー側にあるため、マウント後に取得して反映する
   // （SSR/初回描画は未ロード状態にしてハイドレーション不整合を避ける）。
   useEffect(() => {
     let cancelled = false;
-    getWorkbookProgress(workbookId)
+
+    // 直前の解答がまだ送信中なら、その完了を待ってから取得する。
+    // 待たないと「今解いた問題が未解答のまま」表示される。
+    waitForPendingSubmission()
+      .then(() => getWorkbookProgress(workbookId))
       .then((results) => {
         if (cancelled) return;
         const map: ProgressMap = {};
         for (const r of results) {
           map[String(r.questionId)] = r.isCorrect ? "correct" : "incorrect";
         }
-        setProgress(map);
-        setLoaded(true);
+        setEntry({ key, progress: map });
       })
       .catch(() => {
         // 取得できなくても問題を解く導線は出したいので、未解答扱いで続行する。
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) setEntry({ key, progress: {} });
       });
+
     return () => {
       cancelled = true;
     };
-  }, [workbookId, email]);
+  }, [key, workbookId]);
 
   const total = questionIds.length;
   const answered = Object.keys(progress).length;

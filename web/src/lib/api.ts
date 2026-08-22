@@ -76,8 +76,28 @@ export async function ensureAccountLinked(): Promise<void> {
   }
 }
 
+// 直近の解答送信。次の画面で進捗を取りに行く前にこれを待つことで、
+// 「今解いた問題が未解答のまま表示される」レースを防ぐ。
+let pendingSubmission: Promise<unknown> = Promise.resolve();
+
+// 送信中の解答があれば、その完了（失敗含む）を待つ。
+export async function waitForPendingSubmission(): Promise<void> {
+  await pendingSubmission.catch(() => {});
+}
+
 // 解答を1件送る。未ログインなら端末の匿名ユーザー、ログイン中はアカウントに記録される。
-export async function submitAnswer(
+export function submitAnswer(
+  workbookId: number,
+  questionId: number,
+  selectedChoice: number,
+): Promise<void> {
+  const task = postAnswer(workbookId, questionId, selectedChoice);
+  // 失敗しても後続の待ち合わせを壊さないよう、保持側では握り潰す。
+  pendingSubmission = task.catch(() => {});
+  return task;
+}
+
+async function postAnswer(
   workbookId: number,
   questionId: number,
   selectedChoice: number,
