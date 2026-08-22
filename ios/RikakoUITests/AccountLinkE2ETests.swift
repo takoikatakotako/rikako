@@ -343,13 +343,25 @@ final class AccountLinkE2ETests: XCTestCase {
         }
         guard answered else { return false }
 
-        let back = app.buttons["戻る"]
-        if back.exists && back.isHittable { back.tap() }
+        // 解説の表示アニメーション中などはタップが効かないことがあるので、
+        // メイン画面に戻れるまで数回やり直す。
+        for _ in 0..<3 {
+            let back = app.buttons["戻る"]
+            if back.waitForExistence(timeout: 10), back.isHittable {
+                back.tap()
+            }
 
-        // 「クイズを終了しますか？」。解答を残したいので必ず保存側を選ぶ。
-        let save = app.alerts.buttons["履歴を保存して戻る"]
-        if save.waitForExistence(timeout: 5) { save.tap() }
+            // 「クイズを終了しますか？」。解答を残したいので必ず保存側を選ぶ
+            // （ここで捨てるとマージ対象の学習記録が作られない）。
+            let save = app.alerts.buttons["履歴を保存して戻る"]
+            if save.waitForExistence(timeout: 10) {
+                save.tap()
+            }
 
-        return app.tabBars.buttons["マイページ"].waitForExistence(timeout: 20)
+            if app.tabBars.buttons["マイページ"].waitForExistence(timeout: 20) {
+                return true
+            }
+        }
+        return false
     }
 }
