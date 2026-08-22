@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getWorkbookProgress, waitForPendingSubmission } from "@/lib/api";
+import { getWorkbookProgress, waitForPendingSubmissions } from "@/lib/api";
 import { useAuthEmail } from "@/lib/hooks";
 
 type ProgressMap = Record<string, "correct" | "incorrect">;
@@ -34,9 +34,9 @@ export function ExamProgress({
   useEffect(() => {
     let cancelled = false;
 
-    // 直前の解答がまだ送信中なら、その完了を待ってから取得する。
+    // 送信中の解答があれば、すべて決着してから取得する。
     // 待たないと「今解いた問題が未解答のまま」表示される。
-    waitForPendingSubmission()
+    waitForPendingSubmissions()
       .then(() => getWorkbookProgress(workbookId))
       .then((results) => {
         if (cancelled) return;

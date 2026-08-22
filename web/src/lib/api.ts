@@ -76,13 +76,17 @@ export async function ensureAccountLinked(): Promise<void> {
   }
 }
 
-// 直近の解答送信。次の画面で進捗を取りに行く前にこれを待つことで、
-// 「今解いた問題が未解答のまま表示される」レースを防ぐ。
-let pendingSubmission: Promise<unknown> = Promise.resolve();
+// 送信中の解答送信をすべて保持する。直近1件だけだと、A を送信中に B を解答した
+// 場合に A が追跡対象から外れ、B だけ待って進捗を取りに行ってしまう。
+const inFlightSubmissions = new Set<Promise<unknown>>();
 
-// 送信中の解答があれば、その完了（失敗含む）を待つ。
-export async function waitForPendingSubmission(): Promise<void> {
-  await pendingSubmission.catch(() => {});
+// 送信中の解答がすべて決着する（成功・失敗どちらでも）まで待つ。
+// 進捗の取得前と /account/link の前の両方で待つ必要がある:
+// - 進捗より先に解答が確定していないと、解いた問題が未解答として表示される
+// - link より後に匿名 POST が確定すると、その回答は旧 device user に入り、
+//   終わったマージの対象外になってアカウントへ回収されない
+export async function waitForPendingSubmissions(): Promise<void> {
+  await Promise.allSettled([...inFlightSubmissions]);
 }
 
 // 解答を1件送る。未ログインなら端末の匿名ユーザー、ログイン中はアカウントに記録される。
@@ -92,8 +96,9 @@ export function submitAnswer(
   selectedChoice: number,
 ): Promise<void> {
   const task = postAnswer(workbookId, questionId, selectedChoice);
+  inFlightSubmissions.add(task);
   // 失敗しても後続の待ち合わせを壊さないよう、保持側では握り潰す。
-  pendingSubmission = task.catch(() => {});
+  void task.catch(() => {}).finally(() => inFlightSubmissions.delete(task));
   return task;
 }
 

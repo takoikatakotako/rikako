@@ -1,0 +1,57 @@
+name: Web
+
+# it.rikako.org（web/）の検証。これまで CI が無く、build / lint / typecheck が
+# 誰にも実行されていなかった。
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web.yml'
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./web
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: ./web
+        run: npx tsc --noEmit
+
+      # 静的エクスポートなので、content を実際に取得してページ生成まで通す。
+      - name: Build
+        working-directory: ./web
+        env:
+          NEXT_PUBLIC_SITE: it
+          NEXT_PUBLIC_CONTENT_BASE_URL: https://content.dev.rikako.org/v1
+          NEXT_PUBLIC_API_BASE_URL: https://api.dev.rikako.org
+          NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: 2buo6t5fbneujoknvrdph8flda
+        run: npm run build
