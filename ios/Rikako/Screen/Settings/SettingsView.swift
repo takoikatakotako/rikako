@@ -177,17 +177,27 @@ struct SettingsView: View {
                 Spacer()
             }
 
+            // 回復のための導線なので、行全体を押せるようにする
+            // （文字だけだとタップ領域が小さく、押しづらい）。
             Button {
                 Task { await linkCoordinator.retry() }
             } label: {
-                if linkCoordinator.state == .linking {
-                    ProgressView()
-                } else {
-                    Text("再試行する")
-                        .font(.subheadline.bold())
+                Group {
+                    if linkCoordinator.state == .linking {
+                        ProgressView()
+                    } else {
+                        Text("再試行する")
+                            .font(.subheadline.bold())
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 10)
+                .padding(.leading, 42)
+                .contentShape(Rectangle())
             }
-            .padding(.leading, 42)
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityIdentifier("retryAccountLinkButton")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)

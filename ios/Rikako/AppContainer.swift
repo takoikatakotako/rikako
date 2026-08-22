@@ -68,10 +68,19 @@ final class AppContainer {
         self.deviceIdentityProvider = deviceIdentityProvider
         self.anonymousSignIn = { try await repository.anonymousSignIn() }
         self.accountSession = accountSession
+        // E2E 用: /account/link を通信エラーで失敗させ、未完了状態からの
+        // 回復（起動時の自動再試行・手動再試行）を検証できるようにする。
+        var link: () async throws -> Void = { _ = try await repository.linkAccount() }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uitest-fail-account-link") {
+            link = { throw URLError(.notConnectedToInternet) }
+        }
+        #endif
+
         self.accountLinkCoordinator = AccountLinkCoordinator(
             session: accountSession,
             pendingStore: AccountLinkPendingStore(),
-            link: { try await repository.linkAccount() }
+            link: link
         )
 
         // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。
