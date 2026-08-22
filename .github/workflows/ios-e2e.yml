@@ -13,13 +13,29 @@ on:
       - '.github/workflows/ios-e2e.yml'
   workflow_dispatch:
 
-# 同じ PR で連続 push したときは古い実行を止める（実行時間が長いため）。
+# dev の共有テストユーザーを使うため、**全 PR をまたいで直列化**する。
+# このテストは「アカウントの回答数 baseline → +1」を検証するので、
+# 2つの run が同じ baseline を読んでから双方がマージすると +2 になり、
+# 実装が正しくても片方が落ちる。
+#
+# ref ごとの group にすると別 PR 同士が並走してしまうため、共有資源名を
+# group にする。cancel-in-progress は false（cancel するとチェックが
+# cancelled になるので、待たせる方を選ぶ）。
 concurrency:
-  group: ios-e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-account-e2e-shared-user
+  cancel-in-progress: false
 
 jobs:
   e2e:
+    # public リポジトリなので fork からの pull_request には Secrets が渡らない。
+    # 認証情報が無いまま実行すると iOS と無関係な PR まで必ず red になるため、
+    # 同一リポジトリの PR と手動実行に限る。
+    #
+    # pull_request_target で fork のコードに Secrets を渡す方式は、
+    # スクリプトを書き換えれば認証情報を持ち出せるため使わない。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-26
     timeout-minutes: 45
 
