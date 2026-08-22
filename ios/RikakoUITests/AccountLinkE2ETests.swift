@@ -140,17 +140,22 @@ final class AccountLinkE2ETests: XCTestCase {
     /// identifier の付け忘れや画面遷移の不具合、表示形式の変更は、まさにこの E2E で
     /// 検出したい回帰であり、skip にすると気づけないため。
     private func readWeeklyAnswered() throws -> Int {
-        app.tabBars.buttons["学習記録"].tap()
-
         let value = app.staticTexts["stat.weeklyAnswered"]
-        if !value.waitForExistence(timeout: 60) {
-            // 取りこぼした場合に備えてもう一度だけタブを叩く
-            app.tabBars.buttons["学習記録"].tap()
-            guard value.waitForExistence(timeout: 60) else {
-                throw E2EError.elementNotFound("stat.weeklyAnswered（学習記録の「解答した問題」件数）")
+
+        // 起動直後や画面遷移の途中はタブのタップが効かないことがあるため、
+        // 切り替わったことを確認できるまで数回やり直す。
+        for _ in 0..<4 {
+            let tab = app.tabBars.buttons["学習記録"]
+            if tab.waitForExistence(timeout: 30), tab.isHittable {
+                tab.tap()
             }
+            if value.waitForExistence(timeout: 30) {
+                return try parseCount(value.label)
+            }
+            sleep(1)
         }
-        return try parseCount(value.label)
+
+        throw E2EError.elementNotFound("stat.weeklyAnswered（学習記録の「解答した問題」件数）")
     }
 
     private func parseCount(_ label: String) throws -> Int {
