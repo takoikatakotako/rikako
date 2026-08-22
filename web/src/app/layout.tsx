@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { siteConfig } from "@/lib/site";
+import { AuthMenu } from "@/components/AuthMenu";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({
     <html lang="ja" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
+          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-4 px-4">
             <Link
               href="/"
               className="flex items-center gap-2 font-bold text-lg tracking-tight"
@@ -31,6 +32,7 @@ export default function RootLayout({
               </span>
               {siteConfig.siteName}
             </Link>
+            <AuthMenu />
           </div>
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">

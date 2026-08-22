@@ -43,6 +43,9 @@ jobs:
         env:
           NEXT_PUBLIC_SITE: it
           NEXT_PUBLIC_CONTENT_BASE_URL: https://content.dev.rikako.org/v1
+          NEXT_PUBLIC_API_BASE_URL: https://api.dev.rikako.org
+          NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: 2buo6t5fbneujoknvrdph8flda
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
