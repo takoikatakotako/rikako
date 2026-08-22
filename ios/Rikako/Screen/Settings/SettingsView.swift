@@ -4,8 +4,8 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = SettingsViewModel()
     @State private var session = AppContainer.shared.accountSession
-    @State private var showRestartOnboardingConfirmation = false
     @State private var showSignOutConfirmation = false
+    @State private var showRestartOnboardingConfirmation = false
     @State private var showLogin = false
     @State private var linkCoordinator = AppContainer.shared.accountLinkCoordinator
     @State private var versionTapCount = 0
@@ -36,6 +36,8 @@ struct SettingsView: View {
                 showLogin = false
             })
         }
+        // 注意: .alert を同じビューに複数重ねると片方しか効かない。
+        // もう一方（初期設定をやり直す）は restartOnboardingButton 側に付けている。
         .alert("ログアウト", isPresented: $showSignOutConfirmation) {
             Button("キャンセル", role: .cancel) {}
             Button("ログアウト", role: .destructive) {
@@ -43,14 +45,6 @@ struct SettingsView: View {
             }
         } message: {
             Text("ログアウトしても、この端末の学習データは残ります。")
-        }
-        .alert("初期設定をやり直す", isPresented: $showRestartOnboardingConfirmation) {
-            Button("キャンセル", role: .cancel) {}
-            Button("やり直す") {
-                appState.resetToInitialState()
-            }
-        } message: {
-            Text("オンボーディングから設定をやり直します。学習記録は削除されず、同じ端末の記録として復元されます。ログイン中の場合、ログイン状態もそのまま保たれます。")
         }
     }
 
@@ -128,8 +122,12 @@ struct SettingsView: View {
                             trailing: "",
                             accentColor: .red
                         )
+                        // Spacer を含む行は contentShape が無いとタップ判定が
+                        // テキスト部分だけになり、行を押しても反応しない。
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("signOutButton")
                 } else {
                     Button {
                         showLogin = true
@@ -139,8 +137,10 @@ struct SettingsView: View {
                             title: "ログイン / アカウント作成",
                             accentColor: Color(.main)
                         )
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("loginButton")
 
                     Text("ログインすると、機種変更しても学習記録を引き継げます。")
                         .font(.caption)
@@ -209,6 +209,14 @@ struct SettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
+        .alert("初期設定をやり直す", isPresented: $showRestartOnboardingConfirmation) {
+            Button("キャンセル", role: .cancel) {}
+            Button("やり直す") {
+                appState.resetToInitialState()
+            }
+        } message: {
+            Text("オンボーディングから設定をやり直します。学習記録は削除されず、同じ端末の記録として復元されます。ログイン中の場合、ログイン状態もそのまま保たれます。")
+        }
     }
 
     private func sectionTitle(_ title: String) -> some View {
@@ -274,3 +282,4 @@ struct SettingsView: View {
             .environment(AppState.shared)
     }
 }
+

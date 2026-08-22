@@ -274,7 +274,13 @@ struct StudyRecordView: View {
                 .font(.headline.bold())
 
             HStack(spacing: 12) {
-                statTile(title: "解答した問題", value: "\(weeklyAnswered)問", icon: "square.and.pencil", accentColor: Color(.main))
+                statTile(
+                    title: "解答した問題",
+                    value: "\(weeklyAnswered)問",
+                    icon: "square.and.pencil",
+                    accentColor: Color(.main),
+                    valueIdentifier: "stat.weeklyAnswered"
+                )
                 statTile(title: "正答率", value: weeklyAccuracyText, icon: "chart.line.uptrend.xyaxis", accentColor: Color.green)
             }
 
@@ -322,7 +328,13 @@ struct StudyRecordView: View {
         }
     }
 
-    private func statTile(title: String, value: String, icon: String, accentColor: Color) -> some View {
+    private func statTile(
+        title: String,
+        value: String,
+        icon: String,
+        accentColor: Color,
+        valueIdentifier: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
@@ -339,6 +351,7 @@ struct StudyRecordView: View {
             Text(value)
                 .font(.title2.bold())
                 .foregroundStyle(accentColor)
+                .accessibilityIdentifier(valueIdentifier ?? "")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
