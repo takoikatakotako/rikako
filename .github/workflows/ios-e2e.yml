@@ -1,0 +1,35 @@
+name: iOS E2E
+
+# メールログイン（#283）の E2E。dev バックエンドに実際につないで、
+# 匿名 → アカウントのマージと、新しい端末での復元を検証する。
+#
+# 実バックエンドに依存するため、ネットワークや dev 環境の状態で落ちることがある。
+# その場合はアプリ側の回帰と切り分けたうえで再実行すること。
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-e2e.yml'
+  workflow_dispatch:
+
+# 同じ PR で連続 push したときは古い実行を止める（実行時間が長いため）。
+concurrency:
+  group: ios-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run account link E2E
+        working-directory: ./ios
+        env:
+          RIKAKO_E2E_EMAIL: ${{ secrets.RIKAKO_E2E_EMAIL }}
+          RIKAKO_E2E_PASSWORD: ${{ secrets.RIKAKO_E2E_PASSWORD }}
+        run: ./scripts/run-account-e2e.sh

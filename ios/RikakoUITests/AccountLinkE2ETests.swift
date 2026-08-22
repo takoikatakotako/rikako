@@ -54,7 +54,8 @@ final class AccountLinkE2ETests: XCTestCase {
     @MainActor
     func test_匿名で解いた回答がログイン時にアカウントへマージされる() throws {
         // === 1. アカウント側の基準値を読む ===
-        launchFresh()
+        // Keychain はアンインストールしても残るため、前回のセッションを必ず消してから始める。
+        launchFresh(resetIdentity: true)
         openSettings()
         signInIfNeeded()
         closeSettings()
@@ -95,6 +96,9 @@ final class AccountLinkE2ETests: XCTestCase {
     ///
     /// スクリプトが事前にアプリをアンインストールしている前提。加えて
     /// `-uitest-reset-identity` で Keychain も消し、完全に新しい端末として起動する。
+    ///
+    /// **アカウントに回答が1件以上あることが前提**。`run-account-e2e.sh` は
+    /// マージのテストを先に流すので、その回答が残っている状態でここに来る。
     @MainActor
     func test_新しい端末でもログインすれば学習記録が戻る() throws {
         launchFresh(resetIdentity: true)
@@ -150,8 +154,12 @@ final class AccountLinkE2ETests: XCTestCase {
     private func signInIfNeeded() {
         let loginRow = app.buttons["loginButton"]
         guard loginRow.waitForExistence(timeout: 10) else {
-            // すでにログイン済み
-            XCTAssertTrue(app.staticTexts[email].exists, "ログイン状態を判定できない")
+            // すでにログイン済みのはず。想定と別のアカウントなら以降の件数比較が
+            // 成り立たないので、ここで失敗させる。
+            XCTAssertTrue(
+                app.staticTexts[email].exists,
+                "ログイン導線が無いのに \(email) でログインしていない（別アカウントのセッションが残っている）"
+            )
             return
         }
 
