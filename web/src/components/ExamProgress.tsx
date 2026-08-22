@@ -3,21 +3,58 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { clearResults, getResults, type ProgressMap } from "@/lib/progress";
+import { getWorkbookProgress, waitForPendingSubmissions } from "@/lib/api";
+import { useAuthEmail } from "@/lib/hooks";
 
-export function ExamProgress({ questionIds }: { questionIds: number[] }) {
+type ProgressMap = Record<string, "correct" | "incorrect">;
+
+export function ExamProgress({
+  workbookId,
+  questionIds,
+}: {
+  workbookId: number;
+  questionIds: number[];
+}) {
   const router = useRouter();
-  const [progress, setProgress] = useState<ProgressMap>({});
-  const [loaded, setLoaded] = useState(false);
+  // ログイン・ログアウトで見える記録が変わるので、変化したら取り直す。
+  const email = useAuthEmail();
 
-  // localStorage はクライアント限定のため、マウント後に読み込んで反映する
+  // 取得結果は「どの問題集・どの認証主体のものか」とセットで持つ。
+  // こうしておくと、問題集や認証主体が変わった瞬間に前の記録が自動的に
+  // 未ロード扱いになり、取得中に別ユーザーの進捗が見えることがない。
+  const key = `${workbookId}:${email ?? "anonymous"}`;
+  const [entry, setEntry] = useState<{ key: string; progress: ProgressMap } | null>(
+    null,
+  );
+  const loaded = entry?.key === key;
+  const progress = loaded ? entry.progress : {};
+
+  // 記録はサーバー側にあるため、マウント後に取得して反映する
   // （SSR/初回描画は未ロード状態にしてハイドレーション不整合を避ける）。
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setProgress(getResults(questionIds));
-    setLoaded(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [questionIds]);
+    let cancelled = false;
+
+    // 送信中の解答があれば、すべて決着してから取得する。
+    // 待たないと「今解いた問題が未解答のまま」表示される。
+    waitForPendingSubmissions()
+      .then(() => getWorkbookProgress(workbookId))
+      .then((results) => {
+        if (cancelled) return;
+        const map: ProgressMap = {};
+        for (const r of results) {
+          map[String(r.questionId)] = r.isCorrect ? "correct" : "incorrect";
+        }
+        setEntry({ key, progress: map });
+      })
+      .catch(() => {
+        // 取得できなくても問題を解く導線は出したいので、未解答扱いで続行する。
+        if (!cancelled) setEntry({ key, progress: {} });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [key, workbookId]);
 
   const total = questionIds.length;
   const answered = Object.keys(progress).length;
@@ -31,18 +68,10 @@ export function ExamProgress({ questionIds }: { questionIds: number[] }) {
     (id) => progress[String(id)] === "incorrect",
   );
 
-  const reset = () => {
-    if (!window.confirm("この試験回の解答履歴をリセットします。よろしいですか？")) {
-      return;
-    }
-    clearResults(questionIds);
-    setProgress({});
-  };
-
-  // 全問終了バナーから「もう一度最初から」: 履歴を消して問1へ。
+  // 「もう一度最初から」: 問1へ戻るだけ。解き直すと各問の記録が最新の結果へ
+  // 上書きされるので、履歴を消す操作は用意していない
+  // （サーバー側に削除 API が無く、記録は端末をまたいで共有されるため）。
   const restart = () => {
-    clearResults(questionIds);
-    setProgress({});
     router.push(`/questions/${questionIds[0]}/`);
   };
 
@@ -111,13 +140,12 @@ export function ExamProgress({ questionIds }: { questionIds: number[] }) {
               {loaded && answered > 0 ? "続きから解く" : "問1から解く"}
             </Link>
             {loaded && answered > 0 && (
-              <button
-                type="button"
-                onClick={reset}
+              <Link
+                href={`/questions/${questionIds[0]}/`}
                 className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
               >
-                リセット
-              </button>
+                最初から解き直す
+              </Link>
             )}
           </div>
         </div>

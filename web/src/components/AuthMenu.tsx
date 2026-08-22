@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuthEmail } from "@/lib/hooks";
 import { signOut } from "@/lib/cognito";
-import { ensureAccountLinked } from "@/lib/api";
+import { ensureAccountLinked, waitForPendingSubmissions } from "@/lib/api";
 
 /// ヘッダーのログイン状態表示。未ログインならログインへの導線、
 /// ログイン中はメールアドレスとログアウトを出す。
@@ -23,7 +23,10 @@ export function AuthMenu() {
     // ログイン後にこの端末の匿名データをアカウントへ紐付ける（冪等）。
     // ログイン直後だけでなく再訪時にも通るので、一時的な失敗はここで自己修復する。
     let cancelled = false;
-    ensureAccountLinked()
+    // 送信中の匿名解答がある状態で link すると、link 後に確定した回答が
+    // 旧 device user に入り、マージ対象から漏れる。先に決着させる。
+    waitForPendingSubmissions()
+      .then(() => ensureAccountLinked())
       .then(() => {
         if (!cancelled) setLinkResult({ email, failed: false });
       })

@@ -22,6 +22,9 @@ async function authedFetch(
 ): Promise<Response> {
   const idToken = loadTokens()?.idToken;
   const headers = new Headers(init.headers);
+  // 未ログインでも学習記録はサーバーに持つため、常に端末識別子を送る。
+  // ログイン中は Authorization が優先され、アカウントの記録として扱われる。
+  headers.set("X-Device-ID", getDeviceId());
   if (idToken) headers.set("Authorization", `Bearer ${idToken}`);
 
   const res = await fetch(`${config.apiBaseUrl}${path}`, { ...init, headers });
@@ -48,10 +51,7 @@ export type AccountResponse = { accountId: number; email?: string };
 export async function linkAccount(): Promise<AccountResponse> {
   const res = await authedFetch("/account/link", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Device-ID": getDeviceId(),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
   if (!res.ok) {
@@ -74,4 +74,65 @@ export async function ensureAccountLinked(): Promise<void> {
     }
     throw e;
   }
+}
+
+// 送信中の解答送信をすべて保持する。直近1件だけだと、A を送信中に B を解答した
+// 場合に A が追跡対象から外れ、B だけ待って進捗を取りに行ってしまう。
+const inFlightSubmissions = new Set<Promise<unknown>>();
+
+// 送信中の解答がすべて決着する（成功・失敗どちらでも）まで待つ。
+// 進捗の取得前と /account/link の前の両方で待つ必要がある:
+// - 進捗より先に解答が確定していないと、解いた問題が未解答として表示される
+// - link より後に匿名 POST が確定すると、その回答は旧 device user に入り、
+//   終わったマージの対象外になってアカウントへ回収されない
+export async function waitForPendingSubmissions(): Promise<void> {
+  await Promise.allSettled([...inFlightSubmissions]);
+}
+
+// 解答を1件送る。未ログインなら端末の匿名ユーザー、ログイン中はアカウントに記録される。
+export function submitAnswer(
+  workbookId: number,
+  questionId: number,
+  selectedChoice: number,
+): Promise<void> {
+  const task = postAnswer(workbookId, questionId, selectedChoice);
+  inFlightSubmissions.add(task);
+  // 失敗しても後続の待ち合わせを壊さないよう、保持側では握り潰す。
+  void task.catch(() => {}).finally(() => inFlightSubmissions.delete(task));
+  return task;
+}
+
+async function postAnswer(
+  workbookId: number,
+  questionId: number,
+  selectedChoice: number,
+): Promise<void> {
+  const res = await authedFetch("/answers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      workbookId,
+      answers: [{ questionId, selectedChoice }],
+    }),
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `submit answer failed: ${res.status}`);
+  }
+}
+
+export type QuestionProgress = { questionId: number; isCorrect: boolean };
+
+// 問題集の進捗（問題IDごとの最新の正誤）。
+export async function getWorkbookProgress(
+  workbookId: number,
+): Promise<QuestionProgress[]> {
+  const res = await authedFetch(
+    `/users/me/workbook-progress?workbook_id=${workbookId}`,
+    { method: "GET" },
+  );
+  if (!res.ok) {
+    throw new ApiError(res.status, `get workbook progress failed: ${res.status}`);
+  }
+  const data = (await res.json()) as { results?: QuestionProgress[] };
+  return data.results ?? [];
 }
