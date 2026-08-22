@@ -4,16 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Question } from "@/lib/content";
-import { recordResult } from "@/lib/progress";
+import { submitAnswer } from "@/lib/api";
 
 const CHOICE_LABELS = ["ア", "イ", "ウ", "エ", "オ", "カ"];
 
 export function QuestionCard({
   question,
+  workbookId,
   nextHref,
   backHref,
 }: {
   question: Question;
+  workbookId: number;
   nextHref: string | null;
   backHref: string;
 }) {
@@ -32,9 +34,10 @@ export function QuestionCard({
     (index: number) => {
       setSelected(index);
       setRevealed(true);
-      recordResult(question.id, index === question.correct ? "correct" : "incorrect");
+      // 記録はサーバー側。失敗しても解答体験は止めない（次に解いたときに再度送られる）。
+      void submitAnswer(workbookId, question.id, index).catch(() => {});
     },
-    [question.id, question.correct],
+    [workbookId, question.id],
   );
 
   const retry = () => {

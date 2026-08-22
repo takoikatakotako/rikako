@@ -22,6 +22,9 @@ async function authedFetch(
 ): Promise<Response> {
   const idToken = loadTokens()?.idToken;
   const headers = new Headers(init.headers);
+  // 未ログインでも学習記録はサーバーに持つため、常に端末識別子を送る。
+  // ログイン中は Authorization が優先され、アカウントの記録として扱われる。
+  headers.set("X-Device-ID", getDeviceId());
   if (idToken) headers.set("Authorization", `Bearer ${idToken}`);
 
   const res = await fetch(`${config.apiBaseUrl}${path}`, { ...init, headers });
@@ -48,10 +51,7 @@ export type AccountResponse = { accountId: number; email?: string };
 export async function linkAccount(): Promise<AccountResponse> {
   const res = await authedFetch("/account/link", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Device-ID": getDeviceId(),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
   if (!res.ok) {
@@ -74,4 +74,40 @@ export async function ensureAccountLinked(): Promise<void> {
     }
     throw e;
   }
+}
+
+// 解答を1件送る。未ログインなら端末の匿名ユーザー、ログイン中はアカウントに記録される。
+export async function submitAnswer(
+  workbookId: number,
+  questionId: number,
+  selectedChoice: number,
+): Promise<void> {
+  const res = await authedFetch("/answers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      workbookId,
+      answers: [{ questionId, selectedChoice }],
+    }),
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `submit answer failed: ${res.status}`);
+  }
+}
+
+export type QuestionProgress = { questionId: number; isCorrect: boolean };
+
+// 問題集の進捗（問題IDごとの最新の正誤）。
+export async function getWorkbookProgress(
+  workbookId: number,
+): Promise<QuestionProgress[]> {
+  const res = await authedFetch(
+    `/users/me/workbook-progress?workbook_id=${workbookId}`,
+    { method: "GET" },
+  );
+  if (!res.ok) {
+    throw new ApiError(res.status, `get workbook progress failed: ${res.status}`);
+  }
+  const data = (await res.json()) as { results?: QuestionProgress[] };
+  return data.results ?? [];
 }
