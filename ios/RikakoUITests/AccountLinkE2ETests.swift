@@ -125,11 +125,64 @@ final class AccountLinkE2ETests: XCTestCase {
         XCTAssertGreaterThan(restored, 0, "ログインしてもアカウントの学習記録が復元されない")
     }
 
+    /// `/account/link` が通信エラーで失敗しても、起動時の自動再試行で回復することを検証する。
+    ///
+    /// オフラインをシミュレータで再現する手段が無いため、DEBUG 限定の
+    /// `-uitest-fail-account-link` で link を `URLError(.notConnectedToInternet)` に
+    /// 差し替えて、実際に「ログインはできたがリンクだけ失敗した」状態を作る。
+    @MainActor
+    func test_リンクに失敗しても次の起動で自動的にやり直される() throws {
+        // === 1. 新しい匿名 identity で1問解く ===
+        launchFresh(resetIdentity: true)
+        XCTAssertEqual(try readWeeklyAnswered(), 0, "リセット直後の匿名ユーザーに回答が残っている")
+        XCTAssertTrue(answerOneQuestion(), "匿名の状態で問題を解けない")
+
+        // === 2. link が失敗する状態でログインする ===
+        launchFresh(failAccountLink: true)
+        openSettings()
+        signInIfNeeded()
+
+        // ログインは成立するが、リンクは未完了として案内が出る。
+        XCTAssertTrue(
+            app.staticTexts["学習記録の引き継ぎが未完了です"].waitForExistence(timeout: 30),
+            "リンクが失敗したのに未完了の案内が出ない"
+        )
+
+        // === 3. 失敗したままでも手動の再試行導線がある ===
+        let retry = app.buttons["retryAccountLinkButton"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 10), "再試行の導線が出ていない")
+        XCTAssertTrue(tapWhenHittable(retry), "再試行の導線をタップできない")
+        // まだ失敗する状態なので、案内は消えない。
+        XCTAssertTrue(
+            app.staticTexts["学習記録の引き継ぎが未完了です"].waitForExistence(timeout: 30),
+            "再試行に失敗したのに未完了の案内が消えている"
+        )
+
+        // === 4. 通信が回復した状態で起動し直すと、自動でやり直される ===
+        launchFresh()
+        openSettings()
+        XCTAssertFalse(
+            app.staticTexts["学習記録の引き継ぎが未完了です"].waitForExistence(timeout: 20),
+            "起動時の自動再試行でリンクが完了していない"
+        )
+        closeSettings()
+
+        // 匿名で解いた回答がアカウント側に取り込まれている。
+        XCTAssertGreaterThan(
+            try readWeeklyAnswered(),
+            0,
+            "リンク回復後もアカウントに回答が取り込まれていない"
+        )
+    }
+
     // MARK: - 画面操作
 
-    private func launchFresh(resetIdentity: Bool = false) {
+    private func launchFresh(resetIdentity: Bool = false, failAccountLink: Bool = false) {
         app.terminate()
-        app.launchArguments = resetIdentity ? ["-uitest-reset-identity"] : []
+        var arguments: [String] = []
+        if resetIdentity { arguments.append("-uitest-reset-identity") }
+        if failAccountLink { arguments.append("-uitest-fail-account-link") }
+        app.launchArguments = arguments
         app.launch()
         completeOnboardingIfNeeded()
     }
@@ -244,6 +297,26 @@ final class AccountLinkE2ETests: XCTestCase {
             app.buttons["loginButton"].waitForExistence(timeout: 20),
             "ログアウトできない"
         )
+    }
+
+    /// 要素がタップ可能になるまで待ってからタップする。
+    /// 画面外にある場合はスクロールして表示させる。
+    @discardableResult
+    private func tapWhenHittable(_ element: XCUIElement, timeout: TimeInterval = 20) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.isHittable {
+                element.tap()
+                return true
+            }
+            usleep(500_000)
+        }
+
+        // hittable にならない場合でも座標なら届くことがある（親ビューの
+        // ヒットテスト設定などで isHittable が false のまま出続けるケース）。
+        guard element.exists else { return false }
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        return true
     }
 
     private func openSettings() {
