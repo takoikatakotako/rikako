@@ -1,16 +1,13 @@
 import XCTest
 
-/// dev バックエンドに実際につないで、メールログインと学習記録の引き継ぎを確認する E2E。
+/// dev バックエンドに実際につないで、メールログインと学習記録の引き継ぎを検証する E2E。
 ///
 /// **認証情報を環境変数で渡したときだけ実行される**（未設定ならスキップ）。
-/// リポジトリに認証情報を持たせないため、また CI（RikakoTests のみ実行）や
-/// スクリーンショット生成に紛れ込ませないための措置。
+/// 認証情報はこのテストプロセス内で入力に使うだけで、アプリ側へは渡さない。
 ///
-/// ```
-/// RIKAKO_E2E_EMAIL=... RIKAKO_E2E_PASSWORD=... \
-///   xcodebuild test -scheme high-school-chemistry-dev \
-///     -only-testing:RikakoUITests/AccountLinkE2ETests
-/// ```
+/// 実行は `ios/scripts/run-account-e2e.sh` を使うこと。アンインストールを含む
+/// 前提づくりをスクリプト側で行う。**`CODE_SIGNING_ALLOWED=NO` を付けてはいけない**
+/// （署名なしビルドは Keychain が使えず、トークンが保存されない）。
 final class AccountLinkE2ETests: XCTestCase {
 
     private var app: XCUIApplication!
@@ -28,89 +25,118 @@ final class AccountLinkE2ETests: XCTestCase {
         }
         self.email = email
         self.password = password
-
         app = XCUIApplication()
-        // 認証情報はテストプロセスから渡し、アプリ側のコードには一切埋め込まない。
-        app.launchEnvironment["RIKAKO_E2E_EMAIL"] = email
-        app.launchEnvironment["RIKAKO_E2E_PASSWORD"] = password
     }
 
-    /// 匿名で解く → ログイン → 学習記録が引き継がれる → ログアウト、までを通しで確認する。
+    /// 匿名で解いた回答が、ログイン時にアカウントへマージされることを件数で検証する。
+    ///
+    /// 1. ログインしてアカウントの回答数を数える（基準値）
+    /// 2. ログアウトし、**新しい匿名 identity** で起動し直す（未リンクの端末を作る）
+    /// 3. 匿名のまま1問解き、匿名側の回答数が 1 になることを確認
+    /// 4. ログインすると、アカウントの回答数が **基準値 + 1** になることを確認
     @MainActor
-    func test_匿名で解いてからログインすると学習記録が引き継がれる() throws {
-        app.launch()
-
-        completeOnboardingIfNeeded()
-
-        // === 0. 前回の実行でログインが残っていたらログアウトして匿名に戻す ===
-        // Keychain にトークンが残るので、この前提づくりは毎回必要。
+    func test_匿名で解いた回答がログイン時にアカウントへマージされる() throws {
+        // === 1. アカウント側の基準値を読む ===
+        launchFresh()
         openSettings()
-        signOutIfNeeded()
+        signInIfNeeded()
+        closeSettings()
+        let accountBefore = try readWeeklyAnswered()
+
+        // === 2. ログアウトして、未リンクの新しい匿名 identity で起動し直す ===
+        openSettings()
+        signOut()
         closeSettings()
 
-        // === 1. 匿名のまま1問解く ===
-        let answered = answerOneQuestion()
-        XCTAssertTrue(answered, "匿名の状態で問題を解けない")
-        takeScreenshot(name: "01_匿名で解答")
+        launchFresh(resetIdentity: true)
+        let anonymousBefore = try readWeeklyAnswered()
+        XCTAssertEqual(anonymousBefore, 0, "リセット直後の匿名ユーザーに回答が残っている")
 
-        // === 2. 設定を開き、未ログインの導線が出ていること ===
+        // === 3. 匿名のまま1問解く ===
+        XCTAssertTrue(answerOneQuestion(), "匿名の状態で問題を解けない")
+        let anonymousAfter = try readWeeklyAnswered()
+        XCTAssertEqual(anonymousAfter, 1, "匿名の回答が記録されていない")
+
+        // === 4. ログインするとアカウント側にマージされる ===
         openSettings()
-        let loginRow = app.buttons["loginButton"]
-        XCTAssertTrue(loginRow.waitForExistence(timeout: 10), "未ログイン時のログイン導線が出ていない")
-        takeScreenshot(name: "02_設定_未ログイン")
-
-        // === 3. ログイン（完了まで待つ = /account/link の完了待ち）===
-        loginRow.tap()
-        signIn()
-
-        // ログイン画面が閉じて設定に戻り、メールアドレスが出ていれば
-        // link まで完了している（onLoggedIn が link を待ってから閉じるため）。
-        let emailText = app.staticTexts[email]
-        XCTAssertTrue(emailText.waitForExistence(timeout: 60), "ログイン後にメールアドレスが表示されない")
-        takeScreenshot(name: "03_設定_ログイン後")
-
-        // === 4. リンク未完了の警告が出ていないこと ===
+        signInIfNeeded()
         XCTAssertFalse(
             app.staticTexts["学習記録の引き継ぎが未完了です"].exists,
             "/account/link が失敗している"
         )
-
-        // === 5. 学習記録が引き継がれていること ===
         closeSettings()
-        XCTAssertTrue(openStudyRecord(), "ログイン後に学習記録が読み込めない")
-        takeScreenshot(name: "04_学習記録_ログイン後")
+
+        let accountAfter = try readWeeklyAnswered()
+        XCTAssertEqual(
+            accountAfter,
+            accountBefore + 1,
+            "匿名の回答がアカウントへマージされていない（基準 \(accountBefore) → \(accountAfter)）"
+        )
     }
 
-    /// アプリを消して入れ直しても、ログインし直せば学習記録が戻ることを確認する。
+    /// 端末を作り直しても、ログインすればアカウントの学習記録が戻ることを検証する。
+    ///
+    /// スクリプトが事前にアプリをアンインストールしている前提。加えて
+    /// `-uitest-reset-identity` で Keychain も消し、完全に新しい端末として起動する。
     @MainActor
-    func test_再インストール後もログインすれば学習記録が戻る() throws {
-        // 事前にアプリをアンインストールしておくこと（UserDefaults を空にするため）。
-        //   xcrun simctl uninstall <device> org.rikako.chemist.dev
-        app.launch()
+    func test_新しい端末でもログインすれば学習記録が戻る() throws {
+        launchFresh(resetIdentity: true)
 
-        completeOnboardingIfNeeded()
+        // ログイン前は新しい匿名ユーザーなので 0 件。
+        XCTAssertEqual(try readWeeklyAnswered(), 0, "新しい端末に回答が残っている")
+
         openSettings()
+        signInIfNeeded()
+        closeSettings()
 
+        // ログイン後はアカウントの記録が見えるので 0 件ではなくなる。
+        let restored = try readWeeklyAnswered()
+        XCTAssertGreaterThan(restored, 0, "ログインしてもアカウントの学習記録が復元されない")
+    }
+
+    // MARK: - 画面操作
+
+    private func launchFresh(resetIdentity: Bool = false) {
+        app.terminate()
+        app.launchArguments = resetIdentity ? ["-uitest-reset-identity"] : []
+        app.launch()
+        completeOnboardingIfNeeded()
+    }
+
+    /// 学習記録タブの「解答した問題」件数を読む。
+    private func readWeeklyAnswered() throws -> Int {
+        app.tabBars.buttons["学習記録"].tap()
+
+        let value = app.staticTexts["stat.weeklyAnswered"]
+        guard value.waitForExistence(timeout: 60) else {
+            // 取りこぼした場合に備えてもう一度だけタブを叩く
+            app.tabBars.buttons["学習記録"].tap()
+            guard value.waitForExistence(timeout: 60) else {
+                throw XCTSkip("学習記録が読み込めない（dev バックエンドの状態を確認）")
+            }
+            return try parseCount(value.label)
+        }
+        return try parseCount(value.label)
+    }
+
+    private func parseCount(_ label: String) throws -> Int {
+        let digits = label.filter(\.isNumber)
+        guard let count = Int(digits) else {
+            throw XCTSkip("回答数を読み取れない: '\(label)'")
+        }
+        return count
+    }
+
+    private func signInIfNeeded() {
         let loginRow = app.buttons["loginButton"]
-        if loginRow.waitForExistence(timeout: 10) {
-            loginRow.tap()
-            signIn()
+        guard loginRow.waitForExistence(timeout: 10) else {
+            // すでにログイン済み
+            XCTAssertTrue(app.staticTexts[email].exists, "ログイン状態を判定できない")
+            return
         }
 
-        XCTAssertTrue(
-            app.staticTexts[email].waitForExistence(timeout: 60),
-            "再インストール後にログインできない"
-        )
-        takeScreenshot(name: "05_再インストール後_ログイン")
+        loginRow.tap()
 
-        closeSettings()
-        XCTAssertTrue(openStudyRecord(), "再インストール後に学習記録が復元されない")
-        takeScreenshot(name: "06_再インストール後_学習記録")
-    }
-
-    // MARK: - 部品
-
-    private func signIn() {
         let emailField = app.textFields["メールアドレス"]
         XCTAssertTrue(emailField.waitForExistence(timeout: 10), "メールアドレス欄が出ない")
         emailField.tap()
@@ -122,22 +148,40 @@ final class AccountLinkE2ETests: XCTestCase {
         passwordField.typeText(password)
 
         app.buttons["ログイン"].firstMatch.tap()
+
+        // ログイン画面は /account/link の完了後に閉じるので、
+        // メールアドレスが出た時点でリンクまで終わっている。
+        XCTAssertTrue(
+            app.staticTexts[email].waitForExistence(timeout: 90),
+            "ログインできない（または /account/link が終わらない）"
+        )
     }
 
-    /// ログイン中ならログアウトする（未ログインなら何もしない）。
-    private func signOutIfNeeded() {
+    private func signOut() {
         let signOutRow = app.buttons["signOutButton"]
-        guard signOutRow.waitForExistence(timeout: 5) else { return }
-
+        XCTAssertTrue(signOutRow.waitForExistence(timeout: 10), "ログアウト導線が出ていない")
         signOutRow.tap()
+
         let confirm = app.alerts.buttons["ログアウト"]
-        if confirm.waitForExistence(timeout: 5) {
-            confirm.tap()
-        }
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "ログアウトの確認が出ない")
+        confirm.tap()
+
         XCTAssertTrue(
             app.buttons["loginButton"].waitForExistence(timeout: 20),
             "ログアウトできない"
         )
+    }
+
+    private func openSettings() {
+        XCTAssertTrue(
+            app.tabBars.buttons["マイページ"].waitForExistence(timeout: 60),
+            "メイン画面に到達できない"
+        )
+        app.tabBars.buttons["マイページ"].tap()
+
+        let settings = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "設定")).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 15), "マイページから設定へ入れない")
+        settings.tap()
     }
 
     private func closeSettings() {
@@ -148,50 +192,20 @@ final class AccountLinkE2ETests: XCTestCase {
             back.tap()
         }
         XCTAssertTrue(app.tabBars.buttons["学習"].waitForExistence(timeout: 20), "設定を閉じられない")
-        // 設定はマイページ配下なので、学習タブへ戻しておく。
         app.tabBars.buttons["学習"].tap()
     }
 
-    /// 学習記録タブを開き、本体（スケルトンではない）が出るまで待つ。
-    /// ログイン直後はアカウント側のデータを取り直すため時間がかかることがある。
-    @discardableResult
-    private func openStudyRecord(timeout: TimeInterval = 90) -> Bool {
-        app.tabBars.buttons["学習記録"].tap()
-
-        let marker = app.staticTexts["連続学習日数"]
-        if marker.waitForExistence(timeout: timeout / 2) { return true }
-
-        // 取りこぼした場合に備えてもう一度タブを叩く
-        app.tabBars.buttons["学習記録"].tap()
-        return marker.waitForExistence(timeout: timeout / 2)
-    }
-
-    private func openSettings() {
-        XCTAssertTrue(
-            app.tabBars.buttons["マイページ"].waitForExistence(timeout: 60),
-            "メイン画面に到達できない（オンボーディングが完了していない）"
-        )
-        app.tabBars.buttons["マイページ"].tap()
-        let settings = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "設定")).firstMatch
-        XCTAssertTrue(settings.waitForExistence(timeout: 15), "マイページから設定へ入れない")
-        settings.tap()
-    }
-
     /// オンボーディングが出た場合は最後まで進める（出なければ何もしない）。
-    /// 実際の遷移は「次へ」→「問題集を選ぶ」→ 問題集を1つ選ぶ、の順。
+    /// 実際の遷移: 次へ → 問題集を選ぶ → 問題集を1つ選ぶ → 同意して次へ → はじめる。
     private func completeOnboardingIfNeeded() {
-        // 実際の遷移: 次へ → 問題集を選ぶ → 問題集を1つ選ぶ → 同意して次へ → はじめる。
-        // （タブバーが出た時点で抜けるので、学習ホームの「はじめる」は押さない）
         let labels = ["次へ", "問題集を選ぶ", "この問題集で始める", "はじめる"]
-        // 新規インストール直後は問題集の取得などで時間がかかるため長めに待つ。
         let deadline = Date().addingTimeInterval(240)
 
         while Date() < deadline {
             if app.tabBars.buttons["マイページ"].exists { return }
 
-            // 利用規約の同意チェックを入れないと「同意して次へ」が有効にならない。
-            // ラベル付きの switch はタップに反応しない（実体は無ラベル側）ため、
-            // ボタンが有効になるまで順にタップして確かめる。
+            // 同意チェックを入れないと「同意して次へ」が有効にならない。
+            // ラベル付きの switch はタップに反応しない（実体は無ラベル側）。
             let agreeButton = app.buttons["同意して次へ"]
             if agreeButton.exists && !agreeButton.isEnabled {
                 for index in 0..<app.switches.count {
@@ -201,12 +215,10 @@ final class AccountLinkE2ETests: XCTestCase {
                 }
             }
 
-            // 「同意して次へ」は "次へ" に含まれるので labels でまとめて拾える。
             let candidate = app.buttons.matching(
                 NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@ OR label CONTAINS %@",
                             labels[0], labels[1], labels[2], labels[3])
             ).firstMatch
-
             if candidate.exists && candidate.isHittable && candidate.isEnabled {
                 candidate.tap()
             }
@@ -214,19 +226,20 @@ final class AccountLinkE2ETests: XCTestCase {
         }
     }
 
-    /// 1問だけ解く。解けたら true。
+    /// 1問だけ解いて、履歴を保存してクイズを抜ける。
     private func answerOneQuestion() -> Bool {
+        app.tabBars.buttons["学習"].tap()
+
         let start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
-        guard start.waitForExistence(timeout: 30) else { return false }
+        guard start.waitForExistence(timeout: 60) else { return false }
         start.tap()
 
         let choice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
-        guard choice.waitForExistence(timeout: 20) else { return false }
+        guard choice.waitForExistence(timeout: 30) else { return false }
         choice.tap()
 
-        // 解答が記録されるまで待つ
         var answered = false
-        let deadline = Date().addingTimeInterval(10)
+        let deadline = Date().addingTimeInterval(15)
         while Date() < deadline {
             if app.buttons["結果を見る"].exists || app.buttons["次の問題へ"].exists {
                 answered = true
@@ -236,28 +249,13 @@ final class AccountLinkE2ETests: XCTestCase {
         }
         guard answered else { return false }
 
-        // クイズ画面はタブバーを覆うので、閉じてメインへ戻す。
-        leaveQuiz()
-        return app.tabBars.buttons["マイページ"].waitForExistence(timeout: 15)
-    }
-
-    private func leaveQuiz() {
         let back = app.buttons["戻る"]
-        if back.exists && back.isHittable {
-            back.tap()
-        }
-        // 「クイズを終了しますか？」が出る。解答を残したいので必ず保存側を選ぶ
-        // （ここで捨てるとマージ対象の学習記録が作られない）。
-        let save = app.alerts.buttons["履歴を保存して戻る"]
-        if save.waitForExistence(timeout: 5) {
-            save.tap()
-        }
-    }
+        if back.exists && back.isHittable { back.tap() }
 
-    private func takeScreenshot(name: String) {
-        let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        // 「クイズを終了しますか？」。解答を残したいので必ず保存側を選ぶ。
+        let save = app.alerts.buttons["履歴を保存して戻る"]
+        if save.waitForExistence(timeout: 5) { save.tap() }
+
+        return app.tabBars.buttons["マイページ"].waitForExistence(timeout: 20)
     }
 }

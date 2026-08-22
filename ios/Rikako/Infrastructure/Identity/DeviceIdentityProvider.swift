@@ -100,6 +100,14 @@ struct KeychainIdentityStore {
         return String(data: data, encoding: .utf8)
     }
 
+    func clear() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: keychainKey,
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
     func save(_ value: String) {
         let data = Data(value.utf8)
 

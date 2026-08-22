@@ -34,6 +34,17 @@ final class AppContainer {
         }
         #endif
 
+        #if DEBUG
+        // E2E 用: 匿名 identity とログインセッションを消してから起動する。
+        // 「未リンクの新しい端末」を毎回作れないと、匿名 → アカウントのマージを
+        // 実際には通らないまま検証したつもりになるため。
+        if ProcessInfo.processInfo.arguments.contains("-uitest-reset-identity") {
+            KeychainIdentityStore().clear()
+            KeychainAuthTokenStore().clear()
+            AccountLinkPendingStore().set(false)
+        }
+        #endif
+
         let flavor = AppFlavor.current
         let httpClient = URLSessionHTTPClient(session: .shared)
         let deviceIdentityProvider = CognitoDeviceIdentityProvider(
