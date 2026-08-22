@@ -15,6 +15,10 @@ export class ApiError extends Error {
   }
 }
 
+// 進行中の /account/link。link 前に通常 API が走ると、サーバーが
+// ACCOUNT_LINK_REQUIRED を返すことがあるので、その完了を待って1回だけやり直す。
+let linkInFlight: Promise<unknown> | null = null;
+
 async function authedFetch(
   path: string,
   init: RequestInit,
@@ -41,6 +45,16 @@ async function authedFetch(
     clearTokens();
     throw new ApiError(401, "unauthorized");
   }
+
+  // link 前に通常 API が走った場合。link の完了を待って1回だけやり直す。
+  if (res.status === 400 && allowRetry && linkInFlight) {
+    const body = await res.clone().json().catch(() => null);
+    if (body?.code === "ACCOUNT_LINK_REQUIRED") {
+      await linkInFlight.catch(() => {});
+      return authedFetch(path, init, false);
+    }
+  }
+
   return res;
 }
 
@@ -64,15 +78,26 @@ export async function linkAccount(): Promise<AccountResponse> {
 // 同ブラウザで別アカウントへ切り替えた場合は device id が別アカウントに紐付き済みで
 // 409 になるため、新しい UUID へ rotate して1回だけ再試行する。
 export async function ensureAccountLinked(): Promise<void> {
-  try {
-    await linkAccount();
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 409) {
-      rotateDeviceId();
+  const task = (async () => {
+    try {
       await linkAccount();
-      return;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        rotateDeviceId();
+        await linkAccount();
+        return;
+      }
+      throw e;
     }
-    throw e;
+  })();
+
+  // 実行中であることを公開し、ACCOUNT_LINK_REQUIRED を受けた通常 API が
+  // この完了を待てるようにする。
+  linkInFlight = task;
+  try {
+    await task;
+  } finally {
+    if (linkInFlight === task) linkInFlight = null;
   }
 }
 
