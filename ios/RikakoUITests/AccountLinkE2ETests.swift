@@ -145,6 +145,8 @@ final class AccountLinkE2ETests: XCTestCase {
         // 起動直後や画面遷移の途中はタブのタップが効かないことがあるため、
         // 切り替わったことを確認できるまで数回やり直す。
         for _ in 0..<4 {
+            // 取りこぼし対策。ここでは待たずに、出ていれば閉じるだけ。
+            dismissPasswordSavePromptIfNeeded(timeout: 0.5)
             let tab = app.tabBars.buttons["学習記録"]
             if tab.waitForExistence(timeout: 30), tab.isHittable {
                 tab.tap()
@@ -192,12 +194,41 @@ final class AccountLinkE2ETests: XCTestCase {
 
         app.buttons["ログイン"].firstMatch.tap()
 
+        // ログイン直後に iOS の「Save Password?」が出ると以降のタップを全て
+        // 飲み込んでしまうので、出ていれば閉じる。
+        dismissPasswordSavePromptIfNeeded()
+
         // ログイン画面は /account/link の完了後に閉じるので、
         // メールアドレスが出た時点でリンクまで終わっている。
         XCTAssertTrue(
             app.staticTexts[email].waitForExistence(timeout: 90),
             "ログインできない（または /account/link が終わらない）"
         )
+    }
+
+    /// iOS のパスワード保存ダイアログ（"Save Password?"）を閉じる。
+    /// SpringBoard 側に出る場合とアプリ側に出る場合の両方を見る。
+    private func dismissPasswordSavePromptIfNeeded(timeout: TimeInterval = 10) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let labels = ["Not Now", "今はしない", "後で"]
+
+        // 表示まで少し間があるので、少しだけ待つ。
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            for label in labels {
+                let button = springboard.buttons[label]
+                if button.exists && button.isHittable {
+                    button.tap()
+                    return
+                }
+                let inApp = app.buttons[label]
+                if inApp.exists && inApp.isHittable {
+                    inApp.tap()
+                    return
+                }
+            }
+            usleep(500_000)
+        }
     }
 
     private func signOut() {
