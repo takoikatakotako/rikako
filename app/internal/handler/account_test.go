@@ -399,3 +399,75 @@ func TestLinkAccount_MissingSub(t *testing.T) {
 		t.Fatalf("expected 401 when sub missing, got %T", resp)
 	}
 }
+
+// リンク済みの2台目端末でログアウト中に解いた回答が、再ログイン後も見えること。
+//
+// ログアウトで device id を消さない設計なので、この端末の未ログイン書き込みが
+// device user 側に入ると、再ログイン時の /account/link は同一アカウントに対して
+// 冪等 no-op となり回収されない。結果「ログアウト中は見えるのにログインすると消える」
+// 記録が生まれる。リンク済み端末は未ログインでも canonical user へ解決することで防ぐ。
+func TestResolveUserID_LinkedDeviceWhileLoggedOut(t *testing.T) {
+	h := newTestHandler()
+	prefix := fmt.Sprintf("logout-write-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1 := prefix + "-dev1"
+	dev2 := prefix + "-dev2"
+
+	defer func() {
+		testDB.Exec(`DELETE FROM user_answers WHERE user_id IN (SELECT id FROM users WHERE identity_id LIKE $1)`, prefix+"%")
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+	}()
+
+	// 1台目でアカウントを作り、2台目もそのアカウントへ紐付ける。
+	linkAccount(t, h, sub, dev1)
+	linkAccount(t, h, sub, dev2)
+
+	// 2台目でログアウトしたまま解答する（認証なしの書き込み）。
+	userID, err := h.resolveUserIDForWrite(context.Background(), dev2)
+	if err != nil {
+		t.Fatalf("resolveUserIDForWrite(anon, linked device): %v", err)
+	}
+	if _, err := testDB.Exec(
+		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
+		 VALUES ($1, 1, 1, 0, true)`, userID); err != nil {
+		t.Fatalf("insert answer: %v", err)
+	}
+
+	// canonical user に入っていること（device user 側に取り残されていない）。
+	primary := userIDByIdentity(t, dev1)
+	if userID != primary {
+		t.Fatalf("anonymous write on linked device went to user %d; want canonical %d", userID, primary)
+	}
+
+	// 同じアカウントへ再ログインしても回答が見えること。
+	linkAccount(t, h, sub, dev2)
+	resp, err := h.GetUserSummary(ctxWithSub(sub), api.GetUserSummaryRequestObject{
+		Params: api.GetUserSummaryParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetUserSummary(logged in): %v", err)
+	}
+	s, ok := resp.(api.GetUserSummary200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	if s.TotalAnswered < 1 {
+		t.Errorf("TotalAnswered=%d; want >=1（ログアウト中の回答が取り残されている）", s.TotalAnswered)
+	}
+
+	// ログアウト中の読み取りも同じ記録が見えること（ログイン有無で消えない）。
+	resp2, err := h.GetUserSummary(context.Background(), api.GetUserSummaryRequestObject{
+		Params: api.GetUserSummaryParams{XDeviceID: dev2},
+	})
+	if err != nil {
+		t.Fatalf("GetUserSummary(anon, linked device): %v", err)
+	}
+	s2, ok := resp2.(api.GetUserSummary200JSONResponse)
+	if !ok {
+		t.Fatalf("expected 200, got %T", resp2)
+	}
+	if s2.TotalAnswered != s.TotalAnswered {
+		t.Errorf("anon=%d logged-in=%d; ログイン有無で見える記録が変わっている", s2.TotalAnswered, s.TotalAnswered)
+	}
+}
