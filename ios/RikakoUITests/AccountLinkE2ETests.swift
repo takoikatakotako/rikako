@@ -45,6 +45,16 @@ final class AccountLinkE2ETests: XCTestCase {
         app = XCUIApplication()
     }
 
+    override func tearDownWithError() throws {
+        // CI でしか再現しない事象を追えるように、失敗時の画面を残す。
+        if let app, testRun?.hasSucceeded == false {
+            let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            attachment.name = "失敗時の画面"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     /// 匿名で解いた回答が、ログイン時にアカウントへマージされることを件数で検証する。
     ///
     /// 1. ログインしてアカウントの回答数を数える（基準値）
@@ -212,6 +222,20 @@ final class AccountLinkE2ETests: XCTestCase {
         settings.tap()
     }
 
+    /// 学習ホームで問題集を選び直す。選択済みなら何もしない。
+    private func selectWorkbook() -> Bool {
+        let change = app.buttons["問題集を変更"]
+        guard change.waitForExistence(timeout: 30) else { return false }
+        change.tap()
+
+        let pick = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "この問題集で始める")
+        ).firstMatch
+        guard pick.waitForExistence(timeout: 30) else { return false }
+        pick.tap()
+        return true
+    }
+
     private func closeSettings() {
         let back = app.buttons["BackButton"].exists
             ? app.buttons["BackButton"]
@@ -258,12 +282,18 @@ final class AccountLinkE2ETests: XCTestCase {
     private func answerOneQuestion() -> Bool {
         app.tabBars.buttons["学習"].tap()
 
-        let start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
-        guard start.waitForExistence(timeout: 60) else { return false }
+        var start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
+        if !start.waitForExistence(timeout: 90) {
+            // identity を作り直した直後は、この端末の選択中の問題集が引き継がれず
+            // 学習ホームが未選択状態になることがある。その場合は選び直す。
+            guard selectWorkbook() else { return false }
+            start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
+            guard start.waitForExistence(timeout: 90) else { return false }
+        }
         start.tap()
 
         let choice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
-        guard choice.waitForExistence(timeout: 30) else { return false }
+        guard choice.waitForExistence(timeout: 60) else { return false }
         choice.tap()
 
         var answered = false

@@ -33,3 +33,13 @@ jobs:
           RIKAKO_E2E_EMAIL: ${{ secrets.RIKAKO_E2E_EMAIL }}
           RIKAKO_E2E_PASSWORD: ${{ secrets.RIKAKO_E2E_PASSWORD }}
         run: ./scripts/run-account-e2e.sh
+
+      # 失敗時の画面を含む xcresult を回収する（CI でしか出ない事象の調査用）。
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-e2e-xcresult
+          path: ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+          retention-days: 7
+          if-no-files-found: warn
