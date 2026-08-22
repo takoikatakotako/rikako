@@ -77,6 +77,8 @@ struct QuizView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                 }
+                // ラベルが環境によって変わるため、UI テストからは ID で特定する。
+                .accessibilityIdentifier("quizBackButton")
             }
         }
         .toolbar(.hidden, for: .tabBar)

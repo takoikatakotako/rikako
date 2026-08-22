@@ -346,7 +346,7 @@ final class AccountLinkE2ETests: XCTestCase {
         // 解説の表示アニメーション中などはタップが効かないことがあるので、
         // メイン画面に戻れるまで数回やり直す。
         for _ in 0..<3 {
-            let back = app.buttons["戻る"]
+            let back = app.buttons["quizBackButton"]
             if back.waitForExistence(timeout: 10), back.isHittable {
                 back.tap()
             }
