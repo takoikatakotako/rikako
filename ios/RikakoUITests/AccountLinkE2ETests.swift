@@ -45,6 +45,16 @@ final class AccountLinkE2ETests: XCTestCase {
         app = XCUIApplication()
     }
 
+    override func tearDownWithError() throws {
+        // CI でしか再現しない事象を追えるように、失敗時の画面を残す。
+        if let app, testRun?.hasSucceeded == false {
+            let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            attachment.name = "失敗時の画面"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     /// 匿名で解いた回答が、ログイン時にアカウントへマージされることを件数で検証する。
     ///
     /// 1. ログインしてアカウントの回答数を数える（基準値）
@@ -54,7 +64,8 @@ final class AccountLinkE2ETests: XCTestCase {
     @MainActor
     func test_匿名で解いた回答がログイン時にアカウントへマージされる() throws {
         // === 1. アカウント側の基準値を読む ===
-        launchFresh()
+        // Keychain はアンインストールしても残るため、前回のセッションを必ず消してから始める。
+        launchFresh(resetIdentity: true)
         openSettings()
         signInIfNeeded()
         closeSettings()
@@ -95,6 +106,9 @@ final class AccountLinkE2ETests: XCTestCase {
     ///
     /// スクリプトが事前にアプリをアンインストールしている前提。加えて
     /// `-uitest-reset-identity` で Keychain も消し、完全に新しい端末として起動する。
+    ///
+    /// **アカウントに回答が1件以上あることが前提**。`run-account-e2e.sh` は
+    /// マージのテストを先に流すので、その回答が残っている状態でここに来る。
     @MainActor
     func test_新しい端末でもログインすれば学習記録が戻る() throws {
         launchFresh(resetIdentity: true)
@@ -126,17 +140,24 @@ final class AccountLinkE2ETests: XCTestCase {
     /// identifier の付け忘れや画面遷移の不具合、表示形式の変更は、まさにこの E2E で
     /// 検出したい回帰であり、skip にすると気づけないため。
     private func readWeeklyAnswered() throws -> Int {
-        app.tabBars.buttons["学習記録"].tap()
-
         let value = app.staticTexts["stat.weeklyAnswered"]
-        if !value.waitForExistence(timeout: 60) {
-            // 取りこぼした場合に備えてもう一度だけタブを叩く
-            app.tabBars.buttons["学習記録"].tap()
-            guard value.waitForExistence(timeout: 60) else {
-                throw E2EError.elementNotFound("stat.weeklyAnswered（学習記録の「解答した問題」件数）")
+
+        // 起動直後や画面遷移の途中はタブのタップが効かないことがあるため、
+        // 切り替わったことを確認できるまで数回やり直す。
+        for _ in 0..<4 {
+            // 取りこぼし対策。ここでは待たずに、出ていれば閉じるだけ。
+            dismissPasswordSavePromptIfNeeded(timeout: 0.5)
+            let tab = app.tabBars.buttons["学習記録"]
+            if tab.waitForExistence(timeout: 30), tab.isHittable {
+                tab.tap()
             }
+            if value.waitForExistence(timeout: 30) {
+                return try parseCount(value.label)
+            }
+            sleep(1)
         }
-        return try parseCount(value.label)
+
+        throw E2EError.elementNotFound("stat.weeklyAnswered（学習記録の「解答した問題」件数）")
     }
 
     private func parseCount(_ label: String) throws -> Int {
@@ -150,8 +171,12 @@ final class AccountLinkE2ETests: XCTestCase {
     private func signInIfNeeded() {
         let loginRow = app.buttons["loginButton"]
         guard loginRow.waitForExistence(timeout: 10) else {
-            // すでにログイン済み
-            XCTAssertTrue(app.staticTexts[email].exists, "ログイン状態を判定できない")
+            // すでにログイン済みのはず。想定と別のアカウントなら以降の件数比較が
+            // 成り立たないので、ここで失敗させる。
+            XCTAssertTrue(
+                app.staticTexts[email].exists,
+                "ログイン導線が無いのに \(email) でログインしていない（別アカウントのセッションが残っている）"
+            )
             return
         }
 
@@ -169,12 +194,41 @@ final class AccountLinkE2ETests: XCTestCase {
 
         app.buttons["ログイン"].firstMatch.tap()
 
+        // ログイン直後に iOS の「Save Password?」が出ると以降のタップを全て
+        // 飲み込んでしまうので、出ていれば閉じる。
+        dismissPasswordSavePromptIfNeeded()
+
         // ログイン画面は /account/link の完了後に閉じるので、
         // メールアドレスが出た時点でリンクまで終わっている。
         XCTAssertTrue(
             app.staticTexts[email].waitForExistence(timeout: 90),
             "ログインできない（または /account/link が終わらない）"
         )
+    }
+
+    /// iOS のパスワード保存ダイアログ（"Save Password?"）を閉じる。
+    /// SpringBoard 側に出る場合とアプリ側に出る場合の両方を見る。
+    private func dismissPasswordSavePromptIfNeeded(timeout: TimeInterval = 10) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let labels = ["Not Now", "今はしない", "後で"]
+
+        // 表示まで少し間があるので、少しだけ待つ。
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            for label in labels {
+                let button = springboard.buttons[label]
+                if button.exists && button.isHittable {
+                    button.tap()
+                    return
+                }
+                let inApp = app.buttons[label]
+                if inApp.exists && inApp.isHittable {
+                    inApp.tap()
+                    return
+                }
+            }
+            usleep(500_000)
+        }
     }
 
     private func signOut() {
@@ -202,6 +256,20 @@ final class AccountLinkE2ETests: XCTestCase {
         let settings = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "設定")).firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 15), "マイページから設定へ入れない")
         settings.tap()
+    }
+
+    /// 学習ホームで問題集を選び直す。選択済みなら何もしない。
+    private func selectWorkbook() -> Bool {
+        let change = app.buttons["問題集を変更"]
+        guard change.waitForExistence(timeout: 30) else { return false }
+        change.tap()
+
+        let pick = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS %@", "この問題集で始める")
+        ).firstMatch
+        guard pick.waitForExistence(timeout: 30) else { return false }
+        pick.tap()
+        return true
     }
 
     private func closeSettings() {
@@ -250,12 +318,18 @@ final class AccountLinkE2ETests: XCTestCase {
     private func answerOneQuestion() -> Bool {
         app.tabBars.buttons["学習"].tap()
 
-        let start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
-        guard start.waitForExistence(timeout: 60) else { return false }
+        var start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
+        if !start.waitForExistence(timeout: 90) {
+            // identity を作り直した直後は、この端末の選択中の問題集が引き継がれず
+            // 学習ホームが未選択状態になることがある。その場合は選び直す。
+            guard selectWorkbook() else { return false }
+            start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "はじめる")).firstMatch
+            guard start.waitForExistence(timeout: 90) else { return false }
+        }
         start.tap()
 
         let choice = app.buttons.matching(identifier: "quizChoice").element(boundBy: 0)
-        guard choice.waitForExistence(timeout: 30) else { return false }
+        guard choice.waitForExistence(timeout: 60) else { return false }
         choice.tap()
 
         var answered = false
@@ -269,13 +343,25 @@ final class AccountLinkE2ETests: XCTestCase {
         }
         guard answered else { return false }
 
-        let back = app.buttons["戻る"]
-        if back.exists && back.isHittable { back.tap() }
+        // 解説の表示アニメーション中などはタップが効かないことがあるので、
+        // メイン画面に戻れるまで数回やり直す。
+        for _ in 0..<3 {
+            let back = app.buttons["quizBackButton"]
+            if back.waitForExistence(timeout: 10), back.isHittable {
+                back.tap()
+            }
 
-        // 「クイズを終了しますか？」。解答を残したいので必ず保存側を選ぶ。
-        let save = app.alerts.buttons["履歴を保存して戻る"]
-        if save.waitForExistence(timeout: 5) { save.tap() }
+            // 「クイズを終了しますか？」。解答を残したいので必ず保存側を選ぶ
+            // （ここで捨てるとマージ対象の学習記録が作られない）。
+            let save = app.alerts.buttons["履歴を保存して戻る"]
+            if save.waitForExistence(timeout: 10) {
+                save.tap()
+            }
 
-        return app.tabBars.buttons["マイページ"].waitForExistence(timeout: 20)
+            if app.tabBars.buttons["マイページ"].waitForExistence(timeout: 20) {
+                return true
+            }
+        }
+        return false
     }
 }
