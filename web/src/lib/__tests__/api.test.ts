@@ -93,6 +93,85 @@ describe("ACCOUNT_LINK_REQUIRED からの回復", () => {
     expect(calls.filter((u) => u.includes("workbook-progress"))).toHaveLength(2);
   });
 
+  // 401 の refresh と link の再試行は別枠。共用だと refresh に成功しても
+  // その後の ACCOUNT_LINK_REQUIRED を回復できない。
+  it("401 -> refresh -> ACCOUNT_LINK_REQUIRED -> link -> 200 を通す", async () => {
+    const calls: string[] = [];
+    let progressCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("cognito-idp")) {
+        return jsonResponse(200, {
+          AuthenticationResult: {
+            IdToken: "id2",
+            AccessToken: "access2",
+            RefreshToken: "refresh2",
+            ExpiresIn: 3600,
+          },
+        });
+      }
+      if (url.endsWith("/account/link")) return jsonResponse(200, { accountId: 1 });
+      progressCalls += 1;
+      if (progressCalls === 1) return jsonResponse(401, {});
+      if (progressCalls === 2) return linkRequired();
+      return jsonResponse(200, { results: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getWorkbookProgress } = await import("../api");
+    await expect(getWorkbookProgress(3)).resolves.toEqual([]);
+
+    expect(calls.some((u) => u.includes("cognito-idp"))).toBe(true);
+    expect(calls.filter((u) => u.endsWith("/account/link"))).toHaveLength(1);
+    // 401 / 400 / 成功 の3回だけ（それぞれの再試行は1回まで）。
+    expect(progressCalls).toBe(3);
+  });
+
+  // 逆順（link 回復のあとに 401）も同様に通る。
+  it("ACCOUNT_LINK_REQUIRED -> link -> 401 -> refresh -> 200 を通す", async () => {
+    const calls: string[] = [];
+    let progressCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url.includes("cognito-idp")) {
+        return jsonResponse(200, {
+          AuthenticationResult: {
+            IdToken: "id2",
+            AccessToken: "access2",
+            RefreshToken: "refresh2",
+            ExpiresIn: 3600,
+          },
+        });
+      }
+      if (url.endsWith("/account/link")) return jsonResponse(200, { accountId: 1 });
+      progressCalls += 1;
+      if (progressCalls === 1) return linkRequired();
+      if (progressCalls === 2) return jsonResponse(401, {});
+      return jsonResponse(200, { results: [] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getWorkbookProgress } = await import("../api");
+    await expect(getWorkbookProgress(3)).resolves.toEqual([]);
+
+    expect(progressCalls).toBe(3);
+  });
+
+  // 同じ回復を繰り返さない（無限再試行にしない）。
+  it("ACCOUNT_LINK_REQUIRED が続く場合は1回で諦める", async () => {
+    let progressCalls = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/account/link")) return jsonResponse(200, { accountId: 1 });
+      progressCalls += 1;
+      return linkRequired();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getWorkbookProgress } = await import("../api");
+    await expect(getWorkbookProgress(3)).rejects.toThrow();
+    expect(progressCalls).toBe(2);
+  });
+
   // 並行して呼んでも link は1回だけ（single-flight）。
   it("並行呼び出しでも link は1回だけ走る", async () => {
     const calls: string[] = [];

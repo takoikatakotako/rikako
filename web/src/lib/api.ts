@@ -40,10 +40,15 @@ function ensureLinkReady(): Promise<void> {
   return task;
 }
 
+// 再試行の残り回数。401 の refresh と ACCOUNT_LINK_REQUIRED の link は
+// 別々に1回ずつ持つ。共用にすると 401 -> refresh 成功 -> 400 の順で link 側の
+// 再試行が使えず、refresh に成功しているのに 400 のまま返ってしまう。
+type RetryBudget = { auth: boolean; link: boolean };
+
 async function authedFetch(
   path: string,
   init: RequestInit,
-  allowRetry = true,
+  retries: RetryBudget = { auth: true, link: true },
 ): Promise<Response> {
   const idToken = loadTokens()?.idToken;
   const headers = new Headers(init.headers);
@@ -55,10 +60,10 @@ async function authedFetch(
   const res = await fetch(`${config.apiBaseUrl}${path}`, { ...init, headers });
 
   if (res.status === 401) {
-    if (allowRetry) {
+    if (retries.auth) {
       const refreshed = await refresh().catch(() => null);
       if (refreshed) {
-        return authedFetch(path, init, false);
+        return authedFetch(path, init, { ...retries, auth: false });
       }
     }
     // refresh 不能 or 再試行も 401 → セッション終了。token を消すと
@@ -69,11 +74,11 @@ async function authedFetch(
 
   // link 前に通常 API が走った場合。link を保証してから1回だけやり直す。
   // /account/link 自身は対象外（再帰する）。
-  if (res.status === 400 && allowRetry && path !== "/account/link") {
+  if (res.status === 400 && retries.link && path !== "/account/link") {
     const body = await res.clone().json().catch(() => null);
     if (body?.code === "ACCOUNT_LINK_REQUIRED") {
       await ensureLinkReady().catch(() => {});
-      return authedFetch(path, init, false);
+      return authedFetch(path, init, { ...retries, link: false });
     }
   }
 
