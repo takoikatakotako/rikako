@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/db"
@@ -19,6 +20,9 @@ func (h *Handler) GetUserProfile(ctx context.Context, request api.GetUserProfile
 	}
 
 	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.GetUserProfile400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
@@ -85,6 +89,9 @@ func (h *Handler) UpdateUserProfile(ctx context.Context, request api.UpdateUserP
 
 	// ログイン中はアカウントの primary user、そうでなければ device の user を解決。
 	userID, err := h.resolveUserIDForWrite(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.UpdateUserProfile400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err

@@ -3,7 +3,10 @@
 export const config = {
   cognitoRegion: process.env.NEXT_PUBLIC_COGNITO_REGION ?? "ap-northeast-1",
   cognitoClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "",
-  apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.rikako.org",
+  // 既定は dev。ローカルの npm run dev で本番へ書き込んでしまわないようにする
+  // （dev/prod のデプロイでは workflow が明示的に設定する）。
+  apiBaseUrl:
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.dev.rikako.org",
 };
 
 export function cognitoIdpEndpoint(): string {

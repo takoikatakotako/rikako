@@ -28,3 +28,12 @@ ON CONFLICT (user_id, app_id) DO NOTHING;
 
 -- name: DeleteUserAppSettingsByUser :exec
 DELETE FROM user_app_settings WHERE user_id = $1;
+
+-- name: GetPrimaryUserIDByIdentityID :one
+-- 端末が既にアカウントへ紐付いている場合の canonical user を引く。
+-- リンク済み端末はログアウト中でも同じアカウントへ読み書きさせるために使う
+-- （device user 側に回答が溜まると、再ログイン時の link は冪等 no-op なので回収されない）。
+SELECT a.primary_user_id
+FROM users u
+JOIN accounts a ON a.id = u.account_id
+WHERE u.identity_id = $1;

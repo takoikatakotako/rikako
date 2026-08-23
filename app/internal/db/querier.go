@@ -68,6 +68,10 @@ type Querier interface {
 	GetCorrectChoicesByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetCorrectChoicesByQuestionIDsRow, error)
 	GetImageURLsByQuestionID(ctx context.Context, questionID int64) ([]string, error)
 	GetImageURLsByQuestionIDs(ctx context.Context, dollar_1 []int64) ([]GetImageURLsByQuestionIDsRow, error)
+	// 端末が既にアカウントへ紐付いている場合の canonical user を引く。
+	// リンク済み端末はログアウト中でも同じアカウントへ読み書きさせるために使う
+	// （device user 側に回答が溜まると、再ログイン時の link は冪等 no-op なので回収されない）。
+	GetPrimaryUserIDByIdentityID(ctx context.Context, identityID string) (int64, error)
 	GetQuestionByID(ctx context.Context, id int64) (GetQuestionByIDRow, error)
 	GetSingleChoiceID(ctx context.Context, questionID int64) (int64, error)
 	GetTransferTokenIdentityID(ctx context.Context, token string) (string, error)

@@ -76,6 +76,23 @@ func (q *Queries) GetAccountByCognitoSub(ctx context.Context, cognitoSub string)
 	return i, err
 }
 
+const getPrimaryUserIDByIdentityID = `-- name: GetPrimaryUserIDByIdentityID :one
+SELECT a.primary_user_id
+FROM users u
+JOIN accounts a ON a.id = u.account_id
+WHERE u.identity_id = $1
+`
+
+// 端末が既にアカウントへ紐付いている場合の canonical user を引く。
+// リンク済み端末はログアウト中でも同じアカウントへ読み書きさせるために使う
+// （device user 側に回答が溜まると、再ログイン時の link は冪等 no-op なので回収されない）。
+func (q *Queries) GetPrimaryUserIDByIdentityID(ctx context.Context, identityID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getPrimaryUserIDByIdentityID, identityID)
+	var primary_user_id int64
+	err := row.Scan(&primary_user_id)
+	return primary_user_id, err
+}
+
 const getUserAccountIDForUpdate = `-- name: GetUserAccountIDForUpdate :one
 SELECT account_id FROM users WHERE id = $1 FOR UPDATE
 `

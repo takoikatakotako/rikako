@@ -80,6 +80,7 @@ export default async function QuestionPage({
           </div>
         </div>
         <QuestionCard
+          workbookId={exam.id}
           question={question}
           nextHref={nextId !== null ? `/questions/${nextId}/` : null}
           backHref={`/exams/${exam.id}/`}

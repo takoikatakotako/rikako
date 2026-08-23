@@ -51,7 +51,10 @@ export default async function ExamPage({
         )}
       </section>
 
-      <ExamProgress questionIds={exam.questions.map((q) => q.id)} />
+      <ExamProgress
+        workbookId={exam.id}
+        questionIds={exam.questions.map((q) => q.id)}
+      />
     </div>
   );
 }

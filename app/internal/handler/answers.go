@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/takoikatakotako/rikako/internal/api"
@@ -21,6 +22,9 @@ func (h *Handler) SubmitAnswers(ctx context.Context, request api.SubmitAnswersRe
 
 	// ログイン中はアカウントの primary user、そうでなければ device の user を解決。
 	userID, err := h.resolveUserIDForWrite(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.SubmitAnswers400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
@@ -90,6 +94,9 @@ func (h *Handler) GetWorkbookProgress(ctx context.Context, request api.GetWorkbo
 	}
 
 	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.GetWorkbookProgress400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
@@ -125,6 +132,9 @@ func (h *Handler) GetUserSummary(ctx context.Context, request api.GetUserSummary
 	}
 
 	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.GetUserSummary400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
@@ -213,6 +223,9 @@ func (h *Handler) GetAnswerLogs(ctx context.Context, request api.GetAnswerLogsRe
 	}
 
 	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.GetAnswerLogs400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
@@ -266,6 +279,9 @@ func (h *Handler) GetWrongAnswers(ctx context.Context, request api.GetWrongAnswe
 	}
 
 	userID, found, err := h.resolveUserIDForRead(ctx, deviceID)
+	if errors.Is(err, errAccountLinkRequired) {
+		return api.GetWrongAnswers400JSONResponse{Code: "ACCOUNT_LINK_REQUIRED", Message: "account link required; call POST /account/link first"}, nil
+	}
 	if err != nil {
 		h.logger.Error("failed to resolve user", "error", err, "device_id", deviceID)
 		return nil, err
