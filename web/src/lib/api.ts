@@ -15,9 +15,30 @@ export class ApiError extends Error {
   }
 }
 
-// 進行中の /account/link。link 前に通常 API が走ると、サーバーが
-// ACCOUNT_LINK_REQUIRED を返すことがあるので、その完了を待って1回だけやり直す。
-let linkInFlight: Promise<unknown> | null = null;
+// セッション単位の single-flight な link。link 前に通常 API が走ると、サーバーが
+// ACCOUNT_LINK_REQUIRED を返すので、その場合は「進行中なら待つ／未開始なら開始する」
+// を同じ promise で行い、完了後に1回だけやり直す。
+//
+// 「進行中のものがあれば待つ」だけでは足りない。次の窓では null のままだからで、
+// そこで諦めると link が成功していても通常 API だけ 400 で終わってしまう。
+//   - link を開始する前
+//   - link 開始前の待ち合わせ中（送信中の解答を待っている間）
+//   - サーバーが 400 を決めた後、クライアントが受け取る前に link が完了した場合
+let linkReady: Promise<void> | null = null;
+
+// link を保証する。進行中ならその promise を返し、未開始/完了済みなら開始する。
+// 完了したら保持を解除するので、後からの ACCOUNT_LINK_REQUIRED では link をやり直せる
+// （アカウント切替後など）。link 自体は冪等。
+function ensureLinkReady(): Promise<void> {
+  if (linkReady) return linkReady;
+
+  const task = performAccountLink();
+  linkReady = task;
+  void task.catch(() => {}).then(() => {
+    if (linkReady === task) linkReady = null;
+  });
+  return task;
+}
 
 async function authedFetch(
   path: string,
@@ -46,11 +67,12 @@ async function authedFetch(
     throw new ApiError(401, "unauthorized");
   }
 
-  // link 前に通常 API が走った場合。link の完了を待って1回だけやり直す。
-  if (res.status === 400 && allowRetry && linkInFlight) {
+  // link 前に通常 API が走った場合。link を保証してから1回だけやり直す。
+  // /account/link 自身は対象外（再帰する）。
+  if (res.status === 400 && allowRetry && path !== "/account/link") {
     const body = await res.clone().json().catch(() => null);
     if (body?.code === "ACCOUNT_LINK_REQUIRED") {
-      await linkInFlight.catch(() => {});
+      await ensureLinkReady().catch(() => {});
       return authedFetch(path, init, false);
     }
   }
@@ -74,30 +96,24 @@ export async function linkAccount(): Promise<AccountResponse> {
   return res.json();
 }
 
-// アカウントが紐付いていることを保証する（冪等）。
+// アカウントが紐付いていることを保証する（冪等）。通常 API 側の回復と
+// 同じ single-flight を共有するので、並行して呼んでも link は1回だけ走る。
+export function ensureAccountLinked(): Promise<void> {
+  return ensureLinkReady();
+}
+
 // 同ブラウザで別アカウントへ切り替えた場合は device id が別アカウントに紐付き済みで
 // 409 になるため、新しい UUID へ rotate して1回だけ再試行する。
-export async function ensureAccountLinked(): Promise<void> {
-  const task = (async () => {
-    try {
-      await linkAccount();
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        rotateDeviceId();
-        await linkAccount();
-        return;
-      }
-      throw e;
-    }
-  })();
-
-  // 実行中であることを公開し、ACCOUNT_LINK_REQUIRED を受けた通常 API が
-  // この完了を待てるようにする。
-  linkInFlight = task;
+async function performAccountLink(): Promise<void> {
   try {
-    await task;
-  } finally {
-    if (linkInFlight === task) linkInFlight = null;
+    await linkAccount();
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      rotateDeviceId();
+      await linkAccount();
+      return;
+    }
+    throw e;
   }
 }
 

@@ -45,6 +45,10 @@ jobs:
         working-directory: ./web
         run: npx tsc --noEmit
 
+      - name: Test
+        working-directory: ./web
+        run: npm test
+
       # 静的エクスポートなので、content を実際に取得してページ生成まで通す。
       - name: Build
         working-directory: ./web
