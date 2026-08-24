@@ -79,3 +79,15 @@ jobs:
           DATABASE_URL: postgres://rikako:password@localhost:5432/rikako?sslmode=disable
           IMAGE_BASE_URL: https://example.com
         run: go test -v -count=1 ./...
+
+  # openapi.yaml の先頭セグメントを API Gateway の route_keys に足し忘れると、
+  # アプリもテストも通るのに本番だけ 404 になる。それを止める。
+  api-routes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check API Gateway route coverage
+        run: python3 scripts/check-api-routes.py

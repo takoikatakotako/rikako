@@ -29,6 +29,12 @@ resource "aws_apigatewayv2_integration" "lambda" {
 
 # 実在するパスだけを Lambda へ通す。
 #
+# **ロールアウト第1段階**: いまは `$default` を残したまま明示ルートを追加している。
+# 明示ルートは `$default` より優先されるので、既存の通信を維持したまま到達確認できる。
+# dev で実在パスの疎通を確認したあと、別 PR で `$default` だけを削除する（第2段階）。
+# 一度に入れ替えると、`$default` の削除が先に走った場合に正常なパスまで 404 になる
+# （独立リソースなので Terraform は順序を保証しない）。
+#
 # 以前は `$default` の catch-all だったため、`/.env` や `/.aws/credentials` の
 # ような存在しないパスでも Lambda が起動していた。2026-08-21 のスキャンでは
 # 1分間に 318 回の無駄な起動が発生し、同時実行枠を食って 220 件が
@@ -62,6 +68,13 @@ locals {
     "ANY /transfer/{proxy+}",
     "ANY /account/{proxy+}",
   ]
+}
+
+# 第2段階でこのリソースを削除する。それまでは明示ルートのフォールバックとして残す。
+resource "aws_apigatewayv2_route" "default" {
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
 resource "aws_apigatewayv2_route" "routes" {
