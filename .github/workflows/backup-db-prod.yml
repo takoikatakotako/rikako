@@ -53,6 +53,11 @@ jobs:
 
           # サーバーは PostgreSQL 18。クライアントを合わせるためコンテナで実行する。
           # 接続文字列は環境変数で渡し、コマンドラインには出さない（ps に見えるため）。
+          #
+          # SSM の database-url は Neon の直接エンドポイント。アプリ側は起動時に
+          # DB_USE_POOLER=true で pooler へ変換して使うが（dbconn.Pooled）、
+          # pg_dump は PgBouncer の transaction pooling とは相性が悪いため、
+          # ここでは変換せず直接エンドポイントのまま使う。
           docker run --rm -e PGCONNECT_TIMEOUT=15 -e DATABASE_URL \
             -v "$PWD:/backup" postgres:18 \
             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/backup.dump'

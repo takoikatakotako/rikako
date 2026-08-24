@@ -20,6 +20,12 @@ Neon の Free プランは Point-in-Time Restore の保持期間が **6 時間**
 
 接続文字列は SSM SecureString `/rikako/production/database-url` から取得し、**GitHub Actions のログに出さない**（`::add-mask::` でマスクし、コマンドライン引数にも渡さない）。このリポジトリは public のため必須。
 
+### 接続先が pooler ではない理由
+
+SSM の `database-url` には Neon の**直接エンドポイント**が入っている。アプリ（公開 API / 管理 API）は起動時に `DB_USE_POOLER=true` を見て `dbconn.Pooled()` でホストを pooler へ変換して使うが、**バックアップでは変換しない**。
+
+`pg_dump` は PgBouncer の transaction pooling と相性が悪く、セッションをまたぐ操作で失敗しやすいため。SSM の値をそのまま使えばよい。
+
 ## バックアップの確認
 
 ```bash
