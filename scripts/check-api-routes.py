@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""openapi.yaml の全パスが API Gateway のルートに含まれるかを検証する。
+"""openapi.yaml の全パスが API Gateway の明示ルートに含まれるかを検証する。
 
-API Gateway は $default をやめて先頭セグメント単位の許可リストにしているため、
-openapi.yaml に新しい先頭セグメントを足して Terraform の route_keys を更新し忘れると、
-アプリもテストも通るのに **本番だけ 404** になる。それを CI で止める。
+API Gateway には先頭セグメント単位の明示ルートを置いてあり、$default も残している。
+そのため route_keys の更新を忘れても 404 にはならないが、そのパスはアクセスログ上
+routeKey が "$default" になり、**未定義パスへのアクセス（スキャン）と区別できなくなる**。
+ラベル付けの網羅性を保つために CI で検出する。
 """
 import re
 import sys
@@ -45,7 +46,9 @@ def main() -> int:
             print(f"  {p}", file=sys.stderr)
         print(
             f"\n{TF.relative_to(ROOT)} の route_keys に追加してください"
-            "（既存の先頭セグメント配下なら {proxy+} で既に覆われているはずです）。",
+            "（既存の先頭セグメント配下なら {proxy+} で既に覆われているはずです）。\n"
+            "$default があるため 404 にはなりませんが、アクセスログ上でスキャンと"
+            "区別できなくなります。",
             file=sys.stderr,
         )
         return 1
