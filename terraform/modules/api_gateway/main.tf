@@ -27,9 +27,48 @@ resource "aws_apigatewayv2_integration" "lambda" {
   payload_format_version = "2.0"
 }
 
-resource "aws_apigatewayv2_route" "default" {
+# 実在するパスだけを Lambda へ通す。
+#
+# 以前は `$default` の catch-all だったため、`/.env` や `/.aws/credentials` の
+# ような存在しないパスでも Lambda が起動していた。2026-08-21 のスキャンでは
+# 1分間に 318 回の無駄な起動が発生し、同時実行枠を食って 220 件が
+# スロットリング → API Gateway が 5xx を返した（#327）。
+#
+# 先頭セグメント単位の許可リストにしてあるので、`/users/me/xxx` のような
+# 既存セグメント配下のエンドポイント追加では、ここを触る必要はない。
+# 変更が要るのは新しい先頭セグメントを足すときだけ。
+#
+# 未定義パスは Lambda まで届かず、API Gateway が 404 を返す
+# （レスポンス本文はアプリの 404 JSON ではなく {"message":"Not Found"}）。
+locals {
+  # openapi.yaml の先頭セグメントと対応。深い階層を持つものは {proxy+} で束ねる。
+  route_keys = [
+    "ANY /",
+    "ANY /health",
+    "ANY /status",
+    "ANY /answers",
+    "ANY /contact",
+    "ANY /announcements",
+    "ANY /announcements/{proxy+}",
+    "ANY /questions",
+    "ANY /questions/{proxy+}",
+    "ANY /categories",
+    "ANY /categories/{proxy+}",
+    "ANY /workbooks",
+    "ANY /workbooks/{proxy+}",
+    "ANY /apps/{proxy+}",
+    "ANY /auth/{proxy+}",
+    "ANY /users/{proxy+}",
+    "ANY /transfer/{proxy+}",
+    "ANY /account/{proxy+}",
+  ]
+}
+
+resource "aws_apigatewayv2_route" "routes" {
+  for_each = toset(local.route_keys)
+
   api_id    = aws_apigatewayv2_api.this.id
-  route_key = "$default"
+  route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
