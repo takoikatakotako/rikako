@@ -1,0 +1,92 @@
+name: Backup DB Prod
+
+# 本番 Neon DB の日次バックアップ（#280）。
+# Neon Free プランの PITR 保持は 6 時間しかないため、翌日以降に気づいた誤操作にも
+# 戻せるよう、Neon とは独立したダンプを S3 に置く。
+#
+# ログに接続情報を出さないこと。このリポジトリは public。
+on:
+  schedule:
+    # 毎日 18:10 UTC（JST 03:10）。利用が少ない時間に寄せる。
+    - cron: "10 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backup-db-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET: rikako-db-backups-production
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 値は必ずマスクしてから環境へ入れる。set -x は使わない。
+      - name: Load database URL
+        run: |
+          set -euo pipefail
+          DATABASE_URL=$(aws ssm get-parameter \
+            --name /rikako/production/database-url \
+            --with-decryption --query 'Parameter.Value' --output text)
+          echo "::add-mask::$DATABASE_URL"
+          echo "DATABASE_URL=$DATABASE_URL" >> "$GITHUB_ENV"
+
+      - name: Dump database
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          echo "BACKUP_KEY=production/$(date -u +%Y/%m/%d)/rikako-${STAMP}.dump" >> "$GITHUB_ENV"
+
+          # サーバーは PostgreSQL 18。クライアントを合わせるためコンテナで実行する。
+          # 接続文字列は環境変数で渡し、コマンドラインには出さない（ps に見えるため）。
+          docker run --rm -e PGCONNECT_TIMEOUT=15 -e DATABASE_URL \
+            -v "$PWD:/backup" postgres:18 \
+            sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/backup.dump'
+
+          ls -l backup.dump
+
+      - name: Upload to S3
+        run: |
+          set -euo pipefail
+          aws s3 cp backup.dump "s3://${S3_BUCKET}/${BACKUP_KEY}" \
+            --sse AES256 --only-show-errors
+          echo "uploaded: s3://${S3_BUCKET}/${BACKUP_KEY}"
+
+      # 置けたことと、中身が空でないことを確認する。
+      - name: Verify object
+        run: |
+          set -euo pipefail
+          SIZE=$(aws s3api head-object --bucket "$S3_BUCKET" --key "$BACKUP_KEY" \
+            --query ContentLength --output text)
+          echo "size: ${SIZE} bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "ダンプが小さすぎる（${SIZE} bytes）。失敗として扱う" >&2
+            exit 1
+          fi
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          WEBHOOK=$(aws ssm get-parameter \
+            --name /rikako/production/slack-alert-webhook-url \
+            --with-decryption --query 'Parameter.Value' --output text)
+          echo "::add-mask::$WEBHOOK"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\":rotating_light: 本番 DB のバックアップに失敗しました\n${RUN_URL}\"}" \
+            "$WEBHOOK" > /dev/null
