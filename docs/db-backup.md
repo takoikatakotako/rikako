@@ -120,7 +120,7 @@ done
 curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 502/503
 ```
 
-> **途中で中断する場合も、必ず 3-7 の復帰手順を実行すること。** 予約同時実行 0 のまま放置すると API は停止したままになる。
+> **途中で中断する場合も、必ず 3-8 の復帰手順を実行すること。** 予約同時実行 0 のまま放置すると API は停止したままになる。
 
 #### 3-3. 復元先の空 DB を用意する
 
@@ -169,7 +169,42 @@ SELECT count(*) FROM users u LEFT JOIN accounts a ON a.id = u.account_id
 WHERE u.account_id IS NOT NULL AND a.id IS NULL;
 ```
 
-#### 3-6. 接続先を切り替える
+#### 3-6. アプリコードとの互換性を確認する
+
+**古いバックアップへ戻すと `schema_migrations` も過去へ戻る。** 障害の原因が「マイグレーションと同時にリリースしたコード」だった場合、**現在の Lambda コードのまま再開すると、存在しない列やテーブルを参照して再び落ちる**。
+
+3-5 で確認した `schema_migrations` の版に対して、いま動いているコードが動作するかを判断する。合わない場合は、**Lambda のイメージも当時のものへ戻してから**再開する。
+
+```bash
+# いま Lambda が使っているイメージ（digest 付き）
+aws lambda get-function --function-name rikako-api-production \
+  --query 'Code.ImageUri' --output text
+```
+
+デプロイは `:production` という**動くタグ**を上書きする方式なので、過去のイメージはタグでは辿れない。**digest で指定する**。
+
+```bash
+# ECR は shared アカウント。push 日時の新しい順に並べる
+AWS_PROFILE=<shared のプロファイル> aws ecr describe-images \
+  --repository-name rikako-api --region ap-northeast-1 \
+  --query 'reverse(sort_by(imageDetails,&imagePushedAt))[:5].[imageDigest,imagePushedAt,imageTags]' \
+  --output table
+```
+
+戻す場合（**concurrency を解除する前に行う**）。
+
+```bash
+REG=579039992557.dkr.ecr.ap-northeast-1.amazonaws.com
+aws lambda update-function-code --function-name rikako-api-production \
+  --image-uri "$REG/rikako-api@sha256:<digest>"
+aws lambda wait function-updated --function-name rikako-api-production
+```
+
+管理 API（`rikako-admin-api-production` / `rikako-admin-api`）も同様に判断する。
+
+> コードを戻した場合、**復旧後に main の内容と食い違ったままになる**。落ち着いたらリバートやマイグレーションのやり直しを含めて、コード側の整合も取ること。
+
+#### 3-7. 接続先を切り替える
 
 **切り替える前に、現在の値を必ず控える**（切り戻し用）。
 
@@ -185,7 +220,7 @@ aws ssm put-parameter --name /rikako/production/database-url \
 
 > このパラメータは Terraform で `lifecycle.ignore_changes = [value]` になっているため、**手動で上書きしても次の apply で巻き戻らない**（[運用ランブックのローテ手順](runbook.md#neon-db)と同じ扱い）。
 
-#### 3-7. Lambda を再開する
+#### 3-8. Lambda を再開する
 
 **SSM を書き換えただけでは切り替わらない。** Lambda は起動時に SSM を解決し、warm な実行環境は古い接続を持ち続けるため、**実行環境を作り直す**必要がある。ローテ手順と同じく `--description` を更新する。
 
@@ -207,7 +242,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status      # 20
 curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/workbooks   # 200（DB を叩く）
 ```
 
-#### 3-8. メンテナンスを解除する
+#### 3-9. メンテナンスを解除する
 
 **復元した DB の `app_status` はダンプ時点の値**（通常は `is_maintenance = false`）。確認し、必要なら明示的に戻す。
 
@@ -221,21 +256,44 @@ curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/ap
 
 ログイン済みのアカウントで学習記録が見えることも確認する。
 
-#### 3-9. 問題があれば切り戻す
+#### 3-10. 問題があれば切り戻す
 
-元の DB は触っていないので、**SSM を戻して Lambda を作り直せば元に戻る**。
+元の DB は触っていないので、SSM を戻せば元に戻る。ただし **切り替えのときと同じく、先に書き込みを止めること。**
+
+止めずに戻すと、Lambda 2本の設定更新が終わるまでの間、**あるリクエストは復旧 DB へ、別のリクエストは旧 DB へ書き込む**（split-brain）。どちらにも欠けたデータが残り、あとから突き合わせるのは難しい。
 
 ```bash
+# 1. 書き込みを止める
+for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda put-function-concurrency \
+    --function-name "$FN" --reserved-concurrent-executions 0
+done
+
+# 2. 実行中のリクエストが終わるまで待つ（数十秒）
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 502/503
+
+# 3. SSM を旧 URL へ戻す
 aws ssm put-parameter --name /rikako/production/database-url \
   --type SecureString --overwrite --value "$(cat ./previous-database-url.txt)"
 
+# 4. 実行環境を作り直す（SSM の書き換えだけでは切り替わらない）
 TS=$(date +%s)
 for FN in rikako-api-production rikako-admin-api-production; do
   aws lambda update-function-configuration --function-name "$FN" \
     --description "db rollback $TS" > /dev/null
   aws lambda wait function-updated --function-name "$FN"
 done
+
+# 5. 再開する
+for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda delete-function-concurrency --function-name "$FN"
+done
+
+# 6. 接続先と主要データを確認する
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/workbooks   # 200
 ```
+
+3-6 で Lambda のイメージも戻していた場合は、**それも元へ戻す**こと。
 
 落ち着いたら `previous-database-url.txt` を削除し、Terraform 側（`neon_project` のブランチ構成）も実態に合わせるか検討する。
 
