@@ -50,13 +50,23 @@ aws s3 cp s3://rikako-db-backups-production/production/2026/08/25/rikako-2026082
 
 ローカルの PostgreSQL 18 に復元して内容を確認する。
 
+**復元先のデータベースは事前に作る必要がある。** `pg_restore --dbname` は既存のデータベースへ接続するため、無い状態では接続に失敗する。
+
 ```bash
 docker compose up -d   # ローカルの postgres:18
 
+# 検証用データベースを作る（既にあれば作り直す）
+docker run --rm --network host postgres:18 \
+  psql "postgres://rikako:password@host.docker.internal:5432/postgres" \
+    -c 'DROP DATABASE IF EXISTS rikako_restore_check' \
+    -c 'CREATE DATABASE rikako_restore_check'
+
 docker run --rm -v "$PWD:/backup" --network host postgres:18 \
   pg_restore --dbname "postgres://rikako:password@host.docker.internal:5432/rikako_restore_check" \
-    --clean --if-exists --no-owner --no-privileges /backup/restore.dump
+    --no-owner --no-privileges /backup/restore.dump
 ```
+
+作ったばかりの空のデータベースへ入れるので `--clean --if-exists` は不要。
 
 行数や最新の更新時刻を見て、期待する時点のデータかを確認する。
 
@@ -68,10 +78,25 @@ SELECT max(created_at) FROM user_answers;
 
 ### 3. 本番へ戻す
 
-**破壊的な操作。実行前に現在の本番の状態をダンプしておくこと**（`Backup DB Prod` を手動実行するのが早い）。
+**破壊的な操作。アプリを動かしたまま `--clean` すると、復元中の読み書きが失敗するか、中途半端な状態のデータが混ざる。** 必ず書き込みを止めてから行う。
+
+#### 3-1. メンテナンスモードに切り替える
+
+`app_status.is_maintenance` を立てると、iOS アプリはメンテナンス画面になる。管理 API から切り替える。
 
 ```bash
-# 接続先は SSM から取得する（値は表示しない）
+curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/app-status \
+  -H 'Content-Type: application/json' \
+  -d '{"isMaintenance": true, "maintenanceMessage": "データ復旧作業中です"}'
+```
+
+#### 3-2. 現在の状態を別キーで確保する
+
+戻した結果が期待と違ったときのために、**復元前の状態も残す**。`Backup DB Prod` を手動実行するのが早い。
+
+#### 3-3. 復元する
+
+```bash
 DATABASE_URL=$(aws ssm get-parameter --name /rikako/production/database-url \
   --with-decryption --query 'Parameter.Value' --output text)
 
@@ -79,10 +104,34 @@ docker run --rm -e DATABASE_URL -v "$PWD:/backup" postgres:18 \
   sh -c 'pg_restore --dbname "$DATABASE_URL" --clean --if-exists --no-owner --no-privileges /backup/restore.dump'
 ```
 
-復元後は、アプリが正常に読み書きできることを確認する。
+#### 3-4. 整合性を確認する
 
-- `curl https://api.rikako.org/status`
-- ログイン済みのアカウントで学習記録が見えること
+```bash
+curl -s https://api.rikako.org/status
+```
+
+主要テーブルの行数と、外部キーが壊れていないことを見る。
+
+```sql
+SELECT count(*) FROM users;
+SELECT count(*) FROM accounts;
+SELECT count(*) FROM user_answers;
+-- account_id が指す accounts が存在するか
+SELECT count(*) FROM users u LEFT JOIN accounts a ON a.id = u.account_id
+WHERE u.account_id IS NOT NULL AND a.id IS NULL;
+```
+
+#### 3-5. メンテナンスを解除する
+
+**`--clean` で復元すると `app_status` もダンプ時点の値に戻る**（通常は `is_maintenance = false`）。解除されているかを確認し、必要なら明示的に戻す。
+
+```bash
+curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/app-status \
+  -H 'Content-Type: application/json' \
+  -d '{"isMaintenance": false, "maintenanceMessage": ""}'
+```
+
+ログイン済みのアカウントで学習記録が見えることも確認する。
 
 ## 注意点
 
@@ -90,3 +139,4 @@ docker run --rm -e DATABASE_URL -v "$PWD:/backup" postgres:18 \
 - ダンプは `pg_dump` 実行時点のスナップショット。**それ以降の書き込みは失われる**
 - 保持は 30 日。それより前へ戻す必要がある要件が出たら、保持期間か保存先を見直す
 - dev のバックアップは取得していない（本番のみ）
+- **失敗通知は「ワークフローが動いて失敗した」ときしか出ない。** スケジュール自体が遅延・停止した場合は無通知になる。public リポジトリでは 60 日間アクティビティが無いとスケジュールが自動で無効化される点にも注意（最新バックアップの鮮度監視は別途検討）

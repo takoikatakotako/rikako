@@ -32,7 +32,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          # バックアップ専用ロール。trust は main ブランチからの実行に限定してある
+          # （共有ロールは repo:*:* を信頼するため、本番 DB の接続情報を扱わせない）。
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-db-backup
           aws-region: ${{ env.AWS_REGION }}
 
       # 値は必ずマスクしてから環境へ入れる。set -x は使わない。
@@ -63,6 +65,13 @@ jobs:
             sh -c 'pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/backup.dump'
 
           ls -l backup.dump
+
+          # アーカイブのヘッダ/TOC が読めることだけ確認する。
+          # 実 DB へのリストア（restore drill）の代替にはならないが、
+          # 壊れた書庫をそのまま保存するのは防げる。
+          docker run --rm -v "$PWD:/backup" postgres:18 \
+            pg_restore --list /backup/backup.dump > /dev/null
+          echo "pg_restore --list: OK"
 
       - name: Upload to S3
         run: |
