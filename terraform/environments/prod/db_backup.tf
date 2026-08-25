@@ -46,6 +46,10 @@ resource "aws_s3_bucket_versioning" "db_backup" {
 # versioning を入れたので、旧バージョンにも同じ保持期間を設定する
 # （設定しないと noncurrent version が残り続ける）。
 resource "aws_s3_bucket_lifecycle_configuration" "db_backup" {
+  # noncurrent_version_expiration を含むため、versioning が有効になってから作る。
+  # 依存を書かないと並列に作られ、versioning 未有効のバケットとして失敗しうる。
+  depends_on = [aws_s3_bucket_versioning.db_backup]
+
   bucket = module.db_backup.bucket_id
 
   rule {

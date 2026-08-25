@@ -80,9 +80,9 @@ SELECT max(created_at) FROM user_answers;
 
 **破壊的な操作。アプリを動かしたまま `--clean` すると、復元中の読み書きが失敗するか、中途半端な状態のデータが混ざる。** 必ず書き込みを止めてから行う。
 
-#### 3-1. メンテナンスモードに切り替える
+#### 3-1. 利用者へ告知する（これだけでは書き込みは止まらない）
 
-`app_status.is_maintenance` を立てると、iOS アプリはメンテナンス画面になる。管理 API から切り替える。
+`app_status.is_maintenance` を立てると、iOS アプリは起動時にメンテナンス画面へ切り替わる。
 
 ```bash
 curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/app-status \
@@ -90,11 +90,48 @@ curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/ap
   -d '{"isMaintenance": true, "maintenanceMessage": "データ復旧作業中です"}'
 ```
 
-#### 3-2. 現在の状態を別キーで確保する
+**このフラグは告知用であって、書き込みを拒否する仕組みではない。** API のハンドラは通常どおり動くため、以下からは書き込めてしまう。
+
+- 既に起動していて `/status` を再取得していない iOS アプリ
+- Web（`it.rikako.org`）
+- API の直接呼び出し
+- 管理 API
+
+そのため、次の 3-2 で**技術的に止める**。
+
+#### 3-2. API を止めて書き込みを遮断する
+
+公開 API と管理 API はどちらも Lambda なので、**予約同時実行を 0 にすると新規の実行が止まる**。
+
+```bash
+for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda put-function-concurrency \
+    --function-name "$FN" --reserved-concurrent-executions 0
+done
+```
+
+**実行中のリクエストが終わるまで少し待つ**（数十秒）。止まったことを確認する。
+
+```bash
+# 502/503 になれば新規実行が止まっている
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status
+
+# 同時実行が 0 に落ちているか
+aws cloudwatch get-metric-statistics --namespace AWS/Lambda \
+  --metric-name ConcurrentExecutions \
+  --dimensions Name=FunctionName,Value=rikako-api-production \
+  --start-time "$(date -u -v-5M +%Y-%m-%dT%H:%M:%SZ)" \
+  --end-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --period 60 --statistics Maximum
+```
+
+> **途中で中断する場合も、必ず 3-6 の復帰手順を実行すること。** 予約同時実行 0 のまま放置すると API は停止したままになる。
+
+#### 3-3. 現在の状態を別キーで確保する
 
 戻した結果が期待と違ったときのために、**復元前の状態も残す**。`Backup DB Prod` を手動実行するのが早い。
 
-#### 3-3. 復元する
+#### 3-4. 復元する
 
 ```bash
 DATABASE_URL=$(aws ssm get-parameter --name /rikako/production/database-url \
@@ -104,13 +141,9 @@ docker run --rm -e DATABASE_URL -v "$PWD:/backup" postgres:18 \
   sh -c 'pg_restore --dbname "$DATABASE_URL" --clean --if-exists --no-owner --no-privileges /backup/restore.dump'
 ```
 
-#### 3-4. 整合性を確認する
+#### 3-5. 整合性を確認する
 
-```bash
-curl -s https://api.rikako.org/status
-```
-
-主要テーブルの行数と、外部キーが壊れていないことを見る。
+API はまだ止めたままなので、**DB に直接つないで**確認する。
 
 ```sql
 SELECT count(*) FROM users;
@@ -121,11 +154,32 @@ SELECT count(*) FROM users u LEFT JOIN accounts a ON a.id = u.account_id
 WHERE u.account_id IS NOT NULL AND a.id IS NULL;
 ```
 
-#### 3-5. メンテナンスを解除する
+#### 3-6. API を戻す
+
+予約同時実行の設定を**削除**して、アカウント共通の枠（1000）に戻す。`--reserved-concurrent-executions` に元の値を入れ直すのではなく、**設定自体を消す**のが正しい（もともと予約は設定していないため）。
+
+```bash
+for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda delete-function-concurrency --function-name "$FN"
+done
+
+# 予約が消えていること（何も返らない）
+aws lambda get-function-concurrency --function-name rikako-api-production
+```
+
+疎通を確認する。
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 200
+```
+
+#### 3-7. メンテナンスを解除する
 
 **`--clean` で復元すると `app_status` もダンプ時点の値に戻る**（通常は `is_maintenance = false`）。解除されているかを確認し、必要なら明示的に戻す。
 
 ```bash
+curl -s https://api.rikako.org/status   # isMaintenance を確認
+
 curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/app-status \
   -H 'Content-Type: application/json' \
   -d '{"isMaintenance": false, "maintenanceMessage": ""}'
