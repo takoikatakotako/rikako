@@ -14,8 +14,8 @@ Neon の Free プランは Point-in-Time Restore の保持期間が **6 時間**
 | 取得方法 | `pg_dump --format=custom`（サーバーに合わせて `postgres:18` コンテナで実行） |
 | 保存先 | `s3://rikako-db-backups-production/production/YYYY/MM/DD/rikako-<timestamp>.dump` |
 | 暗号化 | S3 サーバーサイド暗号化（AES256） |
-| 保持 | 30 日で自動削除（S3 Lifecycle） |
-| 権限 | OIDC の `rikako-production-github-actions`。**書き込みのみ**で、読み出し権限は持たせていない |
+| 保持 | 30 日で自動削除（S3 Lifecycle）。versioning 有効で、旧バージョンも 30 日で削除 |
+| 権限 | バックアップ専用の OIDC ロール `rikako-production-db-backup`（trust は main ブランチのみ）。backup prefix への `PutObject` と検証用の `GetObject` だけで、`ListBucket` も `DeleteObject` も持たない |
 | 失敗時 | Slack（`/rikako/production/slack-alert-webhook-url`）へ通知 |
 
 接続文字列は SSM SecureString `/rikako/production/database-url` から取得し、**GitHub Actions のログに出さない**（`::add-mask::` でマスクし、コマンドライン引数にも渡さない）。このリポジトリは public のため必須。
@@ -125,6 +125,8 @@ curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 502/5
 #### 3-3. 復元先の空 DB を用意する
 
 Neon のコンソール（または API）で、**本番プロジェクトに新しいブランチ**を作る（例: `restore-20260825`）。ブランチなら既存の本番ブランチに触れずに済み、切り戻しも容易。
+
+> **リージョンに注意。** AWS リソース（Lambda / API Gateway / S3）は `ap-northeast-1` だが、**Neon プロジェクトだけ `ap-southeast-1`（Singapore）**（`terraform/environments/prod/neon.tf` の `region_id = "aws-ap-southeast-1"`）。接続先ホストも `...ap-southeast-1.aws.neon.tech` になる。
 
 作成後、そのブランチの接続文字列（**直接エンドポイント**）を控える。
 
