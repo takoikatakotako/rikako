@@ -78,7 +78,11 @@ SELECT max(created_at) FROM user_answers;
 
 ### 3. 本番へ戻す
 
-**破壊的な操作。アプリを動かしたまま `--clean` すると、復元中の読み書きが失敗するか、中途半端な状態のデータが混ざる。** 必ず書き込みを止めてから行う。
+**`pg_restore --clean` で今の DB を上書きする方法は使わない。**
+
+`--clean` が削除するのは**アーカイブに含まれるオブジェクトだけ**で、バックアップ取得後のマイグレーションが追加したテーブル・制約・関数などは古いダンプに存在しないため削除されずに残る。「不正なマイグレーションを翌日以降に見つけて戻す」という本来の用途では、**新旧スキーマが混ざった状態**になり「バックアップ時点へ戻った」とは言えない。
+
+代わりに、**空の新しい DB へ復元してから接続先を切り替える**。元の DB を壊さないので、問題があれば戻せる。
 
 #### 3-1. 利用者へ告知する（これだけでは書き込みは止まらない）
 
@@ -113,69 +117,99 @@ done
 **実行中のリクエストが終わるまで少し待つ**（数十秒）。止まったことを確認する。
 
 ```bash
-# 502/503 になれば新規実行が止まっている
-curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status
-
-# 同時実行が 0 に落ちているか
-aws cloudwatch get-metric-statistics --namespace AWS/Lambda \
-  --metric-name ConcurrentExecutions \
-  --dimensions Name=FunctionName,Value=rikako-api-production \
-  --start-time "$(date -u -v-5M +%Y-%m-%dT%H:%M:%SZ)" \
-  --end-time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --period 60 --statistics Maximum
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 502/503
 ```
 
-> **途中で中断する場合も、必ず 3-6 の復帰手順を実行すること。** 予約同時実行 0 のまま放置すると API は停止したままになる。
+> **途中で中断する場合も、必ず 3-7 の復帰手順を実行すること。** 予約同時実行 0 のまま放置すると API は停止したままになる。
 
-#### 3-3. 現在の状態を別キーで確保する
+#### 3-3. 復元先の空 DB を用意する
 
-戻した結果が期待と違ったときのために、**復元前の状態も残す**。`Backup DB Prod` を手動実行するのが早い。
+Neon のコンソール（または API）で、**本番プロジェクトに新しいブランチ**を作る（例: `restore-20260825`）。ブランチなら既存の本番ブランチに触れずに済み、切り戻しも容易。
 
-#### 3-4. 復元する
+作成後、そのブランチの接続文字列（**直接エンドポイント**）を控える。
+
+`BRANCH_URL` はブランチの既定 DB（管理操作用）、`RESTORE_DB_URL` はこれから作る復元先の DB。**ホストは同じで、データベース名だけが違う。**
 
 ```bash
-DATABASE_URL=$(aws ssm get-parameter --name /rikako/production/database-url \
-  --with-decryption --query 'Parameter.Value' --output text)
-
-docker run --rm -e DATABASE_URL -v "$PWD:/backup" postgres:18 \
-  sh -c 'pg_restore --dbname "$DATABASE_URL" --clean --if-exists --no-owner --no-privileges /backup/restore.dump'
+BRANCH_URL='postgres://USER:PASS@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+RESTORE_DB_URL='postgres://USER:PASS@ep-xxxx.ap-southeast-1.aws.neon.tech/neondb_restore?sslmode=require'
 ```
 
-#### 3-5. 整合性を確認する
+> 新しいブランチは作成元の時点のデータを含む。**ダンプを入れる前に、専用の空データベースを作る**こと。
 
-API はまだ止めたままなので、**DB に直接つないで**確認する。
+```bash
+docker run --rm -e BRANCH_URL postgres:18 \
+  sh -c 'psql "$BRANCH_URL" -c "DROP DATABASE IF EXISTS neondb_restore" \
+                            -c "CREATE DATABASE neondb_restore"'
+```
+
+#### 3-4. ダンプを復元する
+
+**`--exit-on-error` を付ける。** 付けないとエラーがあっても最後まで進み、欠けたまま「成功」して見える。
+
+```bash
+docker run --rm -e RESTORE_DB_URL -v "$PWD:/backup" postgres:18 \
+  sh -c 'pg_restore --dbname "$RESTORE_DB_URL" --exit-on-error --no-owner --no-privileges /backup/restore.dump'
+```
+
+#### 3-5. 復元先を直接確認する
+
+API はまだ止めたままなので、**復元先の DB に直接つないで**確認する。
 
 ```sql
 SELECT count(*) FROM users;
 SELECT count(*) FROM accounts;
 SELECT count(*) FROM user_answers;
+
+-- マイグレーションの版が期待どおりか（不正なマイグレーションを戻す場合は特に重要）
+SELECT * FROM schema_migrations;
+
 -- account_id が指す accounts が存在するか
 SELECT count(*) FROM users u LEFT JOIN accounts a ON a.id = u.account_id
 WHERE u.account_id IS NOT NULL AND a.id IS NULL;
 ```
 
-#### 3-6. API を戻す
+#### 3-6. 接続先を切り替える
 
-予約同時実行の設定を**削除**して、アカウント共通の枠（1000）に戻す。`--reserved-concurrent-executions` に元の値を入れ直すのではなく、**設定自体を消す**のが正しい（もともと予約は設定していないため）。
+**切り替える前に、現在の値を必ず控える**（切り戻し用）。
 
 ```bash
+# 現在の値を退避（画面に出さない）
+aws ssm get-parameter --name /rikako/production/database-url --with-decryption \
+  --query 'Parameter.Value' --output text > ./previous-database-url.txt
+chmod 600 ./previous-database-url.txt
+
+aws ssm put-parameter --name /rikako/production/database-url \
+  --type SecureString --overwrite --value "$RESTORE_DB_URL"
+```
+
+> このパラメータは Terraform で `lifecycle.ignore_changes = [value]` になっているため、**手動で上書きしても次の apply で巻き戻らない**（[運用ランブックのローテ手順](runbook.md#neon-db)と同じ扱い）。
+
+#### 3-7. Lambda を再開する
+
+**SSM を書き換えただけでは切り替わらない。** Lambda は起動時に SSM を解決し、warm な実行環境は古い接続を持ち続けるため、**実行環境を作り直す**必要がある。ローテ手順と同じく `--description` を更新する。
+
+```bash
+TS=$(date +%s)
 for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda update-function-configuration --function-name "$FN" \
+    --description "db restore $TS" > /dev/null
+  aws lambda wait function-updated --function-name "$FN"
+  # 予約同時実行の設定を削除して再開（元は予約なし）
   aws lambda delete-function-concurrency --function-name "$FN"
 done
-
-# 予約が消えていること（何も返らない）
-aws lambda get-function-concurrency --function-name rikako-api-production
 ```
 
 疎通を確認する。
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status   # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/status      # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://api.rikako.org/workbooks   # 200（DB を叩く）
 ```
 
-#### 3-7. メンテナンスを解除する
+#### 3-8. メンテナンスを解除する
 
-**`--clean` で復元すると `app_status` もダンプ時点の値に戻る**（通常は `is_maintenance = false`）。解除されているかを確認し、必要なら明示的に戻す。
+**復元した DB の `app_status` はダンプ時点の値**（通常は `is_maintenance = false`）。確認し、必要なら明示的に戻す。
 
 ```bash
 curl -s https://api.rikako.org/status   # isMaintenance を確認
@@ -187,9 +221,28 @@ curl -u 'ユーザー名:パスワード' -X PUT https://admin.rikako.org/api/ap
 
 ログイン済みのアカウントで学習記録が見えることも確認する。
 
+#### 3-9. 問題があれば切り戻す
+
+元の DB は触っていないので、**SSM を戻して Lambda を作り直せば元に戻る**。
+
+```bash
+aws ssm put-parameter --name /rikako/production/database-url \
+  --type SecureString --overwrite --value "$(cat ./previous-database-url.txt)"
+
+TS=$(date +%s)
+for FN in rikako-api-production rikako-admin-api-production; do
+  aws lambda update-function-configuration --function-name "$FN" \
+    --description "db rollback $TS" > /dev/null
+  aws lambda wait function-updated --function-name "$FN"
+done
+```
+
+落ち着いたら `previous-database-url.txt` を削除し、Terraform 側（`neon_project` のブランチ構成）も実態に合わせるか検討する。
+
 ## 注意点
 
-- **`--clean --if-exists` は既存のオブジェクトを削除してから復元する。** 部分的に戻したい場合は `--table` 等で対象を絞る
+- **今の DB を `pg_restore --clean` で上書きする方法は使わない。** `--clean` が削除するのはアーカイブに含まれるオブジェクトだけで、バックアップ取得後のマイグレーションが追加したものは残る。新旧スキーマが混ざるため「その時点へ戻った」とは言えない
+- 部分的に戻したい場合（特定テーブルだけなど）は、新しい DB へ復元したうえで必要な範囲を移す
 - ダンプは `pg_dump` 実行時点のスナップショット。**それ以降の書き込みは失われる**
 - 保持は 30 日。それより前へ戻す必要がある要件が出たら、保持期間か保存先を見直す
 - dev のバックアップは取得していない（本番のみ）
