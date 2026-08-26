@@ -91,3 +91,9 @@ jobs:
 
       - name: Check API Gateway route coverage
         run: python3 scripts/check-api-routes.py
+
+      # web/ は IT と化学で同じコードを共有しているため、片方のワークフローにだけ
+      # 環境変数を足す抜けが起きる。ビルドも lint も通ってしまい、デプロイして
+      # 初めて壊れが分かるので CI で止める。
+      - name: Check frontend deploy env
+        run: python3 scripts/check-frontend-env.py
