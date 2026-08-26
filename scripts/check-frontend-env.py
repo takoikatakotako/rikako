@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""フロントエンドの deploy ワークフローの Build step に、必要な env が揃っているかを検証する。
+"""フロントエンドの deploy ワークフローの Build step の env を検証する。
 
 web/ は IT と化学で同じコードベースを共有しており（NEXT_PUBLIC_SITE で切替）、
-片方のワークフローにだけ環境変数を足す抜けが起きやすい。抜けたままデプロイすると:
+片方のワークフローにだけ環境変数を足す抜けや、dev/prod の値の取り違えが起きやすい。
+どちらもビルドも lint も通ってしまい、デプロイして初めて分かるため CI で止める。
 
-  - NEXT_PUBLIC_COGNITO_CLIENT_ID が空 → ログインが MissingClientId で失敗する
-  - NEXT_PUBLIC_API_BASE_URL が未設定 → 既定値の dev API を向く
-    （本番サイトが dev に書き込む）
+抜けたままデプロイすると:
+  - NEXT_PUBLIC_COGNITO_CLIENT_ID が空/取り違え → ログインが失敗する
+  - NEXT_PUBLIC_API_BASE_URL が未設定/取り違え → 本番サイトが dev に書き込む
 
-ビルドも lint も通ってしまい、デプロイして初めて分かるため CI で止める。
-
-ファイル全体の文字列一致ではなく **Build step の env を取り出して**判定する。
-そうしないと、値が空・コメントに書いてあるだけ・別 step に置いてある、といった
-「実際にはビルドへ渡らない」状態を見逃す。
+**対象は下の EXPECTED に明示的に列挙する。** 「web/ をビルドする step があるもの」を
+自動検出する方式だと、working-directory の誤記や Build step の削除で対象から
+黙って外れ、CI が成功してしまう。
 """
 from __future__ import annotations
 
@@ -26,19 +25,39 @@ except ImportError:  # pragma: no cover
     raise SystemExit(1)
 
 ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = ROOT / ".github/workflows"
 
-REQUIRED = [
-    "NEXT_PUBLIC_SITE",
-    "NEXT_PUBLIC_CONTENT_BASE_URL",
-    "NEXT_PUBLIC_API_BASE_URL",
-    "NEXT_PUBLIC_COGNITO_REGION",
-    "NEXT_PUBLIC_COGNITO_CLIENT_ID",
-]
-
-# 部分一致にしない。prod が別ホストを向く事故も拾いたい。
-EXPECTED_API = {
-    "dev": "https://api.dev.rikako.org",
-    "prod": "https://api.rikako.org",
+# 検査対象と、Build step の env に期待する値（すべて完全一致で確認する）。
+# 新しいサイトを追加したらここにも足す。
+EXPECTED: dict[str, dict[str, str]] = {
+    "deploy-it-frontend-dev.yml": {
+        "NEXT_PUBLIC_SITE": "it",
+        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.dev.rikako.org/v1",
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.dev.rikako.org",
+        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
+        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "2buo6t5fbneujoknvrdph8flda",
+    },
+    "deploy-it-frontend-prod.yml": {
+        "NEXT_PUBLIC_SITE": "it",
+        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.rikako.org/v1",
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.rikako.org",
+        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
+        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "4sqsett62vuckqt68d72nf2083",
+    },
+    "deploy-chemistry-frontend-dev.yml": {
+        "NEXT_PUBLIC_SITE": "chemistry",
+        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.dev.rikako.org/v1",
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.dev.rikako.org",
+        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
+        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "2buo6t5fbneujoknvrdph8flda",
+    },
+    "deploy-chemistry-frontend-prod.yml": {
+        "NEXT_PUBLIC_SITE": "chemistry",
+        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.rikako.org/v1",
+        "NEXT_PUBLIC_API_BASE_URL": "https://api.rikako.org",
+        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
+        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "4sqsett62vuckqt68d72nf2083",
+    },
 }
 
 
@@ -53,63 +72,49 @@ def build_env(workflow: dict) -> dict | None:
     return None
 
 
-def check(path: Path) -> list[str]:
+def check(path: Path, expected: dict[str, str]) -> list[str]:
     """問題があればメッセージの一覧を返す。"""
-    env_name = path.stem.rsplit("-", 1)[-1]  # dev / prod
-    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not path.exists():
+        return [f"{path.name}: ワークフローが見つからない（EXPECTED に列挙されている）"]
+
+    try:
+        workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as e:
+        return [f"{path.name}: YAML を解析できない: {e}"]
 
     env = build_env(workflow)
     if env is None:
+        # 自動検出方式だとここで黙って対象外になっていた。必ずエラーにする。
         return [f"{path.name}: web/ をビルドする step が見つからない"]
 
     errors = []
-    for key in REQUIRED:
+    for key, want in expected.items():
         if key not in env:
             errors.append(f"{path.name}: Build step の env に {key} が無い")
-        elif not str(env[key]).strip():
+            continue
+        got = str(env[key]).strip()
+        if not got:
             errors.append(f"{path.name}: {key} が空")
-
-    api = str(env.get("NEXT_PUBLIC_API_BASE_URL", "")).strip()
-    expected = EXPECTED_API.get(env_name)
-    if api and expected and api != expected:
-        errors.append(f"{path.name}: NEXT_PUBLIC_API_BASE_URL が {api}（期待値: {expected}）")
-
+        elif got != want:
+            errors.append(f"{path.name}: {key} が {got}（期待値: {want}）")
     return errors
 
 
-def targets(workflows_dir: Path) -> list[Path]:
-    """web/ をビルドする deploy ワークフロー（管理画面は別アプリなので含まない）。"""
-    found = []
-    for path in sorted(workflows_dir.glob("deploy-*-frontend-*.yml")):
-        try:
-            workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError:
-            continue
-        if isinstance(workflow, dict) and build_env(workflow) is not None:
-            found.append(path)
-    return found
-
-
 def main() -> int:
-    paths = targets(ROOT / ".github/workflows")
-    if not paths:
-        print("web/ をビルドするワークフローが見つからない", file=sys.stderr)
-        return 1
-
     errors = []
-    for path in paths:
-        found = check(path)
+    for name, expected in EXPECTED.items():
+        found = check(WORKFLOWS / name, expected)
         errors.extend(found)
         if not found:
-            print(f"OK: {path.name}")
+            print(f"OK: {name}")
 
     if errors:
         print("", file=sys.stderr)
         for e in errors:
             print(e, file=sys.stderr)
         print(
-            "\nweb/ は IT と化学で同じコードを共有している。"
-            "片方だけ直すとデプロイして初めて壊れが分かる。",
+            "\nweb/ は IT と化学で同じコードを共有している。片方だけ直したり "
+            "dev/prod の値を取り違えたりすると、デプロイして初めて壊れが分かる。",
             file=sys.stderr,
         )
         return 1

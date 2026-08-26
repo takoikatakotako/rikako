@@ -1,12 +1,12 @@
-"""check-frontend-env.py が「実際にビルドへ渡らない env」を検出できることを確かめる。
+"""check-frontend-env.py が「実際にビルドへ渡らない env」「dev/prod の取り違え」を
+検出できることを確かめる。
 
 ガード自体が退行すると、守っているつもりで守れていない状態になるため。
-標準ライブラリだけで動く（python3 -m unittest discover scripts/tests）。
+標準ライブラリだけで動く（python3 -m unittest discover -s scripts/tests）。
 """
 import importlib.util
 import sys
 import tempfile
-import textwrap
 import unittest
 from pathlib import Path
 
@@ -16,96 +16,120 @@ mod = importlib.util.module_from_spec(spec)
 sys.modules["check_frontend_env"] = mod
 spec.loader.exec_module(mod)
 
+PROD_IT = mod.EXPECTED["deploy-it-frontend-prod.yml"]
 
-def workflow(env_block: str, *, working_dir: str = "web", extra: str = "") -> str:
-    """env_block（KEY: VALUE の行）を Build step の env に埋めたワークフローを組み立てる。"""
-    env_lines = [l for l in env_block.strip("\n").split("\n") if l.strip()]
-    env_yaml = "\n".join(" " * 10 + l.strip() for l in env_lines)
+
+def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
+             extra_step_env: dict | None = None) -> str:
+    """Build step の env に指定した値を持つワークフローを組み立てる。"""
     lines = [
-        "name: Deploy",
-        "on:",
-        "  workflow_dispatch:",
-        "jobs:",
-        "  deploy:",
-        "    runs-on: ubuntu-latest",
-        "    steps:",
-        "      - name: Install",
-        f"        working-directory: {working_dir}",
-        "        run: npm ci",
-        "      - name: Build",
-        f"        working-directory: {working_dir}",
-        "        run: npm run build",
-        "        env:",
-        env_yaml,
+        "name: Deploy", "on:", "  workflow_dispatch:", "jobs:", "  deploy:",
+        "    runs-on: ubuntu-latest", "    steps:",
+        "      - name: Build", f"        working-directory: {working_dir}",
+        f"        run: {build_cmd}", "        env:",
     ]
-    if extra:
-        lines.append(extra.rstrip("\n"))
+    for k, v in env.items():
+        value = '""' if v == "" else v
+        lines.append(f"          {k}: {value}")
+    if extra_step_env:
+        lines += ["      - name: Deploy", "        run: echo deploy", "        env:"]
+        for k, v in extra_step_env.items():
+            lines.append(f"          {k}: {v}")
     return "\n".join(lines) + "\n"
 
 
-VALID_PROD = """\
-NEXT_PUBLIC_SITE: it
-NEXT_PUBLIC_CONTENT_BASE_URL: https://content.rikako.org/v1
-NEXT_PUBLIC_API_BASE_URL: https://api.rikako.org
-NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
-NEXT_PUBLIC_COGNITO_CLIENT_ID: abc123
-"""
-
-
 class CheckFrontendEnvTest(unittest.TestCase):
-    def run_check(self, content: str, name: str = "deploy-it-frontend-prod.yml"):
+    def run_check(self, content: str, expected: dict | None = None,
+                  name: str = "deploy-it-frontend-prod.yml"):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / name
             path.write_text(content, encoding="utf-8")
-            return mod.check(path)
+            return mod.check(path, expected or PROD_IT)
+
+    # --- 正常系 ---
 
     def test_valid_workflow_passes(self):
-        self.assertEqual(self.run_check(workflow(VALID_PROD)), [])
+        self.assertEqual(self.run_check(workflow(PROD_IT)), [])
+
+    def test_all_four_workflows_are_checked(self):
+        """対象が黙って減らないこと。自動検出をやめた理由そのもの。"""
+        self.assertEqual(
+            sorted(mod.EXPECTED),
+            sorted([
+                "deploy-chemistry-frontend-dev.yml",
+                "deploy-chemistry-frontend-prod.yml",
+                "deploy-it-frontend-dev.yml",
+                "deploy-it-frontend-prod.yml",
+            ]),
+        )
+
+    def test_real_workflows_pass(self):
+        """リポジトリの実ファイルが期待値どおりであること。"""
+        for name, expected in mod.EXPECTED.items():
+            self.assertEqual(mod.check(mod.WORKFLOWS / name, expected), [], name)
+
+    # --- 欠落・空・配置ミス ---
 
     def test_missing_key_is_detected(self):
-        env = VALID_PROD.replace("NEXT_PUBLIC_COGNITO_CLIENT_ID: abc123\n", "")
+        env = {k: v for k, v in PROD_IT.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が無い" in e for e in errors), errors)
 
     def test_empty_value_is_detected(self):
-        env = VALID_PROD.replace("NEXT_PUBLIC_COGNITO_CLIENT_ID: abc123", "NEXT_PUBLIC_COGNITO_CLIENT_ID: ''")
+        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_CLIENT_ID="")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が空" in e for e in errors), errors)
 
     def test_key_outside_build_step_is_detected(self):
-        """別 step にだけ置かれていてもビルドには渡らない。"""
-        env = VALID_PROD.replace("NEXT_PUBLIC_COGNITO_CLIENT_ID: abc123\n", "")
-        extra = "\n".join([
-            "      - name: Deploy",
-            "        run: echo deploy",
-            "        env:",
-            "          NEXT_PUBLIC_COGNITO_CLIENT_ID: abc123",
-        ])
-        errors = self.run_check(workflow(env, extra=extra))
+        env = {k: v for k, v in PROD_IT.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
+        errors = self.run_check(workflow(
+            env, extra_step_env={"NEXT_PUBLIC_COGNITO_CLIENT_ID": PROD_IT["NEXT_PUBLIC_COGNITO_CLIENT_ID"]}))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が無い" in e for e in errors), errors)
 
-    def test_prod_pointing_at_dev_api_is_detected(self):
-        env = VALID_PROD.replace("https://api.rikako.org", "https://api.dev.rikako.org")
-        errors = self.run_check(workflow(env))
-        self.assertTrue(any("NEXT_PUBLIC_API_BASE_URL" in e for e in errors), errors)
+    # --- Build step を見失うケース（以前は黙って対象外になっていた）---
 
-    def test_unexpected_host_is_detected(self):
-        """dev / prod のどちらでもない別ホストも弾く（部分一致では拾えない）。"""
-        env = VALID_PROD.replace("https://api.rikako.org", "https://api.staging.rikako.org")
-        errors = self.run_check(workflow(env))
-        self.assertTrue(any("NEXT_PUBLIC_API_BASE_URL" in e for e in errors), errors)
+    def test_wrong_working_directory_is_detected(self):
+        errors = self.run_check(workflow(PROD_IT, working_dir="wep"))
+        self.assertTrue(any("ビルドする step が見つからない" in e for e in errors), errors)
 
-    def test_dev_workflow_expects_dev_api(self):
-        env = VALID_PROD.replace("https://api.rikako.org", "https://api.dev.rikako.org")
-        self.assertEqual(self.run_check(workflow(env), "deploy-it-frontend-dev.yml"), [])
+    def test_build_command_change_is_detected(self):
+        errors = self.run_check(workflow(PROD_IT, build_cmd="npm run bulid"))
+        self.assertTrue(any("ビルドする step が見つからない" in e for e in errors), errors)
 
-    def test_non_web_workflow_is_not_a_target(self):
-        """管理画面など web/ をビルドしないものは対象外。"""
-        content = workflow(VALID_PROD, working_dir="admin-frontend")
+    def test_missing_file_is_detected(self):
         with tempfile.TemporaryDirectory() as d:
-            path = Path(d) / "deploy-admin-frontend-prod.yml"
-            path.write_text(content, encoding="utf-8")
-            self.assertEqual(mod.targets(Path(d)), [])
+            errors = mod.check(Path(d) / "deploy-it-frontend-prod.yml", PROD_IT)
+        self.assertTrue(any("見つからない" in e for e in errors), errors)
+
+    # --- dev/prod の取り違え ---
+
+    def test_prod_with_dev_api_is_detected(self):
+        env = dict(PROD_IT, NEXT_PUBLIC_API_BASE_URL="https://api.dev.rikako.org")
+        errors = self.run_check(workflow(env))
+        self.assertTrue(any("NEXT_PUBLIC_API_BASE_URL" in e for e in errors), errors)
+
+    def test_prod_with_dev_cognito_client_id_is_detected(self):
+        """ログイン不能につながる取り違え。API だけ見ていた頃は通っていた。"""
+        dev_id = mod.EXPECTED["deploy-it-frontend-dev.yml"]["NEXT_PUBLIC_COGNITO_CLIENT_ID"]
+        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_CLIENT_ID=dev_id)
+        errors = self.run_check(workflow(env))
+        self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID" in e for e in errors), errors)
+
+    def test_prod_with_dev_content_url_is_detected(self):
+        env = dict(PROD_IT, NEXT_PUBLIC_CONTENT_BASE_URL="https://content.dev.rikako.org/v1")
+        errors = self.run_check(workflow(env))
+        self.assertTrue(any("NEXT_PUBLIC_CONTENT_BASE_URL" in e for e in errors), errors)
+
+    def test_wrong_site_is_detected(self):
+        """IT のワークフローに chemistry が入っている、など。"""
+        env = dict(PROD_IT, NEXT_PUBLIC_SITE="chemistry")
+        errors = self.run_check(workflow(env))
+        self.assertTrue(any("NEXT_PUBLIC_SITE" in e for e in errors), errors)
+
+    def test_wrong_region_is_detected(self):
+        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_REGION="ap-southeast-1")
+        errors = self.run_check(workflow(env))
+        self.assertTrue(any("NEXT_PUBLIC_COGNITO_REGION" in e for e in errors), errors)
 
 
 if __name__ == "__main__":
