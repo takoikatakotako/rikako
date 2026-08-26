@@ -20,10 +20,13 @@ PROD_IT = mod.EXPECTED["deploy-it-frontend-prod.yml"]
 
 
 def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
-             extra_step_env: dict | None = None) -> str:
+             extra_step_env: dict | None = None, triggers: list | None = None) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
+    trigger_lines = ["on:"]
+    for t in (triggers or ["workflow_dispatch"]):
+        trigger_lines.append(f"  {t}:")
     lines = [
-        "name: Deploy", "on:", "  workflow_dispatch:", "jobs:", "  deploy:",
+        "name: Deploy", *trigger_lines, "jobs:", "  deploy:",
         "    runs-on: ubuntu-latest", "    steps:",
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
@@ -50,6 +53,12 @@ class CheckFrontendEnvTest(unittest.TestCase):
 
     def test_valid_workflow_passes(self):
         self.assertEqual(self.run_check(workflow(PROD_IT)), [])
+
+    def test_valid_dev_workflow_passes(self):
+        dev = mod.EXPECTED["deploy-it-frontend-dev.yml"]
+        self.assertEqual(
+            self.run_check(workflow(dev, triggers=["push", "workflow_dispatch"]),
+                           dev, "deploy-it-frontend-dev.yml"), [])
 
     def test_all_four_workflows_are_checked(self):
         """対象が黙って減らないこと。自動検出をやめた理由そのもの。"""
@@ -125,6 +134,20 @@ class CheckFrontendEnvTest(unittest.TestCase):
         env = dict(PROD_IT, NEXT_PUBLIC_SITE="chemistry")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_SITE" in e for e in errors), errors)
+
+    # --- トリガーの非対称 ---
+
+    def test_prod_with_push_trigger_is_detected(self):
+        """prod が自動デプロイになっていたら弾く。"""
+        errors = self.run_check(workflow(PROD_IT, triggers=["push", "workflow_dispatch"]))
+        self.assertTrue(any("トリガー" in e for e in errors), errors)
+
+    def test_dev_without_push_trigger_is_detected(self):
+        """dev だけ手動のまま取り残されるのを防ぐ（化学版で実際に起きた）。"""
+        dev = mod.EXPECTED["deploy-it-frontend-dev.yml"]
+        errors = self.run_check(workflow(dev, triggers=["workflow_dispatch"]),
+                                dev, "deploy-it-frontend-dev.yml")
+        self.assertTrue(any("トリガー" in e for e in errors), errors)
 
     def test_wrong_region_is_detected(self):
         env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_REGION="ap-southeast-1")

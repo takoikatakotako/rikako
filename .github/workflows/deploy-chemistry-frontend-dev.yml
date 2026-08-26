@@ -1,6 +1,12 @@
 name: Deploy Chemistry Frontend Dev
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy-chemistry-frontend-dev.yml"
   workflow_dispatch:
 
 permissions:

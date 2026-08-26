@@ -61,6 +61,12 @@ EXPECTED: dict[str, dict[str, str]] = {
 }
 
 
+# トリガーも IT / 化学で揃える。片方だけ自動デプロイ、という非対称は事故のもと。
+#   dev  : main への push（web/** と自ファイル）＋ 手動
+#   prod : 手動のみ
+EXPECTED_TRIGGERS = {"dev": {"push", "workflow_dispatch"}, "prod": {"workflow_dispatch"}}
+
+
 def build_env(workflow: dict) -> dict | None:
     """web/ をビルドする step の env を返す。該当 step が無ければ None。"""
     for job in (workflow.get("jobs") or {}).values():
@@ -88,6 +94,16 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
         return [f"{path.name}: web/ をビルドする step が見つからない"]
 
     errors = []
+
+    # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
+    triggers = workflow.get("on") or workflow.get(True) or {}
+    env_name = path.stem.rsplit("-", 1)[-1]
+    want_triggers = EXPECTED_TRIGGERS.get(env_name)
+    if want_triggers is not None and set(triggers) != want_triggers:
+        errors.append(
+            f"{path.name}: トリガーが {sorted(set(triggers))}（期待値: {sorted(want_triggers)}）"
+        )
+
     for key, want in expected.items():
         if key not in env:
             errors.append(f"{path.name}: Build step の env に {key} が無い")
