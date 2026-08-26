@@ -1,27 +1,46 @@
-name: Deploy IT Frontend Dev
+name: Deploy Web Dev
 
+# it / chemistry は web/ という 1 つのコードベースを NEXT_PUBLIC_SITE で切り替えて
+# ビルドしている。したがってデプロイ単位も 1 つにまとめ、両サイトを一緒に出す。
+# 片方だけ古い状態が残ると、どちらが最新か分からなくなるため。
+#
+# dev は main へマージされたら自動で反映する。prod は deploy-web-prod.yml（承認付き）。
 on:
   push:
     branches:
       - main
     paths:
       - "web/**"
-      - ".github/workflows/deploy-it-frontend-dev.yml"
+      - ".github/workflows/deploy-web-dev.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: deploy-web-dev
+  cancel-in-progress: false
+
 env:
   AWS_REGION: ap-northeast-1
-  S3_BUCKET: rikako-it-development
-  CF_ALIAS: it.dev.rikako.org
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy IT Frontend
+  deploy:
+    name: Deploy ${{ matrix.site }} (dev)
     runs-on: ubuntu-latest
+    strategy:
+      # 片方が失敗しても、もう片方は出し切る（両方の結果を見てから対処したい）。
+      fail-fast: false
+      matrix:
+        include:
+          - site: it
+            bucket: rikako-it-development
+            alias: it.dev.rikako.org
+          - site: chemistry
+            bucket: rikako-chemistry-development
+            alias: chemistry.dev.rikako.org
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -41,7 +60,7 @@ jobs:
         working-directory: web
         run: npm run build
         env:
-          NEXT_PUBLIC_SITE: it
+          NEXT_PUBLIC_SITE: ${{ matrix.site }}
           NEXT_PUBLIC_CONTENT_BASE_URL: https://content.dev.rikako.org/v1
           NEXT_PUBLIC_API_BASE_URL: https://api.dev.rikako.org
           NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
@@ -57,12 +76,12 @@ jobs:
         working-directory: web
         run: |
           # まず全ファイルを同期し stale を削除する。--delete が html も対象になるよう
-          # 除外を付けない（除外すると stale な html/xml が消えず残り続ける）。
-          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ \
+          # 除外を付けない（除外すると stale な html/xml が消えず公開され続ける）。
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
             --delete \
             --cache-control "public, max-age=0, must-revalidate"
           # ハッシュ付きアセット（html/txt/xml 以外）だけ長期 immutable に上書き（削除なし）。
-          aws s3 sync out/ s3://${{ env.S3_BUCKET }}/ \
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "*.html" \
             --exclude "*.txt" \
@@ -71,10 +90,10 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           DIST_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?contains(Aliases.Items, '${{ env.CF_ALIAS }}')].Id | [0]" \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${{ matrix.alias }}')].Id | [0]" \
             --output text)
           if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
-            echo "CloudFront distribution for ${{ env.CF_ALIAS }} not found (terraform 未適用?)"
+            echo "CloudFront distribution for ${{ matrix.alias }} not found (terraform 未適用?)"
             exit 1
           fi
           echo "Invalidating $DIST_ID"
@@ -82,6 +101,6 @@ jobs:
 
       - name: Print summary
         run: |
-          echo "## IT Frontend Deploy Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "## ${{ matrix.site }} Deploy Complete (dev) 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** https://${{ env.CF_ALIAS }}/" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ matrix.alias }}/" >> $GITHUB_STEP_SUMMARY

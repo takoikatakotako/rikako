@@ -9,9 +9,11 @@ web/ は IT と化学で同じコードベースを共有しており（NEXT_PUB
   - NEXT_PUBLIC_COGNITO_CLIENT_ID が空/取り違え → ログインが失敗する
   - NEXT_PUBLIC_API_BASE_URL が未設定/取り違え → 本番サイトが dev に書き込む
 
-**対象は下の EXPECTED に明示的に列挙する。** 「web/ をビルドする step があるもの」を
-自動検出する方式だと、working-directory の誤記や Build step の削除で対象から
-黙って外れ、CI が成功してしまう。
+**対象は下の EXPECTED に明示的に列挙する。** 自動検出だと、working-directory の誤記や
+Build step の削除で対象から黙って外れ、CI が成功してしまう。
+
+it / chemistry は 1 つのワークフロー内で matrix により両方ビルドするため、
+「matrix に両サイトが含まれること」も検証する（片方だけ出る状態を防ぐ）。
 """
 from __future__ import annotations
 
@@ -29,30 +31,18 @@ WORKFLOWS = ROOT / ".github/workflows"
 
 # 検査対象と、Build step の env に期待する値（すべて完全一致で確認する）。
 # 新しいサイトを追加したらここにも足す。
+SITES = {"it", "chemistry"}
+
 EXPECTED: dict[str, dict[str, str]] = {
-    "deploy-it-frontend-dev.yml": {
-        "NEXT_PUBLIC_SITE": "it",
+    "deploy-web-dev.yml": {
+        "NEXT_PUBLIC_SITE": "${{ matrix.site }}",
         "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.dev.rikako.org/v1",
         "NEXT_PUBLIC_API_BASE_URL": "https://api.dev.rikako.org",
         "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
         "NEXT_PUBLIC_COGNITO_CLIENT_ID": "2buo6t5fbneujoknvrdph8flda",
     },
-    "deploy-it-frontend-prod.yml": {
-        "NEXT_PUBLIC_SITE": "it",
-        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.rikako.org/v1",
-        "NEXT_PUBLIC_API_BASE_URL": "https://api.rikako.org",
-        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
-        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "4sqsett62vuckqt68d72nf2083",
-    },
-    "deploy-chemistry-frontend-dev.yml": {
-        "NEXT_PUBLIC_SITE": "chemistry",
-        "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.dev.rikako.org/v1",
-        "NEXT_PUBLIC_API_BASE_URL": "https://api.dev.rikako.org",
-        "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
-        "NEXT_PUBLIC_COGNITO_CLIENT_ID": "2buo6t5fbneujoknvrdph8flda",
-    },
-    "deploy-chemistry-frontend-prod.yml": {
-        "NEXT_PUBLIC_SITE": "chemistry",
+    "deploy-web-prod.yml": {
+        "NEXT_PUBLIC_SITE": "${{ matrix.site }}",
         "NEXT_PUBLIC_CONTENT_BASE_URL": "https://content.rikako.org/v1",
         "NEXT_PUBLIC_API_BASE_URL": "https://api.rikako.org",
         "NEXT_PUBLIC_COGNITO_REGION": "ap-northeast-1",
@@ -66,15 +56,30 @@ EXPECTED: dict[str, dict[str, str]] = {
 #   prod : 手動のみ
 EXPECTED_TRIGGERS = {"dev": {"push", "workflow_dispatch"}, "prod": {"workflow_dispatch"}}
 
+# prod は承認を通してから反映する（Terraform の Apply Terraform Prod と同じ方式）。
+EXPECTED_ENVIRONMENT = {"dev": None, "prod": "production"}
 
-def build_env(workflow: dict) -> dict | None:
-    """web/ をビルドする step の env を返す。該当 step が無ければ None。"""
+
+def build_job(workflow: dict) -> dict | None:
+    """web/ をビルドする job を返す。該当 job が無ければ None。"""
     for job in (workflow.get("jobs") or {}).values():
         for step in job.get("steps") or []:
             wd = str(step.get("working-directory", "")).strip("./")
             run = str(step.get("run", ""))
             if wd == "web" and "npm run build" in run:
-                return step.get("env") or {}
+                return job
+    return None
+
+
+def build_env(workflow: dict) -> dict | None:
+    """web/ をビルドする step の env を返す。該当 step が無ければ None。"""
+    job = build_job(workflow)
+    if job is None:
+        return None
+    for step in job.get("steps") or []:
+        wd = str(step.get("working-directory", "")).strip("./")
+        if wd == "web" and "npm run build" in str(step.get("run", "")):
+            return step.get("env") or {}
     return None
 
 
@@ -95,6 +100,14 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
 
     errors = []
 
+    job = build_job(workflow)
+
+    # it / chemistry の両方が出ること。片方だけ古いまま残るのを防ぐ。
+    matrix = ((job or {}).get("strategy") or {}).get("matrix") or {}
+    sites = {str(e.get("site")) for e in (matrix.get("include") or [])}
+    if sites != SITES:
+        errors.append(f"{path.name}: matrix のサイトが {sorted(sites)}（期待値: {sorted(SITES)}）")
+
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
     triggers = workflow.get("on") or workflow.get(True) or {}
     env_name = path.stem.rsplit("-", 1)[-1]
@@ -102,6 +115,14 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
     if want_triggers is not None and set(triggers) != want_triggers:
         errors.append(
             f"{path.name}: トリガーが {sorted(set(triggers))}（期待値: {sorted(want_triggers)}）"
+        )
+
+    want_env = EXPECTED_ENVIRONMENT.get(env_name)
+    got_env = (job or {}).get("environment")
+    if want_env != got_env:
+        errors.append(
+            f"{path.name}: environment が {got_env}（期待値: {want_env}）"
+            + ("（prod は承認ゲートが必要）" if want_env else "")
         )
 
     for key, want in expected.items():

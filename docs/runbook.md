@@ -81,6 +81,25 @@ gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref 
 2. S3にsync（静的アセット: 1年キャッシュ、HTML: キャッシュなし）
 3. CloudFrontキャッシュを無効化
 
+### 学習用 Web（it / chemistry）
+
+`web/` は 1 つのコードベースを `NEXT_PUBLIC_SITE` で切り替えてビルドしている。
+そのため **it と chemistry は常に一緒に出す**（片方だけ古いと、どちらが最新か分からなくなる）。
+
+- **dev**: main へのマージで `web/` に変更があれば自動デプロイ（`Deploy Web Dev`）
+- **prod**: 自動では出さない。手動起動 + `production` environment の**承認**が必要（Terraform の `Apply Terraform Prod` と同じ）
+
+```bash
+# dev（手動で出したいとき）
+gh workflow run "Deploy Web Dev" --repo takoikatakotako/rikako --ref main
+
+# prod（起動後、GitHub 上で承認するまで待機する）
+gh workflow run "Deploy Web Prod" --repo takoikatakotako/rikako --ref main
+```
+
+> 公開コンテンツを変えたときは、`/publish`（DB → S3）と web の再デプロイの**両方**が必要。
+> web はビルド時にコンテンツを焼き込むため、`/publish` だけでは表示が変わらない。
+
 ---
 
 ## 2. ロールバック手順
@@ -117,6 +136,14 @@ gitで前のコミットに戻してデプロイワークフローを再実行�
 ```bash
 # 直前のコミットでデプロイ
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref <commit-sha>
+```
+
+### 学習用 Web（it / chemistry）
+
+同じく、戻したいコミットを指定して再デプロイする。prod は承認が必要。
+
+```bash
+gh workflow run "Deploy Web Prod" --repo takoikatakotako/rikako --ref <commit-sha>
 ```
 
 ---

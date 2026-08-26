@@ -16,18 +16,27 @@ mod = importlib.util.module_from_spec(spec)
 sys.modules["check_frontend_env"] = mod
 spec.loader.exec_module(mod)
 
-PROD_IT = mod.EXPECTED["deploy-it-frontend-prod.yml"]
+PROD = mod.EXPECTED["deploy-web-prod.yml"]
+DEV = mod.EXPECTED["deploy-web-dev.yml"]
 
 
 def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
-             extra_step_env: dict | None = None, triggers: list | None = None) -> str:
+             extra_step_env: dict | None = None, triggers: list | None = None,
+             sites: list | None = None, environment: str | None = "production") -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
         trigger_lines.append(f"  {t}:")
     lines = [
         "name: Deploy", *trigger_lines, "jobs:", "  deploy:",
-        "    runs-on: ubuntu-latest", "    steps:",
+        "    runs-on: ubuntu-latest",
+    ]
+    if environment:
+        lines.append(f"    environment: {environment}")
+    lines += ["    strategy:", "      matrix:", "        include:"]
+    for site in (sites if sites is not None else ["it", "chemistry"]):
+        lines.append(f"          - site: {site}")
+    lines += ["    steps:",
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
     ]
@@ -43,33 +52,28 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
 
 class CheckFrontendEnvTest(unittest.TestCase):
     def run_check(self, content: str, expected: dict | None = None,
-                  name: str = "deploy-it-frontend-prod.yml"):
+                  name: str = "deploy-web-prod.yml"):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / name
             path.write_text(content, encoding="utf-8")
-            return mod.check(path, expected or PROD_IT)
+            return mod.check(path, expected or PROD)
 
     # --- 正常系 ---
 
     def test_valid_workflow_passes(self):
-        self.assertEqual(self.run_check(workflow(PROD_IT)), [])
+        self.assertEqual(self.run_check(workflow(PROD)), [])
 
     def test_valid_dev_workflow_passes(self):
-        dev = mod.EXPECTED["deploy-it-frontend-dev.yml"]
         self.assertEqual(
-            self.run_check(workflow(dev, triggers=["push", "workflow_dispatch"]),
-                           dev, "deploy-it-frontend-dev.yml"), [])
+            self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch"],
+                                    environment=None),
+                           DEV, "deploy-web-dev.yml"), [])
 
-    def test_all_four_workflows_are_checked(self):
+    def test_both_workflows_are_checked(self):
         """対象が黙って減らないこと。自動検出をやめた理由そのもの。"""
         self.assertEqual(
             sorted(mod.EXPECTED),
-            sorted([
-                "deploy-chemistry-frontend-dev.yml",
-                "deploy-chemistry-frontend-prod.yml",
-                "deploy-it-frontend-dev.yml",
-                "deploy-it-frontend-prod.yml",
-            ]),
+            ["deploy-web-dev.yml", "deploy-web-prod.yml"],
         )
 
     def test_real_workflows_pass(self):
@@ -80,77 +84,101 @@ class CheckFrontendEnvTest(unittest.TestCase):
     # --- 欠落・空・配置ミス ---
 
     def test_missing_key_is_detected(self):
-        env = {k: v for k, v in PROD_IT.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
+        env = {k: v for k, v in PROD.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が無い" in e for e in errors), errors)
 
     def test_empty_value_is_detected(self):
-        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_CLIENT_ID="")
+        env = dict(PROD, NEXT_PUBLIC_COGNITO_CLIENT_ID="")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が空" in e for e in errors), errors)
 
     def test_key_outside_build_step_is_detected(self):
-        env = {k: v for k, v in PROD_IT.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
+        env = {k: v for k, v in PROD.items() if k != "NEXT_PUBLIC_COGNITO_CLIENT_ID"}
         errors = self.run_check(workflow(
-            env, extra_step_env={"NEXT_PUBLIC_COGNITO_CLIENT_ID": PROD_IT["NEXT_PUBLIC_COGNITO_CLIENT_ID"]}))
+            env, extra_step_env={"NEXT_PUBLIC_COGNITO_CLIENT_ID": PROD["NEXT_PUBLIC_COGNITO_CLIENT_ID"]}))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID が無い" in e for e in errors), errors)
 
     # --- Build step を見失うケース（以前は黙って対象外になっていた）---
 
     def test_wrong_working_directory_is_detected(self):
-        errors = self.run_check(workflow(PROD_IT, working_dir="wep"))
+        errors = self.run_check(workflow(PROD, working_dir="wep"))
         self.assertTrue(any("ビルドする step が見つからない" in e for e in errors), errors)
 
     def test_build_command_change_is_detected(self):
-        errors = self.run_check(workflow(PROD_IT, build_cmd="npm run bulid"))
+        errors = self.run_check(workflow(PROD, build_cmd="npm run bulid"))
         self.assertTrue(any("ビルドする step が見つからない" in e for e in errors), errors)
 
     def test_missing_file_is_detected(self):
         with tempfile.TemporaryDirectory() as d:
-            errors = mod.check(Path(d) / "deploy-it-frontend-prod.yml", PROD_IT)
+            errors = mod.check(Path(d) / "deploy-web-prod.yml", PROD)
         self.assertTrue(any("見つからない" in e for e in errors), errors)
 
     # --- dev/prod の取り違え ---
 
     def test_prod_with_dev_api_is_detected(self):
-        env = dict(PROD_IT, NEXT_PUBLIC_API_BASE_URL="https://api.dev.rikako.org")
+        env = dict(PROD, NEXT_PUBLIC_API_BASE_URL="https://api.dev.rikako.org")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_API_BASE_URL" in e for e in errors), errors)
 
     def test_prod_with_dev_cognito_client_id_is_detected(self):
         """ログイン不能につながる取り違え。API だけ見ていた頃は通っていた。"""
-        dev_id = mod.EXPECTED["deploy-it-frontend-dev.yml"]["NEXT_PUBLIC_COGNITO_CLIENT_ID"]
-        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_CLIENT_ID=dev_id)
+        dev_id = DEV["NEXT_PUBLIC_COGNITO_CLIENT_ID"]
+        env = dict(PROD, NEXT_PUBLIC_COGNITO_CLIENT_ID=dev_id)
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_CLIENT_ID" in e for e in errors), errors)
 
     def test_prod_with_dev_content_url_is_detected(self):
-        env = dict(PROD_IT, NEXT_PUBLIC_CONTENT_BASE_URL="https://content.dev.rikako.org/v1")
+        env = dict(PROD, NEXT_PUBLIC_CONTENT_BASE_URL="https://content.dev.rikako.org/v1")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_CONTENT_BASE_URL" in e for e in errors), errors)
 
-    def test_wrong_site_is_detected(self):
-        """IT のワークフローに chemistry が入っている、など。"""
-        env = dict(PROD_IT, NEXT_PUBLIC_SITE="chemistry")
+    def test_site_pinned_instead_of_matrix_is_detected(self):
+        """matrix で回さず片方に固定されていたら弾く（もう片方が出なくなる）。"""
+        env = dict(PROD, NEXT_PUBLIC_SITE="chemistry")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_SITE" in e for e in errors), errors)
+
+    # --- 2サイト同時配信 ---
+
+    def test_missing_site_in_matrix_is_detected(self):
+        """chemistry だけ落ちて IT しか出ない、という状態を防ぐ。"""
+        errors = self.run_check(workflow(PROD, sites=["it"]))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    def test_unknown_site_in_matrix_is_detected(self):
+        errors = self.run_check(workflow(PROD, sites=["it", "chemistry", "physics"]))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    # --- 本番の承認ゲート ---
+
+    def test_prod_without_environment_is_detected(self):
+        """承認なしで本番に出せる状態を防ぐ。"""
+        errors = self.run_check(workflow(PROD, environment=None))
+        self.assertTrue(any("environment" in e for e in errors), errors)
+
+    def test_dev_with_production_environment_is_detected(self):
+        """dev に承認ゲートが付くと自動デプロイが止まる。"""
+        errors = self.run_check(
+            workflow(DEV, triggers=["push", "workflow_dispatch"], environment="production"),
+            DEV, "deploy-web-dev.yml")
+        self.assertTrue(any("environment" in e for e in errors), errors)
 
     # --- トリガーの非対称 ---
 
     def test_prod_with_push_trigger_is_detected(self):
         """prod が自動デプロイになっていたら弾く。"""
-        errors = self.run_check(workflow(PROD_IT, triggers=["push", "workflow_dispatch"]))
+        errors = self.run_check(workflow(PROD, triggers=["push", "workflow_dispatch"]))
         self.assertTrue(any("トリガー" in e for e in errors), errors)
 
     def test_dev_without_push_trigger_is_detected(self):
         """dev だけ手動のまま取り残されるのを防ぐ（化学版で実際に起きた）。"""
-        dev = mod.EXPECTED["deploy-it-frontend-dev.yml"]
-        errors = self.run_check(workflow(dev, triggers=["workflow_dispatch"]),
-                                dev, "deploy-it-frontend-dev.yml")
+        errors = self.run_check(workflow(DEV, triggers=["workflow_dispatch"], environment=None),
+                                DEV, "deploy-web-dev.yml")
         self.assertTrue(any("トリガー" in e for e in errors), errors)
 
     def test_wrong_region_is_detected(self):
-        env = dict(PROD_IT, NEXT_PUBLIC_COGNITO_REGION="ap-southeast-1")
+        env = dict(PROD, NEXT_PUBLIC_COGNITO_REGION="ap-southeast-1")
         errors = self.run_check(workflow(env))
         self.assertTrue(any("NEXT_PUBLIC_COGNITO_REGION" in e for e in errors), errors)
 
