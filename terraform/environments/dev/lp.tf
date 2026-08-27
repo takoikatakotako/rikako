@@ -30,27 +30,19 @@ resource "aws_acm_certificate" "lp" {
   }
 }
 
-resource "cloudflare_record" "lp_cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.lp.domain_validation_options : dvo.domain_name => {
-      name    = dvo.resource_record_name
-      content = dvo.resource_record_value
-      type    = dvo.resource_record_type
-    }
-  }
-
-  zone_id = data.cloudflare_zone.rikako.id
-  name    = each.value.name
-  content = each.value.content
-  type    = each.value.type
-  ttl     = 300
-  proxied = false
-}
-
+# 検証レコードは新設しない。ACM は同じドメインに対して、証明書が違っても同じ
+# CNAME（名前・値とも）を返す。`*.dev.rikako.org` の検証レコードは wildcard を
+# 剥がした `dev.rikako.org` に対するものなので、この証明書にもそのまま使える。
+#
+# 実際、regional 証明書（aws_acm_certificate.wildcard_regional）も us-east-1 側の
+# dvo から作った cloudflare_record.cert_validation で検証している。
+#
+# ここで別レコードを作ろうとすると、同じ名前の CNAME を二重に作ることになり
+# Cloudflare が "expected DNS record to not already be present" で失敗する。
 resource "aws_acm_certificate_validation" "lp" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.lp.arn
-  validation_record_fqdns = [for record in cloudflare_record.lp_cert_validation : record.hostname]
+  validation_record_fqdns = [for record in cloudflare_record.cert_validation : record.hostname]
 }
 
 # =============================================================================
