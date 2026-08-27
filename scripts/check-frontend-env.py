@@ -104,6 +104,45 @@ def check_matrix(path: Path, job: dict | None, env_name: str) -> list[str]:
     return []
 
 
+def check_ref_validation(path: Path, job: dict | None) -> list[str]:
+    """checkout_ref の検証が、依存インストールより前に行われることを確認する。
+
+    workflow_dispatch の checkout_ref はそのまま actions/checkout に渡るため、
+    branch を指定すれば未マージのコードを実行できてしまう。prod の job は
+    environment: production と id-token: write を持つので、npm ci の
+    lifecycle script が走る前に main 履歴上の commit SHA だけに絞る必要がある。
+    """
+    steps = (job or {}).get("steps") or []
+    errors = []
+
+    validate_at = None
+    install_at = None
+    for i, step in enumerate(steps):
+        run = str(step.get("run", ""))
+        if validate_at is None and "merge-base --is-ancestor" in run:
+            validate_at = i
+            if "[0-9a-fA-F]{40}" not in run:
+                errors.append(f"{path.name}: checkout_ref を 40 桁の SHA に制限していない")
+            # expression を run へ直書きするとシェル入力になる。env 経由で渡すこと。
+            if "${{" in run:
+                errors.append(f"{path.name}: 検証 step の run に expression を直書きしている")
+        if install_at is None and "npm ci" in run:
+            install_at = i
+
+    if validate_at is None:
+        return [f"{path.name}: checkout_ref が main 履歴上の commit か検証していない"]
+    if install_at is not None and validate_at > install_at:
+        errors.append(f"{path.name}: checkout_ref の検証が npm ci より後になっている")
+
+    for step in steps:
+        if str(step.get("uses", "")).startswith("actions/checkout"):
+            if (step.get("with") or {}).get("fetch-depth") != 0:
+                errors.append(f"{path.name}: checkout の fetch-depth が 0 でない（祖先チェックに履歴が要る）")
+            break
+
+    return errors
+
+
 def build_env(workflow: dict) -> dict | None:
     """web/ をビルドする step の env を返す。該当 step が無ければ None。"""
     job = build_job(workflow)
@@ -137,6 +176,7 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
     env_name = path.stem.rsplit("-", 1)[-1]
 
     errors += check_matrix(path, job, env_name)
+    errors += check_ref_validation(path, job)
 
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
     triggers = workflow.get("on") or workflow.get(True) or {}

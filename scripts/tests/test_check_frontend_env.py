@@ -20,10 +20,16 @@ PROD = mod.EXPECTED["deploy-web-prod.yml"]
 DEV = mod.EXPECTED["deploy-web-dev.yml"]
 
 
+# 実ワークフローの検証 step 相当（run の中身だけ）。
+VALID_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
+                   'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main')
+
+
 def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
              extra_step_env: dict | None = None, triggers: list | None = None,
              include: list | None = None, environment: str | None = "production",
-             env_name: str = "prod") -> str:
+             env_name: str = "prod", checkout: bool = True, fetch_depth: int = 0,
+             validate: str | None = VALID_REF_CHECK, install: bool = True) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
@@ -39,7 +45,19 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
                                 else mod.EXPECTED_MATRIX[env_name]):
         lines += [f"          - site: {site}", f"            bucket: {bucket}",
                   f"            alias: {alias}"]
-    lines += ["    steps:",
+    lines += ["    steps:"]
+    if checkout:
+        lines += ["      - uses: actions/checkout@v6", "        with:",
+                  "          ref: ${{ inputs.checkout_ref || github.sha }}",
+                  f"          fetch-depth: {fetch_depth}"]
+    if validate:
+        lines += ["      - name: Validate checkout ref", "        env:",
+                  "          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}",
+                  "        run: |", f"          {validate}"]
+    if install:
+        lines += ["      - name: Install", f"        working-directory: {working_dir}",
+                  "        run: npm ci"]
+    lines += [
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
     ]
@@ -180,6 +198,44 @@ class CheckFrontendEnvTest(unittest.TestCase):
         include = [(s1, "rikako-it-development", a1)] + rest
         errors = self.run_check(workflow(PROD, include=include))
         self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    # --- checkout_ref の検証（未マージコードを prod 権限で実行させない）---
+
+    def test_missing_ref_validation_is_detected(self):
+        errors = self.run_check(workflow(PROD, validate=None))
+        self.assertTrue(any("検証していない" in e for e in errors), errors)
+
+    def test_validation_after_npm_ci_is_detected(self):
+        """npm ci の lifecycle script が先に走ってしまう並び。"""
+        content = workflow(PROD)
+        # Install を検証 step より前に移す
+        content = content.replace(
+            "      - name: Validate checkout ref", "      - name: Install\n"
+            "        working-directory: web\n        run: npm ci\n"
+            "      - name: Validate checkout ref", 1)
+        content = content.replace(
+            "      - name: Install\n        working-directory: web\n        run: npm ci\n"
+            "      - name: Build", "      - name: Build", 1)
+        errors = self.run_check(content)
+        self.assertTrue(any("npm ci より後" in e for e in errors), errors)
+
+    def test_ref_not_restricted_to_sha_is_detected(self):
+        """branch 名を渡せると、未マージのコードを prod 権限で実行できる。"""
+        errors = self.run_check(workflow(
+            PROD, validate='git merge-base --is-ancestor "$CHECKOUT_REF" origin/main'))
+        self.assertTrue(any("40 桁の SHA" in e for e in errors), errors)
+
+    def test_expression_in_run_is_detected(self):
+        """expression を run へ直書きするとシェル入力になる。"""
+        errors = self.run_check(workflow(
+            PROD, validate='[[ "${{ inputs.checkout_ref }}" =~ ^[0-9a-fA-F]{40}$ ]] && '
+                           'git merge-base --is-ancestor x origin/main'))
+        self.assertTrue(any("直書き" in e for e in errors), errors)
+
+    def test_shallow_checkout_is_detected(self):
+        """履歴が無いと merge-base が常に失敗する（= 検証が形骸化する）。"""
+        errors = self.run_check(workflow(PROD, fetch_depth=1))
+        self.assertTrue(any("fetch-depth" in e for e in errors), errors)
 
     # --- 本番の承認ゲート ---
 

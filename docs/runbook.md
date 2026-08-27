@@ -148,6 +148,9 @@ gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref 
 存在しないことがある。そのため **ワークフローは main から起動し、`checkout_ref` で
 ビルド対象の commit だけを戻す**。
 
+`checkout_ref` に指定できるのは **main 履歴上の 40 桁 commit SHA だけ**（`npm ci` の前に
+検証して弾く）。branch 名を渡して未マージのコードを本番権限のジョブで実行させないため。
+
 ```bash
 gh workflow run "Deploy Web Prod" --repo takoikatakotako/rikako --ref main \
   -f checkout_ref=<commit-sha>
