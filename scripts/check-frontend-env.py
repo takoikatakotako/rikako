@@ -31,7 +31,19 @@ WORKFLOWS = ROOT / ".github/workflows"
 
 # 検査対象と、Build step の env に期待する値（すべて完全一致で確認する）。
 # 新しいサイトを追加したらここにも足す。
-SITES = {"it", "chemistry"}
+# 配信先の完全な組。site だけを見ていると、bucket / alias の取り違えが素通りする。
+# 特に bucket の取り違えは、片方の成果物をもう片方の本番バケットへ `--delete` 付きで
+# 同期するため、両サイトを同時に壊す。
+EXPECTED_MATRIX: dict[str, list[tuple[str, str, str]]] = {
+    "dev": [
+        ("it", "rikako-it-development", "it.dev.rikako.org"),
+        ("chemistry", "rikako-chemistry-development", "chemistry.dev.rikako.org"),
+    ],
+    "prod": [
+        ("it", "rikako-it-production", "it.rikako.org"),
+        ("chemistry", "rikako-chemistry-production", "chemistry.rikako.org"),
+    ],
+}
 
 EXPECTED: dict[str, dict[str, str]] = {
     "deploy-web-dev.yml": {
@@ -71,6 +83,27 @@ def build_job(workflow: dict) -> dict | None:
     return None
 
 
+def check_matrix(path: Path, job: dict | None, env_name: str) -> list[str]:
+    """matrix の include が期待どおりの配信先の組であることを検証する。
+
+    site / bucket / alias を**組**で比較する。集合ではなく件数も見るのは、
+    同じ site の entry が重複していても集合比較では消えてしまうため。
+    """
+    want = EXPECTED_MATRIX[env_name]
+    include = (((job or {}).get("strategy") or {}).get("matrix") or {}).get("include") or []
+    got = [(str(e.get("site")), str(e.get("bucket")), str(e.get("alias"))) for e in include]
+
+    if len(got) != len(want):
+        return [f"{path.name}: matrix の entry が {len(got)} 件（期待値: {len(want)} 件）: {got}"]
+    if sorted(got) != sorted(want):
+        return [
+            f"{path.name}: matrix の配信先が期待値と違う\n"
+            f"    実際  : {sorted(got)}\n"
+            f"    期待値: {sorted(want)}"
+        ]
+    return []
+
+
 def build_env(workflow: dict) -> dict | None:
     """web/ をビルドする step の env を返す。該当 step が無ければ None。"""
     job = build_job(workflow)
@@ -101,16 +134,12 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
     errors = []
 
     job = build_job(workflow)
+    env_name = path.stem.rsplit("-", 1)[-1]
 
-    # it / chemistry の両方が出ること。片方だけ古いまま残るのを防ぐ。
-    matrix = ((job or {}).get("strategy") or {}).get("matrix") or {}
-    sites = {str(e.get("site")) for e in (matrix.get("include") or [])}
-    if sites != SITES:
-        errors.append(f"{path.name}: matrix のサイトが {sorted(sites)}（期待値: {sorted(SITES)}）")
+    errors += check_matrix(path, job, env_name)
 
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
     triggers = workflow.get("on") or workflow.get(True) or {}
-    env_name = path.stem.rsplit("-", 1)[-1]
     want_triggers = EXPECTED_TRIGGERS.get(env_name)
     if want_triggers is not None and set(triggers) != want_triggers:
         errors.append(

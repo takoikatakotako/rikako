@@ -13,6 +13,11 @@ on:
       - "web/**"
       - ".github/workflows/deploy-web-dev.yml"
   workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: "ロールバック用。戻したい commit SHA（未指定なら起動した ref の HEAD）"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -44,6 +49,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # ワークフロー定義は起動した ref（= main）のものを使いつつ、
+          # ビルド対象のコードだけ任意の commit に戻せるようにする。
+          # --ref に古い SHA は渡せない（branch/tag のみ）ため、この形にしている。
+          ref: ${{ inputs.checkout_ref || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -104,3 +114,4 @@ jobs:
           echo "## ${{ matrix.site }} Deploy Complete (dev) 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** https://${{ matrix.alias }}/" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`${{ inputs.checkout_ref || github.sha }}\`" >> $GITHUB_STEP_SUMMARY

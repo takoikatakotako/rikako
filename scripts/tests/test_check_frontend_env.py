@@ -22,7 +22,8 @@ DEV = mod.EXPECTED["deploy-web-dev.yml"]
 
 def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
              extra_step_env: dict | None = None, triggers: list | None = None,
-             sites: list | None = None, environment: str | None = "production") -> str:
+             include: list | None = None, environment: str | None = "production",
+             env_name: str = "prod") -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
@@ -34,8 +35,10 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
     if environment:
         lines.append(f"    environment: {environment}")
     lines += ["    strategy:", "      matrix:", "        include:"]
-    for site in (sites if sites is not None else ["it", "chemistry"]):
-        lines.append(f"          - site: {site}")
+    for site, bucket, alias in (include if include is not None
+                                else mod.EXPECTED_MATRIX[env_name]):
+        lines += [f"          - site: {site}", f"            bucket: {bucket}",
+                  f"            alias: {alias}"]
     lines += ["    steps:",
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
@@ -66,7 +69,7 @@ class CheckFrontendEnvTest(unittest.TestCase):
     def test_valid_dev_workflow_passes(self):
         self.assertEqual(
             self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch"],
-                                    environment=None),
+                                    environment=None, env_name="dev"),
                            DEV, "deploy-web-dev.yml"), [])
 
     def test_both_workflows_are_checked(self):
@@ -141,13 +144,41 @@ class CheckFrontendEnvTest(unittest.TestCase):
 
     # --- 2サイト同時配信 ---
 
+    PROD_MATRIX = mod.EXPECTED_MATRIX["prod"]
+
     def test_missing_site_in_matrix_is_detected(self):
         """chemistry だけ落ちて IT しか出ない、という状態を防ぐ。"""
-        errors = self.run_check(workflow(PROD, sites=["it"]))
+        errors = self.run_check(workflow(PROD, include=self.PROD_MATRIX[:1]))
         self.assertTrue(any("matrix" in e for e in errors), errors)
 
     def test_unknown_site_in_matrix_is_detected(self):
-        errors = self.run_check(workflow(PROD, sites=["it", "chemistry", "physics"]))
+        extra = self.PROD_MATRIX + [("physics", "rikako-physics-production", "physics.rikako.org")]
+        errors = self.run_check(workflow(PROD, include=extra))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    def test_duplicated_entry_is_detected(self):
+        """集合で比べていると、重複が消えて片方の欠落を見逃す。"""
+        dup = [self.PROD_MATRIX[0], self.PROD_MATRIX[0]]
+        errors = self.run_check(workflow(PROD, include=dup))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    def test_swapped_buckets_are_detected(self):
+        """IT の成果物を chemistry の本番バケットへ --delete 付きで同期する事故。"""
+        (s1, b1, a1), (s2, b2, a2) = self.PROD_MATRIX
+        errors = self.run_check(workflow(PROD, include=[(s1, b2, a1), (s2, b1, a2)]))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    def test_swapped_aliases_are_detected(self):
+        """配信先バケットは正しいのに、無効化する CloudFront が逆になる事故。"""
+        (s1, b1, a1), (s2, b2, a2) = self.PROD_MATRIX
+        errors = self.run_check(workflow(PROD, include=[(s1, b1, a2), (s2, b2, a1)]))
+        self.assertTrue(any("matrix" in e for e in errors), errors)
+
+    def test_dev_bucket_in_prod_matrix_is_detected(self):
+        """prod の matrix に dev のバケットが紛れ込むケース。"""
+        (s1, _, a1), rest = self.PROD_MATRIX[0], self.PROD_MATRIX[1:]
+        include = [(s1, "rikako-it-development", a1)] + rest
+        errors = self.run_check(workflow(PROD, include=include))
         self.assertTrue(any("matrix" in e for e in errors), errors)
 
     # --- 本番の承認ゲート ---
@@ -160,7 +191,8 @@ class CheckFrontendEnvTest(unittest.TestCase):
     def test_dev_with_production_environment_is_detected(self):
         """dev に承認ゲートが付くと自動デプロイが止まる。"""
         errors = self.run_check(
-            workflow(DEV, triggers=["push", "workflow_dispatch"], environment="production"),
+            workflow(DEV, triggers=["push", "workflow_dispatch"],
+                     environment="production", env_name="dev"),
             DEV, "deploy-web-dev.yml")
         self.assertTrue(any("environment" in e for e in errors), errors)
 
@@ -173,7 +205,8 @@ class CheckFrontendEnvTest(unittest.TestCase):
 
     def test_dev_without_push_trigger_is_detected(self):
         """dev だけ手動のまま取り残されるのを防ぐ（化学版で実際に起きた）。"""
-        errors = self.run_check(workflow(DEV, triggers=["workflow_dispatch"], environment=None),
+        errors = self.run_check(workflow(DEV, triggers=["workflow_dispatch"], environment=None,
+                                         env_name="dev"),
                                 DEV, "deploy-web-dev.yml")
         self.assertTrue(any("トリガー" in e for e in errors), errors)
 
