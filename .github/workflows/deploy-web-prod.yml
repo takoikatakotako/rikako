@@ -1,0 +1,137 @@
+name: Deploy Web Prod
+
+# it / chemistry は web/ という 1 つのコードベースを NEXT_PUBLIC_SITE で切り替えて
+# ビルドしている。したがってデプロイ単位も 1 つにまとめ、両サイトを一緒に出す。
+#
+# 本番は自動で出さない。手動で起動し、**environment: production の承認**を通してから
+# 反映する（Terraform の Apply Terraform Prod と同じ方式）。
+on:
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: "ロールバック用。戻したい commit の 40 桁 SHA（main 履歴上のもののみ。未指定なら起動した ref の HEAD）"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-web-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.site }} (prod)
+    runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
+    strategy:
+      # 片方が失敗しても、もう片方は出し切る（両方の結果を見てから対処したい）。
+      fail-fast: false
+      matrix:
+        include:
+          - site: it
+            bucket: rikako-it-production
+            alias: it.rikako.org
+          - site: chemistry
+            bucket: rikako-chemistry-production
+            alias: chemistry.rikako.org
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # ワークフロー定義は起動した ref（= main）のものを使いつつ、
+          # ビルド対象のコードだけ過去の commit に戻せるようにする。
+          # --ref に古い SHA は渡せない（branch/tag のみ）ため、この形にしている。
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          # 下の祖先チェックに main の履歴が要る。
+          fetch-depth: 0
+
+      # checkout 自体はコードを実行しないので、依存インストール（npm ci の
+      # lifecycle script）より前にここで弾く。これが無いと、任意の branch を
+      # 指定するだけで、この job の権限（prod は environment: production と
+      # id-token: write）で未マージのコードを実行できてしまう。
+      - name: Validate checkout ref
+        env:
+          # expression を run に直書きするとシェル入力になるため env 経由で渡す。
+          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "checkout_ref は 40 桁の commit SHA のみ指定できます: $CHECKOUT_REF"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$CHECKOUT_REF" origin/main; then
+            echo "checkout_ref が main の履歴上にありません: $CHECKOUT_REF"
+            exit 1
+          fi
+          echo "checkout_ref OK: $CHECKOUT_REF"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE: ${{ matrix.site }}
+          NEXT_PUBLIC_CONTENT_BASE_URL: https://content.rikako.org/v1
+          NEXT_PUBLIC_API_BASE_URL: https://api.rikako.org
+          NEXT_PUBLIC_COGNITO_REGION: ap-northeast-1
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: 4sqsett62vuckqt68d72nf2083
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        working-directory: web
+        run: |
+          # まず全ファイルを同期し stale を削除する。--delete が html も対象になるよう
+          # 除外を付けない（除外すると stale な html/xml が消えず公開され続ける）。
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate"
+          # ハッシュ付きアセット（html/txt/xml 以外）だけ長期 immutable に上書き（削除なし）。
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "*.html" \
+            --exclude "*.txt" \
+            --exclude "*.xml"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${{ matrix.alias }}')].Id | [0]" \
+            --output text)
+          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
+            echo "CloudFront distribution for ${{ matrix.alias }} not found (terraform 未適用?)"
+            exit 1
+          fi
+          echo "Invalidating $DIST_ID"
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Print summary
+        env:
+          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
+        run: |
+          echo "## ${{ matrix.site }} Deploy Complete (prod) 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ matrix.alias }}/" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`$CHECKOUT_REF\`" >> $GITHUB_STEP_SUMMARY
