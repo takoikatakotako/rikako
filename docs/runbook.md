@@ -107,7 +107,7 @@ gh workflow run "Deploy LP Dev" --repo takoikatakotako/rikako --ref main
 gh workflow run "Deploy LP Prod" --repo takoikatakotako/rikako --ref main
 ```
 
-Basic 認証の資格情報は管理画面と共通（SSM の `admin-basic-auth-user` / `-password`）。
+Basic 認証の資格情報は管理画面と共通（SSM の `/rikako/admin-basic-auth-user` / `/rikako/admin-basic-auth-password`）。
 
 ### 学習用 Web（it / chemistry）
 
