@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
+    environment: production # ← required reviewers による承認ゲート
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

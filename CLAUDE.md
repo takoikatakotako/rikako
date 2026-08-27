@@ -80,7 +80,7 @@ Rikako - 問題集アプリ
     ├── plan-terraform.yml          # PR時にTerraform plan
     ├── plan-datasync.yml           # PR時に data 差分plan
     ├── docs.yml                    # ドキュメント生成・デプロイ
-    └── migrate.yml                 # マイグレーションワークフロー
+    └── migrate-dev.yml / migrate-prod.yml # マイグレーション（手動 dispatch）
 ```
 
 ## データ形式
@@ -243,7 +243,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 ### 環境
 
 - **Dev環境** (AWSアカウント: 197865631794)
-  - LP: https://rikako.org/ ※ LP は prod アカウントから配信
+  - LP: https://dev.rikako.org/ （CloudFront + Basic Auth、S3: `rikako-lp-development`）
   - 公開API: https://api.dev.rikako.org/ （API Gateway HTTP API、rate=50/burst=100）
   - 管理画面: https://admin.dev.rikako.org/ （CloudFront + Basic Auth）
   - 管理API: https://admin.dev.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）
@@ -296,10 +296,10 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
    - MkDocsビルド
    - GitHub Pagesにデプロイ
 
-6. **migrate.yml** - 手動マイグレーション
-   - 環境選択（dev/prod）
-   - 方向選択（up/down）
-   - ステップ数指定
+6. **migrate-dev.yml / migrate-prod.yml** - 手動マイグレーション
+   - dev / prod で別ワークフロー（環境の踏み間違い防止）
+   - 方向選択（up/down）とステップ数指定
+   - prod は `production` environment の承認が必要
 
 ## コンテンツ配信（S3 + CloudFront）
 

@@ -1,11 +1,9 @@
-name: Deploy LP
+name: Deploy LP Prod
 
+# LP は prod アカウントから rikako.org を直接配信している（dev が無い）。
+# main へのマージで即公開されると差し戻しが効かないため、他の prod 反映と同じく
+# 手動起動 + environment: production の承認を通す。
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "lp/**"
   workflow_dispatch:
 
 permissions:
@@ -21,6 +19,7 @@ jobs:
   deploy:
     name: Deploy LP to S3
     runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -33,13 +32,26 @@ jobs:
 
       - name: Deploy to S3
         run: |
+          set -euo pipefail
+          # aws s3 sync は「ローカルの方が新しい/サイズが違う」ファイルしか転送しない。
+          # 全同期してから後で cache-control を上書きしようとしても、2本目は
+          # スキップされて効かない。そのため **未アップロードのうちに** それぞれの
+          # cache-control で入れる（アセット先、HTML 後）。
+          #
+          # --delete は除外したパターンには効かないので、両方の pass に付けて
+          # それぞれの担当分の stale を消す。片方に付けないと、その種類の
+          # 消したファイルが公開され続ける。
           aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
             --delete \
-            --cache-control "public, max-age=86400" \
-            --exclude "*.html"
+            --exclude "*.html" \
+            --cache-control "public, max-age=86400"
+          # HTML は毎回取り直させる。--exclude "*" を先に置かないと全ファイルが
+          # 対象のままになる（--include だけでは絞り込めない）。
           aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
-            --cache-control "public, max-age=0, must-revalidate" \
-            --include "*.html"
+            --delete \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "public, max-age=0, must-revalidate"
 
       - name: Invalidate CloudFront cache
         run: |

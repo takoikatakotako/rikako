@@ -1,0 +1,120 @@
+name: Deploy LP Dev
+
+# dev.rikako.org（Basic 認証あり）。prod と違い main へのマージで自動反映する。
+# 本番は Deploy LP Prod（手動起動 + 承認）。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lp/**"
+      - ".github/workflows/deploy-lp-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-lp-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET: rikako-lp-development
+  CF_ALIAS: dev.rikako.org
+
+jobs:
+  deploy:
+    name: Deploy LP to S3 (dev)
+    runs-on: ubuntu-latest
+    # インフラの準備待ちを含むため、既定より短めに上限を切る。
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      # このワークフローと lp.tf が同じ PR で入ると、main へのマージで
+      # Apply Terraform Dev と並行起動する。順序の保証が無いので、バケットと
+      # CloudFront が使える状態になるまでここで待つ（初回だけ手動でやり直す、
+      # という運用にしないため）。
+      - name: Wait for LP infrastructure
+        env:
+          S3_BUCKET: ${{ env.S3_BUCKET }}
+          CF_ALIAS: ${{ env.CF_ALIAS }}
+        run: |
+          set -euo pipefail
+
+          wait_until() { # $1=説明 $2=上限秒 $3...=判定コマンド
+            local what="$1" limit="$2"; shift 2
+            local deadline=$(( $(date +%s) + limit ))
+            until "$@"; do
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+                echo "::error::${what} が ${limit} 秒以内に準備できませんでした。Apply Terraform Dev の結果を確認してください。"
+                exit 1
+              fi
+              echo "${what} を待機中..."
+              sleep 15
+            done
+            echo "${what}: OK"
+          }
+
+          bucket_ready() { aws s3api head-bucket --bucket "$S3_BUCKET" >/dev/null 2>&1; }
+          wait_until "S3 バケット ($S3_BUCKET)" 600 bucket_ready
+
+          find_distribution() {
+            DIST_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?contains(Aliases.Items, '${CF_ALIAS}')].Id | [0]" \
+              --output text)
+            [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]
+          }
+          wait_until "CloudFront distribution ($CF_ALIAS)" 900 find_distribution
+
+          # 作成直後は InProgress。展開が終わるまで invalidation は受け付けられない。
+          echo "distribution $DIST_ID の展開完了を待機中..."
+          aws cloudfront wait distribution-deployed --id "$DIST_ID"
+
+          echo "DIST_ID=$DIST_ID" >> "$GITHUB_ENV"
+
+      - name: Deploy to S3
+        run: |
+          set -euo pipefail
+          # aws s3 sync は「ローカルの方が新しい/サイズが違う」ファイルしか転送しない。
+          # 全同期してから後で cache-control を上書きしようとしても、2本目は
+          # スキップされて効かない。そのため **未アップロードのうちに** それぞれの
+          # cache-control で入れる（アセット先、HTML 後）。
+          #
+          # --delete は除外したパターンには効かないので、両方の pass に付けて
+          # それぞれの担当分の stale を消す。片方に付けないと、その種類の
+          # 消したファイルが公開され続ける。
+          aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
+            --delete \
+            --exclude "*.html" \
+            --cache-control "public, max-age=86400"
+          # HTML は毎回取り直させる。--exclude "*" を先に置かないと全ファイルが
+          # 対象のままになる（--include だけでは絞り込めない）。
+          aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
+            --delete \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        # DIST_ID は上の待機ステップで解決済み。
+        run: |
+          set -euo pipefail
+          echo "Invalidating $DIST_ID"
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Print summary
+        run: |
+          echo "## LP Deploy Complete (dev) 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ env.CF_ALIAS }}/ (Basic 認証あり)" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Bucket:** ${{ env.S3_BUCKET }}" >> $GITHUB_STEP_SUMMARY
