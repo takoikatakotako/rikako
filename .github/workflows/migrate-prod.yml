@@ -27,6 +27,7 @@ jobs:
   migrate:
     name: Run Migration
     runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

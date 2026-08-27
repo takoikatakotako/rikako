@@ -80,7 +80,7 @@ Rikako - 問題集アプリ
     ├── plan-terraform.yml          # PR時にTerraform plan
     ├── plan-datasync.yml           # PR時に data 差分plan
     ├── docs.yml                    # ドキュメント生成・デプロイ
-    └── migrate.yml                 # マイグレーションワークフロー
+    └── migrate-dev.yml / migrate-prod.yml # マイグレーション（手動 dispatch）
 ```
 
 ## データ形式
@@ -296,10 +296,10 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
    - MkDocsビルド
    - GitHub Pagesにデプロイ
 
-6. **migrate.yml** - 手動マイグレーション
-   - 環境選択（dev/prod）
-   - 方向選択（up/down）
-   - ステップ数指定
+6. **migrate-dev.yml / migrate-prod.yml** - 手動マイグレーション
+   - dev / prod で別ワークフロー（環境の踏み間違い防止）
+   - 方向選択（up/down）とステップ数指定
+   - prod は `production` environment の承認が必要
 
 ## コンテンツ配信（S3 + CloudFront）
 

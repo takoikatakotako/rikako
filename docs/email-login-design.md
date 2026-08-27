@@ -157,7 +157,7 @@ iOS/Web とも Amplify を使わず、Cognito の HTTPS API を直叩きする�
 - `POST /account/link`（匿名→アカウントのマージ、冪等）を openapi.yaml に追加し実装。
 - 認証必須化：`/account/*` は `publicOperations` から外す。学習系は「JWT があれば使う／無ければ従来」を許容（後方互換）。
 - テスト：マージの冪等性、複数端末で同一 user_id 解決。
-- migration は dev デプロイ後に `migrate.yml` を手動 dispatch（運用ルール）。
+- migration は dev デプロイ後に `Run Database Migration (Dev)` を手動 dispatch（運用ルール）。
 
 ### Phase 2 — iOS 結線（2〜3 PR）
 - Cognito User Pool クライアント（SignUp/Confirm/InitiateAuth/Refresh/Forgot）を URLSession で実装（`Infrastructure/Auth`）。

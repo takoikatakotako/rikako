@@ -51,12 +51,19 @@ gh workflow run "Deploy Admin API Dev" --repo takoikatakotako/rikako --ref main
 gh run list --repo takoikatakotako/rikako --limit 5
 ```
 
-**Prod**: 手動 dispatch のみ（自動デプロイなし）。
+**Prod**: 手動 dispatch のみ（自動デプロイなし）。さらに `production` environment の
+**承認**を通すまでジョブは `waiting` で止まる。起動しただけでは本番に出ない。
 
 ```bash
 gh workflow run "Deploy API Prod" --repo takoikatakotako/rikako --ref main
 gh workflow run "Deploy Admin API Prod" --repo takoikatakotako/rikako --ref main
+
+# 起動後、Actions の実行ページで "Review deployments" から承認する
+gh run list --repo takoikatakotako/rikako --limit 5
 ```
+
+> 管理画面を API + フロントまとめて出すなら `Deploy Admin Prod`。呼び出す 2 本が
+> それぞれ承認を要求するため、**承認は 2 回**必要になる。
 
 #### デプロイフロー
 
@@ -68,11 +75,15 @@ gh workflow run "Deploy Admin API Prod" --repo takoikatakotako/rikako --ref main
 
 ### 管理画面フロントエンド
 
-mainブランチへのマージで `admin/` 配下に変更がある場合に自動デプロイ。
+**Dev**: mainブランチへのマージで `admin/` 配下に変更がある場合に自動デプロイ。
+**Prod**: 手動 dispatch + `production` environment の承認。
 
 ```bash
-# 手動デプロイ
+# 手動デプロイ（Dev）
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref main
+
+# Prod（承認が必要）
+gh workflow run "Deploy Admin Frontend Prod" --repo takoikatakotako/rikako --ref main
 ```
 
 #### デプロイフロー
@@ -300,32 +311,37 @@ MISMATCH なら `cd terraform/environments/prod && terraform plan`（差分が�
 
 ## 3. マイグレーション実行手順
 
-GitHub Actions のワークフローで実行する。
+GitHub Actions のワークフローで実行する。**dev / prod で別ワークフロー**（環境を
+引数で選ぶ形にすると、prod のつもりで dev、あるいはその逆を踏みやすいため）。
+どちらも自動実行はされず、手動 dispatch のみ。
 
 ```bash
-# GitHub上で手動実行（推奨）
-gh workflow run "Run Database Migration" \
+# Dev
+gh workflow run "Run Database Migration (Dev)" \
   --repo takoikatakotako/rikako \
-  -f environment=dev \
-  -f direction=up \
-  -f steps=all
+  -f direction=up
+
+# Prod（起動後、"Review deployments" で承認するまで waiting のまま止まる）
+gh workflow run "Run Database Migration (Prod)" \
+  --repo takoikatakotako/rikako \
+  -f direction=up
 ```
+
+新規マイグレーションは **dev のデプロイ後に dev へ適用**する運用。
 
 ### パラメータ
 
 | パラメータ | 説明 |
 |-----------|------|
-| environment | `dev` または `prod` |
 | direction | `up`（適用）または `down`（ロールバック） |
-| steps | `all`（全て）または数値（ステップ数） |
+| steps | ステップ数。空なら全て |
 
 ### マイグレーションロールバック
 
 ```bash
 # 1ステップ戻す
-gh workflow run "Run Database Migration" \
+gh workflow run "Run Database Migration (Dev)" \
   --repo takoikatakotako/rikako \
-  -f environment=dev \
   -f direction=down \
   -f steps=1
 ```
