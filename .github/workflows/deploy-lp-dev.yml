@@ -28,6 +28,8 @@ jobs:
   deploy:
     name: Deploy LP to S3 (dev)
     runs-on: ubuntu-latest
+    # インフラの準備待ちを含むため、既定より短めに上限を切る。
+    timeout-minutes: 40
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -37,6 +39,48 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
           aws-region: ${{ env.AWS_REGION }}
+
+      # このワークフローと lp.tf が同じ PR で入ると、main へのマージで
+      # Apply Terraform Dev と並行起動する。順序の保証が無いので、バケットと
+      # CloudFront が使える状態になるまでここで待つ（初回だけ手動でやり直す、
+      # という運用にしないため）。
+      - name: Wait for LP infrastructure
+        env:
+          S3_BUCKET: ${{ env.S3_BUCKET }}
+          CF_ALIAS: ${{ env.CF_ALIAS }}
+        run: |
+          set -euo pipefail
+
+          wait_until() { # $1=説明 $2=上限秒 $3...=判定コマンド
+            local what="$1" limit="$2"; shift 2
+            local deadline=$(( $(date +%s) + limit ))
+            until "$@"; do
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+                echo "::error::${what} が ${limit} 秒以内に準備できませんでした。Apply Terraform Dev の結果を確認してください。"
+                exit 1
+              fi
+              echo "${what} を待機中..."
+              sleep 15
+            done
+            echo "${what}: OK"
+          }
+
+          bucket_ready() { aws s3api head-bucket --bucket "$S3_BUCKET" >/dev/null 2>&1; }
+          wait_until "S3 バケット ($S3_BUCKET)" 600 bucket_ready
+
+          find_distribution() {
+            DIST_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?contains(Aliases.Items, '${CF_ALIAS}')].Id | [0]" \
+              --output text)
+            [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]
+          }
+          wait_until "CloudFront distribution ($CF_ALIAS)" 900 find_distribution
+
+          # 作成直後は InProgress。展開が終わるまで invalidation は受け付けられない。
+          echo "distribution $DIST_ID の展開完了を待機中..."
+          aws cloudfront wait distribution-deployed --id "$DIST_ID"
+
+          echo "DIST_ID=$DIST_ID" >> "$GITHUB_ENV"
 
       - name: Deploy to S3
         run: |
@@ -49,14 +93,9 @@ jobs:
             --include "*.html"
 
       - name: Invalidate CloudFront cache
+        # DIST_ID は上の待機ステップで解決済み。
         run: |
-          DIST_ID=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?contains(Aliases.Items, '${{ env.CF_ALIAS }}')].Id | [0]" \
-            --output text)
-          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
-            echo "CloudFront distribution for ${{ env.CF_ALIAS }} not found (terraform 未適用?)"
-            exit 1
-          fi
+          set -euo pipefail
           echo "Invalidating $DIST_ID"
           aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
 
