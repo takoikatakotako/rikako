@@ -84,13 +84,26 @@ jobs:
 
       - name: Deploy to S3
         run: |
+          set -euo pipefail
+          # aws s3 sync は「ローカルの方が新しい/サイズが違う」ファイルしか転送しない。
+          # 全同期してから後で cache-control を上書きしようとしても、2本目は
+          # スキップされて効かない。そのため **未アップロードのうちに** それぞれの
+          # cache-control で入れる（アセット先、HTML 後）。
+          #
+          # --delete は除外したパターンには効かないので、両方の pass に付けて
+          # それぞれの担当分の stale を消す。片方に付けないと、その種類の
+          # 消したファイルが公開され続ける。
           aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
             --delete \
-            --cache-control "public, max-age=86400" \
-            --exclude "*.html"
+            --exclude "*.html" \
+            --cache-control "public, max-age=86400"
+          # HTML は毎回取り直させる。--exclude "*" を先に置かないと全ファイルが
+          # 対象のままになる（--include だけでは絞り込めない）。
           aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
-            --cache-control "public, max-age=0, must-revalidate" \
-            --include "*.html"
+            --delete \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "public, max-age=0, must-revalidate"
 
       - name: Invalidate CloudFront cache
         # DIST_ID は上の待機ステップで解決済み。
