@@ -1,11 +1,9 @@
-name: Deploy LP
+name: Deploy LP Prod
 
+# LP は prod アカウントから rikako.org を直接配信している（dev が無い）。
+# main へのマージで即公開されると差し戻しが効かないため、他の prod 反映と同じく
+# 手動起動 + environment: production の承認を通す。
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "lp/**"
   workflow_dispatch:
 
 permissions:
@@ -21,6 +19,7 @@ jobs:
   deploy:
     name: Deploy LP to S3
     runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

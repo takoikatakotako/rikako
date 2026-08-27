@@ -92,6 +92,15 @@ gh workflow run "Deploy Admin Frontend Prod" --repo takoikatakotako/rikako --ref
 2. S3にsync（静的アセット: 1年キャッシュ、HTML: キャッシュなし）
 3. CloudFrontキャッシュを無効化
 
+### LP（rikako.org）
+
+`lp/` の静的ファイルを prod アカウントの S3 + CloudFront から配信している。**dev が無く、
+出したものがそのまま公開される**ため、手動起動 + `production` environment の承認が必要。
+
+```bash
+gh workflow run "Deploy LP Prod" --repo takoikatakotako/rikako --ref main
+```
+
 ### 学習用 Web（it / chemistry）
 
 `web/` は 1 つのコードベースを `NEXT_PUBLIC_SITE` で切り替えてビルドしている。
