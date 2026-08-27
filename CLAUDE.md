@@ -243,7 +243,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 ### 環境
 
 - **Dev環境** (AWSアカウント: 197865631794)
-  - LP: https://rikako.org/ ※ LP は prod アカウントから配信
+  - LP: https://dev.rikako.org/ （CloudFront + Basic Auth、S3: `rikako-lp-development`）
   - 公開API: https://api.dev.rikako.org/ （API Gateway HTTP API、rate=50/burst=100）
   - 管理画面: https://admin.dev.rikako.org/ （CloudFront + Basic Auth）
   - 管理API: https://admin.dev.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）

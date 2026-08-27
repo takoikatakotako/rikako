@@ -1,0 +1,68 @@
+name: Deploy LP Dev
+
+# dev.rikako.org（Basic 認証あり）。prod と違い main へのマージで自動反映する。
+# 本番は Deploy LP Prod（手動起動 + 承認）。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "lp/**"
+      - ".github/workflows/deploy-lp-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-lp-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET: rikako-lp-development
+  CF_ALIAS: dev.rikako.org
+
+jobs:
+  deploy:
+    name: Deploy LP to S3 (dev)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
+            --delete \
+            --cache-control "public, max-age=86400" \
+            --exclude "*.html"
+          aws s3 sync lp/ s3://${{ env.S3_BUCKET }}/ \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --include "*.html"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${{ env.CF_ALIAS }}')].Id | [0]" \
+            --output text)
+          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
+            echo "CloudFront distribution for ${{ env.CF_ALIAS }} not found (terraform 未適用?)"
+            exit 1
+          fi
+          echo "Invalidating $DIST_ID"
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+
+      - name: Print summary
+        run: |
+          echo "## LP Deploy Complete (dev) 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ env.CF_ALIAS }}/ (Basic 認証あり)" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Bucket:** ${{ env.S3_BUCKET }}" >> $GITHUB_STEP_SUMMARY

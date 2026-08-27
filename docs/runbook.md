@@ -94,12 +94,20 @@ gh workflow run "Deploy Admin Frontend Prod" --repo takoikatakotako/rikako --ref
 
 ### LP（rikako.org）
 
-`lp/` の静的ファイルを prod アカウントの S3 + CloudFront から配信している。**dev が無く、
-出したものがそのまま公開される**ため、手動起動 + `production` environment の承認が必要。
+`lp/` の静的ファイルを S3 + CloudFront から配信している。
+
+- **dev**: `dev.rikako.org`（Basic 認証あり）。main へのマージで `lp/` に変更があれば自動デプロイ
+- **prod**: `rikako.org`。手動起動 + `production` environment の**承認**
 
 ```bash
+# dev（手動で出したいとき）
+gh workflow run "Deploy LP Dev" --repo takoikatakotako/rikako --ref main
+
+# prod（起動後、承認するまで waiting のまま止まる）
 gh workflow run "Deploy LP Prod" --repo takoikatakotako/rikako --ref main
 ```
+
+Basic 認証の資格情報は管理画面と共通（SSM の `admin-basic-auth-user` / `-password`）。
 
 ### 学習用 Web（it / chemistry）
 
