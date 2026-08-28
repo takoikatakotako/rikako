@@ -108,17 +108,24 @@ jobs:
       - name: Deploy to S3
         working-directory: web
         run: |
-          # まず全ファイルを同期し stale を削除する。--delete が html も対象になるよう
-          # 除外を付けない（除外すると stale な html/xml が消えず公開され続ける）。
+          set -euo pipefail
+          # aws s3 sync は「ローカルの方が新しい/サイズが違う」ファイルしか転送しない。
+          # 全同期してから cache-control を上書きしようとしても、2本目はスキップされて
+          # 効かない（#336）。そのため対象を重ならないように分け、それぞれ最初から
+          # 目的の cache-control で入れる。--delete も両方に付けて各自の stale を消す。
+          #
+          # immutable にしてよいのは _next/static/ のみ。Next.js がハッシュ名で出力する
+          # ため内容が変われば URL も変わる。public/ の画像などはハッシュが付かないので、
+          # 1年 immutable にすると更新が届かなくなる。
           aws s3 sync out/ s3://${{ matrix.bucket }}/ \
             --delete \
+            --exclude "_next/static/*" \
             --cache-control "public, max-age=0, must-revalidate"
-          # ハッシュ付きアセット（html/txt/xml 以外）だけ長期 immutable に上書き（削除なし）。
           aws s3 sync out/ s3://${{ matrix.bucket }}/ \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "*.html" \
-            --exclude "*.txt" \
-            --exclude "*.xml"
+            --delete \
+            --exclude "*" \
+            --include "_next/static/*" \
+            --cache-control "public, max-age=31536000, immutable"
 
       - name: Invalidate CloudFront cache
         run: |
