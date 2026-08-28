@@ -22,7 +22,12 @@ DEV = mod.EXPECTED["deploy-web-dev.yml"]
 
 # 実ワークフローの検証 step 相当（run の中身だけ）。
 VALID_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
-                   'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main')
+                   'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main && '
+                   'test -n "$(git tag --points-at "$CHECKOUT_REF" -l \'web-prod/*\')"')
+
+# dev はデプロイ実績タグを要求しない（自由に出せてよい）。
+DEV_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
+                 'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main')
 
 
 # 実ワークフローの S3 同期相当。対象が重ならない 2 本立て。
@@ -98,7 +103,8 @@ class CheckFrontendEnvTest(unittest.TestCase):
     def test_valid_dev_workflow_passes(self):
         self.assertEqual(
             self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch"],
-                                    environment=None, env_name="dev"),
+                                    environment=None, env_name="dev",
+                                    validate=DEV_REF_CHECK),
                            DEV, "deploy-web-dev.yml"), [])
 
     def test_both_workflows_are_checked(self):
@@ -243,6 +249,19 @@ class CheckFrontendEnvTest(unittest.TestCase):
                            'git merge-base --is-ancestor x origin/main'))
         self.assertTrue(any("直書き" in e for e in errors), errors)
 
+    def test_prod_without_deploy_tag_restriction_is_detected(self):
+        """main 履歴上でも未デプロイの commit へ戻せてしまう状態を防ぐ。"""
+        errors = self.run_check(workflow(PROD, validate=DEV_REF_CHECK))
+        self.assertTrue(any("web-prod/*" in e for e in errors), errors)
+
+    def test_dev_does_not_require_deploy_tag(self):
+        """dev は実績タグを要求しない（要求すると初回が回らない）。"""
+        errors = self.run_check(
+            workflow(DEV, triggers=["push", "workflow_dispatch"], environment=None,
+                     env_name="dev", validate=DEV_REF_CHECK),
+            DEV, "deploy-web-dev.yml")
+        self.assertEqual(errors, [])
+
     def test_shallow_checkout_is_detected(self):
         """履歴が無いと merge-base が常に失敗する（= 検証が形骸化する）。"""
         errors = self.run_check(workflow(PROD, fetch_depth=1))
@@ -298,7 +317,7 @@ aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-
         """dev に承認ゲートが付くと自動デプロイが止まる。"""
         errors = self.run_check(
             workflow(DEV, triggers=["push", "workflow_dispatch"],
-                     environment="production", env_name="dev"),
+                     environment="production", env_name="dev", validate=DEV_REF_CHECK),
             DEV, "deploy-web-dev.yml")
         self.assertTrue(any("environment" in e for e in errors), errors)
 
@@ -312,7 +331,7 @@ aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-
     def test_dev_without_push_trigger_is_detected(self):
         """dev だけ手動のまま取り残されるのを防ぐ（化学版で実際に起きた）。"""
         errors = self.run_check(workflow(DEV, triggers=["workflow_dispatch"], environment=None,
-                                         env_name="dev"),
+                                         env_name="dev", validate=DEV_REF_CHECK),
                                 DEV, "deploy-web-dev.yml")
         self.assertTrue(any("トリガー" in e for e in errors), errors)
 

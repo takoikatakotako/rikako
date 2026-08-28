@@ -150,7 +150,7 @@ def check_cache_control(path: Path, job: dict | None) -> list[str]:
     return [f"{path.name}: s3 sync する step が見つからない"]
 
 
-def check_ref_validation(path: Path, job: dict | None) -> list[str]:
+def check_ref_validation(path: Path, job: dict | None, env_name: str) -> list[str]:
     """checkout_ref の検証が、依存インストールより前に行われることを確認する。
 
     workflow_dispatch の checkout_ref はそのまま actions/checkout に渡るため、
@@ -177,6 +177,15 @@ def check_ref_validation(path: Path, job: dict | None) -> list[str]:
 
     if validate_at is None:
         return [f"{path.name}: checkout_ref が main 履歴上の commit か検証していない"]
+
+    # prod のロールバック先は「本番へ出した実績のある commit」に限る。
+    # main 履歴上でも未デプロイの commit は動作実績が無い。
+    if env_name == "prod":
+        validate_run = str(steps[validate_at].get("run", ""))
+        if "--points-at" not in validate_run or "web-prod/" not in validate_run:
+            errors.append(
+                f"{path.name}: ロールバック先を web-prod/* タグの付いた commit に限定していない"
+            )
     if install_at is not None and validate_at > install_at:
         errors.append(f"{path.name}: checkout_ref の検証が npm ci より後になっている")
 
@@ -222,7 +231,7 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
     env_name = path.stem.rsplit("-", 1)[-1]
 
     errors += check_matrix(path, job, env_name)
-    errors += check_ref_validation(path, job)
+    errors += check_ref_validation(path, job, env_name)
     errors += check_cache_control(path, job)
 
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
