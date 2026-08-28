@@ -25,11 +25,19 @@ VALID_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
                    'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main')
 
 
+# 実ワークフローの S3 同期相当。対象が重ならない 2 本立て。
+VALID_SYNC = """
+aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
+aws s3 sync out/ s3://bucket/ --delete --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
+"""
+
+
 def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run build",
              extra_step_env: dict | None = None, triggers: list | None = None,
              include: list | None = None, environment: str | None = "production",
              env_name: str = "prod", checkout: bool = True, fetch_depth: int = 0,
-             validate: str | None = VALID_REF_CHECK, install: bool = True) -> str:
+             validate: str | None = VALID_REF_CHECK, install: bool = True,
+             sync: str | None = VALID_SYNC) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
@@ -57,6 +65,9 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
     if install:
         lines += ["      - name: Install", f"        working-directory: {working_dir}",
                   "        run: npm ci"]
+    if sync is not None:
+        lines += ["      - name: Deploy to S3", "        run: |"]
+        lines += [f"          {l}" for l in sync.strip().splitlines()]
     lines += [
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
@@ -236,6 +247,45 @@ class CheckFrontendEnvTest(unittest.TestCase):
         """履歴が無いと merge-base が常に失敗する（= 検証が形骸化する）。"""
         errors = self.run_check(workflow(PROD, fetch_depth=1))
         self.assertTrue(any("fetch-depth" in e for e in errors), errors)
+
+    # --- キャッシュ制御（#336: 2本目が no-op になっていた）---
+
+    def test_valid_sync_passes(self):
+        self.assertEqual(self.run_check(workflow(PROD)), [])
+
+    def test_overwrite_style_sync_is_detected(self):
+        """全同期 → 後から上書き、は sync がスキップして効かない。"""
+        errors = self.run_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-revalidate"
+aws s3 sync out/ s3://bucket/ --cache-control "public, max-age=31536000, immutable" --exclude "*.html"
+"""))
+        self.assertTrue(errors, errors)
+
+    def test_missing_delete_is_detected(self):
+        """--delete の無い pass があると、その担当分の stale が消えない。"""
+        errors = self.run_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/ --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
+aws s3 sync out/ s3://bucket/ --delete --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
+"""))
+        self.assertTrue(any("--delete" in e for e in errors), errors)
+
+    def test_immutable_beyond_next_static_is_detected(self):
+        """public/ の画像はハッシュが付かない。1年 immutable にすると更新が届かない。"""
+        errors = self.run_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
+aws s3 sync out/ s3://bucket/ --delete --exclude "*.html" --cache-control "public, max-age=31536000, immutable"
+"""))
+        self.assertTrue(any("_next/static" in e for e in errors), errors)
+
+    def test_single_sync_is_detected(self):
+        errors = self.run_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-revalidate"
+"""))
+        self.assertTrue(any("2 回" in e for e in errors), errors)
+
+    def test_missing_sync_step_is_detected(self):
+        errors = self.run_check(workflow(PROD, sync=None))
+        self.assertTrue(any("s3 sync する step" in e for e in errors), errors)
 
     # --- 本番の承認ゲート ---
 

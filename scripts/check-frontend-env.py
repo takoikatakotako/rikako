@@ -104,6 +104,52 @@ def check_matrix(path: Path, job: dict | None, env_name: str) -> list[str]:
     return []
 
 
+def check_cache_control(path: Path, job: dict | None) -> list[str]:
+    """S3 同期の cache-control が実際に効く形になっているかを検証する（#336）。
+
+    aws s3 sync は差分のあるファイルしか転送しないため、「全同期してから
+    cache-control を上書き」という書き方だと 2 本目がスキップされて効かない。
+    実際 it.rikako.org のハッシュ付きチャンクは immutable 指定にもかかわらず
+    max-age=0 で配信されていた。対象が重ならないように分けることを強制する。
+    """
+    for step in (job or {}).get("steps") or []:
+        run = str(step.get("run", ""))
+        if "aws s3 sync" not in run:
+            continue
+
+        errors = []
+        # 各 sync 呼び出しを、行継続（\）をつないでから取り出す。
+        joined = run.replace("\\\n", " ")
+        syncs = [
+            line for line in joined.splitlines()
+            if "aws s3 sync" in line and not line.strip().startswith("#")
+        ]
+
+        if len(syncs) != 2:
+            return [f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。長期キャッシュ用と再検証用）"]
+
+        immutable = [c for c in syncs if "immutable" in c]
+        revalidate = [c for c in syncs if "must-revalidate" in c]
+        if len(immutable) != 1 or len(revalidate) != 1:
+            errors.append(f"{path.name}: immutable / must-revalidate の sync が 1 本ずつになっていない")
+            return errors
+
+        for cmd in syncs:
+            if "--delete" not in cmd:
+                errors.append(f"{path.name}: --delete の無い s3 sync がある（stale が消えない）")
+
+        # ハッシュ名が付くのは _next/static のみ。public/ の画像などを immutable に
+        # すると、内容を変えても URL が同じままで更新が届かなくなる。
+        if '--include "_next/static/*"' not in immutable[0] or '--exclude "*"' not in immutable[0]:
+            errors.append(f'{path.name}: immutable の sync は --exclude "*" --include "_next/static/*" に絞ること')
+        if '--exclude "_next/static/*"' not in revalidate[0]:
+            errors.append(f'{path.name}: must-revalidate の sync が _next/static を除外していない（対象が重なると後勝ちにならず効かない）')
+
+        return errors
+
+    return [f"{path.name}: s3 sync する step が見つからない"]
+
+
 def check_ref_validation(path: Path, job: dict | None) -> list[str]:
     """checkout_ref の検証が、依存インストールより前に行われることを確認する。
 
@@ -177,6 +223,7 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
 
     errors += check_matrix(path, job, env_name)
     errors += check_ref_validation(path, job)
+    errors += check_cache_control(path, job)
 
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
     triggers = workflow.get("on") or workflow.get(True) or {}
