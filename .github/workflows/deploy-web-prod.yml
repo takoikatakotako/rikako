@@ -60,6 +60,8 @@ jobs:
         env:
           # expression を run に直書きするとシェル入力になるため env 経由で渡す。
           CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
+          # 明示指定されたか（= ロールバックか）を区別するために生の入力も見る。
+          CHECKOUT_REF_INPUT: ${{ inputs.checkout_ref }}
         run: |
           set -euo pipefail
           if [[ ! "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
@@ -71,6 +73,20 @@ jobs:
             echo "checkout_ref が main の履歴上にありません: $CHECKOUT_REF"
             exit 1
           fi
+
+          # ロールバック時は「実際に本番へ出したことがある commit」だけを許可する。
+          # main 履歴上でも未デプロイの commit は動作実績が無く、障害対応で
+          # 戻すつもりが未検証のコードを出すことになりかねない。
+          # 実績は deploy 成功時に打つ web-prod/* タグで表す。
+          if [ -n "$CHECKOUT_REF_INPUT" ]; then
+            git fetch --tags --quiet origin
+            if [ -z "$(git tag --points-at "$CHECKOUT_REF" -l 'web-prod/*')" ]; then
+              echo "::error::$CHECKOUT_REF には web-prod/* タグがありません（本番へ出した実績が無い commit です）。"
+              echo "ロールバック候補は次で確認できます: git tag -l 'web-prod/*' --sort=-refname"
+              exit 1
+            fi
+          fi
+
           echo "checkout_ref OK: $CHECKOUT_REF"
 
       - name: Setup Node.js
@@ -142,3 +158,25 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** https://${{ matrix.alias }}/" >> $GITHUB_STEP_SUMMARY
           echo "**Ref:** \`$CHECKOUT_REF\`" >> $GITHUB_STEP_SUMMARY
+
+  # 両サイトが成功したときだけタグを打つ。matrix は fail-fast: false なので、
+  # 片方だけ成功した実行に印を付けると「両サイトがこの commit で揃っている」
+  # ことを保証できない。needs は全 leg の成功を待つ。
+  release-note:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # 実際に配信した commit にタグを打つ（ロールバック時は過去の commit）。
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          fetch-depth: 0
+      - name: Create deploy release note
+        uses: ./.github/actions/deploy-release-note
+        with:
+          tag-prefix: web-prod
+          title: "Web Prod"
+          github-token: ${{ github.token }}

@@ -176,8 +176,25 @@ gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref 
 存在しないことがある。そのため **ワークフローは main から起動し、`checkout_ref` で
 ビルド対象の commit だけを戻す**。
 
-`checkout_ref` に指定できるのは **main 履歴上の 40 桁 commit SHA だけ**（`npm ci` の前に
-検証して弾く）。branch 名を渡して未マージのコードを本番権限のジョブで実行させないため。
+`checkout_ref` の条件は次の 3 つ（すべて `npm ci` の前に検証して弾く）。
+
+1. 40 桁の commit SHA（branch 名を渡して未マージのコードを本番権限のジョブで実行させないため）
+2. main の履歴上にある
+3. **prod のみ**: `web-prod/*` タグが付いている = 実際に本番へ出した実績がある
+
+3 があるのは、main 履歴上でも未デプロイの commit は動作実績が無いため。障害対応で
+「戻す」つもりが未検証のコードを本番へ出す、という事故を防ぐ。
+
+タグは `Deploy Web Prod` が **両サイトとも成功したとき**に自動で打たれる（GitHub Release
+も作られる）。片方だけ成功した実行では打たれない。
+
+```bash
+# ロールバック候補（新しい順）
+git fetch --tags
+git tag -l 'web-prod/*' --sort=-refname | head -5
+# タグが指す commit を確認
+git rev-list -n 1 web-prod/20260827-120000
+```
 
 ```bash
 gh workflow run "Deploy Web Prod" --repo takoikatakotako/rikako --ref main \
