@@ -102,5 +102,10 @@ jobs:
       - name: Test guard scripts
         run: python3 -m unittest discover -s scripts/tests
 
+      # デプロイ記録（タグ）とリリースノートのスキップ条件が混ざると、
+      # ロールバック後に最新タグが戻す前を指し続ける。実リポジトリで検証する。
+      - name: Test deploy-release-note action
+        run: ./scripts/tests/test_deploy_release_note.sh
+
       - name: Check frontend deploy env
         run: python3 scripts/check-frontend-env.py
