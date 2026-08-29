@@ -4,6 +4,11 @@ name: Deploy Portal Prod
 # 事前に prod の Terraform（portal_frontend.tf）を apply して S3/CloudFront を作っておくこと。
 on:
   workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: "ロールバック用。戻したい commit の 40 桁 SHA（portal-prod/* タグが付いたものだけ。未指定なら main の HEAD）"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,6 +29,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # ワークフロー定義は起動した ref（= main）のものを使いつつ、
+          # ビルド対象の commit だけ過去に戻せるようにする。
+          # --ref に古い SHA は渡せない（branch/tag のみ）ため、この形にしている。
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          # 下の祖先チェックとタグ確認に履歴が要る。
+          fetch-depth: 0
+
+      # checkout 自体はコードを実行しないので、npm ci の lifecycle script より前に
+      # ここで弾く。これが無いと任意の branch を指定するだけで、この job の権限
+      # （environment: production と id-token: write）で未マージのコードを実行できる。
+      - name: Validate checkout ref
+        env:
+          # expression を run に直書きするとシェル入力になるため env 経由で渡す。
+          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
+          CHECKOUT_REF_INPUT: ${{ inputs.checkout_ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "checkout_ref は 40 桁の commit SHA のみ指定できます: $CHECKOUT_REF"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$CHECKOUT_REF" origin/main; then
+            echo "checkout_ref が main の履歴上にありません: $CHECKOUT_REF"
+            exit 1
+          fi
+
+          # ロールバック時は「実際に本番へ出したことがある commit」だけを許可する。
+          # main 履歴上でも未デプロイの commit は動作実績が無い。
+          if [ -n "$CHECKOUT_REF_INPUT" ]; then
+            git fetch --tags --quiet origin
+            if [ -z "$(git tag --points-at "$CHECKOUT_REF" -l 'portal-prod/*')" ]; then
+              echo "::error::$CHECKOUT_REF には portal-prod/* タグがありません（本番へ出した実績が無い commit です）。"
+              echo "ロールバック候補は次で確認できます: git tag -l 'portal-prod/*' --sort=-refname"
+              exit 1
+            fi
+          fi
+
+          echo "checkout_ref OK: $CHECKOUT_REF"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -78,7 +123,33 @@ jobs:
           aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
 
       - name: Print summary
+        env:
+          CHECKOUT_REF: ${{ inputs.checkout_ref || github.sha }}
         run: |
           echo "## Portal Deploy Complete (prod) 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** https://${{ env.CF_ALIAS }}/" >> $GITHUB_STEP_SUMMARY
+          echo "**Ref:** \`$CHECKOUT_REF\`" >> $GITHUB_STEP_SUMMARY
+
+  # デプロイ成功時にタグと GitHub Release を作る。
+  # 「最後にいつ・どの commit を出したか」がタグで分かるようにするのが主目的
+  # （portal prod は 8/15 から 2 週間、更新されていないことに気づけなかった）。
+  # ロールバック時の候補もこのタグで絞る。
+  release-note:
+    needs: [build-and-deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # 実際に配信した commit にタグを打つ（ロールバック時は過去の commit）。
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          fetch-depth: 0
+      - name: Create deploy release note
+        uses: ./.github/actions/deploy-release-note
+        with:
+          tag-prefix: portal-prod
+          title: "Portal Prod"
+          github-token: ${{ github.token }}

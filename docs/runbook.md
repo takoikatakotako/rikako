@@ -109,6 +109,31 @@ gh workflow run "Deploy LP Prod" --repo takoikatakotako/rikako --ref main
 
 Basic 認証の資格情報は管理画面と共通（SSM の `/rikako/admin-basic-auth-user` / `/rikako/admin-basic-auth-password`）。
 
+### アカウントポータル（account.rikako.org）
+
+メールログイン・アカウント管理の画面（`portal/`）。
+
+- **dev**: `account.dev.rikako.org`（Basic 認証あり）。main へのマージで `portal/` に変更があれば自動デプロイ
+- **prod**: `account.rikako.org`。手動起動 + `production` environment の**承認**
+
+```bash
+gh workflow run "Deploy Portal Dev" --repo takoikatakotako/rikako --ref main
+gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main
+```
+
+**最後にいつ prod へ出したか**はタグで確認する。prod デプロイが成功すると
+`portal-prod/<日時>` のタグと GitHub Release が作られる。
+
+```bash
+git fetch --tags
+git tag -l 'portal-prod/*' --sort=-refname | head -3
+# そのタグ以降に portal/ が変わっていれば、prod は古い
+git log --oneline "$(git tag -l 'portal-prod/*' --sort=-refname | head -1)"..main -- portal/
+```
+
+> prod が 2 週間更新されていないことに気づけなかった実例がある（#283 の修正が
+> ポータルだけ取り残された）。iOS や API を出したら、ポータルも要るか確認すること。
+
 ### 学習用 Web（it / chemistry）
 
 `web/` は 1 つのコードベースを `NEXT_PUBLIC_SITE` で切り替えてビルドしている。
@@ -168,6 +193,16 @@ gitで前のコミットに戻してデプロイワークフローを再実行�
 ```bash
 # 直前のコミットでデプロイ
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref <commit-sha>
+```
+
+### アカウントポータル（account.rikako.org）
+
+web と同じ方式。`portal-prod/*` タグが付いた commit にだけ戻せる。
+
+```bash
+git tag -l 'portal-prod/*' --sort=-refname | head -5
+gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main \
+  -f checkout_ref=<タグが指す commit>
 ```
 
 ### 学習用 Web（it / chemistry）
