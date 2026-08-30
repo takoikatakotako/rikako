@@ -88,7 +88,7 @@ struct SettingsView: View {
                 Divider().padding(.leading, 48)
                 infoRow(symbol: "star.fill", title: "レビューする", accentColor: .orange)
                 Divider().padding(.leading, 48)
-                infoRow(symbol: "bird", title: "理科子さんのTwitter", accentColor: .pink)
+                infoRow(symbol: "bird", title: "理科子さんのX", accentColor: .pink)
             }
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18))
