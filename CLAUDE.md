@@ -53,6 +53,11 @@ Rikako - 問題集アプリ
 │   │   └── importer/       # インポーター実装
 │   ├── Dockerfile.lambda   # Lambda用Dockerイメージ（公開API）
 │   └── Dockerfile.admin    # Lambda用Dockerイメージ（管理API）
+├── lp/                     # ランディングページ（素の静的HTML、ビルド無し）
+├── web/                    # 問題集Web（Next.js 静的export。NEXT_PUBLIC_SITE で it / chemistry を出し分け）
+├── portal/                 # アカウントポータル（Next.js 静的export。ログイン・新規登録）
+├── admin/                  # 管理画面フロントエンド（Next.js）
+├── ios/                    # iOSアプリ（SwiftUI）
 ├── data/
 │   ├── questions/          # 問題データ（YAML）
 │   ├── workbooks/          # 問題集データ（YAML）
@@ -244,6 +249,8 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 - **Dev環境** (AWSアカウント: 197865631794)
   - LP: https://dev.rikako.org/ （CloudFront + Basic Auth、S3: `rikako-lp-development`）
+  - 問題集Web: https://it.dev.rikako.org/ / https://chemistry.dev.rikako.org/ （`web/` を NEXT_PUBLIC_SITE で出し分け、Basic Auth）
+  - アカウントポータル: https://account.dev.rikako.org/ （`portal/`、CloudFront + Basic Auth）
   - 公開API: https://api.dev.rikako.org/ （API Gateway HTTP API、rate=50/burst=100）
   - 管理画面: https://admin.dev.rikako.org/ （CloudFront + Basic Auth）
   - 管理API: https://admin.dev.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）
@@ -257,6 +264,8 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 
 - **Prod環境** (AWSアカウント: 211125415945)
   - LP: https://rikako.org/
+  - 問題集Web: https://it.rikako.org/ / https://chemistry.rikako.org/ （`web/` を NEXT_PUBLIC_SITE で出し分け、一般公開）
+  - アカウントポータル: https://account.rikako.org/ （`portal/`、一般公開。apex ではなくサブドメイン。LP を残すため）
   - 公開API: https://api.rikako.org/ （API Gateway HTTP API、rate=100/burst=200）
   - 管理画面: https://admin.rikako.org/ （CloudFront + Basic Auth）
   - 管理API: https://admin.rikako.org/api （CloudFront → Lambda Function URL、OAC + AWS_IAM）
