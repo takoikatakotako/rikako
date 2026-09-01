@@ -90,6 +90,9 @@ jobs:
           NEXT_PUBLIC_COGNITO_CLIENT_ID: 4sqsett62vuckqt68d72nf2083
           NEXT_PUBLIC_API_BASE_URL: https://api.rikako.org
           NEXT_PUBLIC_PORTAL_URL: https://account.rikako.org
+          # GA4。rikako.org 配下は 1 ストリームで測定するため lp と同じ測定ID。
+          # dev のデプロイでは渡さない（未設定ならタグを出さない）。
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: G-G3C92B498N
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6

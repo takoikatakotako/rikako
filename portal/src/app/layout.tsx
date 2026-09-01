@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default function RootLayout({
             <p>© 2026 Rikako</p>
           </div>
         </footer>
+        <GoogleAnalytics />
       </body>
     </html>
   );
