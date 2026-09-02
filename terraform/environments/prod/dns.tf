@@ -114,3 +114,22 @@ resource "cloudflare_record" "docs" {
   ttl     = 1
   proxied = false
 }
+
+# =============================================================================
+# Google Search Console
+# =============================================================================
+
+# ドメインプロパティ `rikako.org` の所有権確認用 TXT（apex）。
+# ドメインプロパティなので lp / it / chemistry / account すべてを 1 つで確認できる。
+# GA4 との Search Console リンクにはこの確認済みプロパティが必要。
+#
+# apex には SPF など他の TXT が同居しうるが、Cloudflare は同名の TXT を
+# 複数レコードとして持てるためこの1本を独立して管理する。
+resource "cloudflare_record" "google_site_verification" {
+  zone_id = data.cloudflare_zone.rikako.id
+  name    = "@"
+  type    = "TXT"
+  content = "google-site-verification=Eg365blm8UwHbnGQbjqUN1nLkGLx26znlfrzPKOE-Fo"
+  ttl     = 1
+  proxied = false
+}
