@@ -104,8 +104,9 @@ resource "neon_endpoint" "readonly" {
   autoscaling_limit_min_cu = 0.25
   autoscaling_limit_max_cu = 1
 
-  # 5 分無操作でサスペンド。値を 0 にすると Neon の既定に従う。
-  suspend_timeout_seconds = 300
+  # suspend_timeout_seconds は指定しない。Free プランでは変更が許可されておらず、
+  # 値を渡すと apply が 412 "modifying the suspend interval is not permitted on
+  # this account" で失敗する。Neon の既定（5 分で自動サスペンド）に任せる。
 }
 
 output "neon_readonly_endpoint_host" {
