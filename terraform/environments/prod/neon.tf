@@ -72,3 +72,82 @@ import {
   to = neon_database.app
   id = "fragrant-poetry-87067174/br-icy-field-aokksku7/neondb"
 }
+
+# =============================================================================
+# 週次レポート用の読み取り専用エンドポイント（Read Replica）
+# =============================================================================
+# gcp-iac の週次レポートが学習指標（回答数・正答率・ユーザー数）を集計するために使う。
+#
+# 読み取り専用「ロール」ではなく「コンピュート」を分ける。理由は 2 つ:
+#
+#   1. Neon のコンソール・CLI・API で作ったロールには neon_superuser が自動で付く。
+#      権限を絞ったロールを作るには SQL しかなく、GRANT は Terraform で管理できない。
+#      https://neon.com/docs/manage/roles
+#   2. Read Replica なら読み取り専用が**コンピュート層で強制**される。接続するロールが
+#      書き込み権限を持っていても、このエンドポイント経由の書き込みは
+#      SQLSTATE 25006 で拒否される。GRANT の付け忘れという事故が起きない。
+#      https://neon.com/docs/guides/read-only-access-read-replicas
+#
+# 既存の read_write エンドポイントには一切触れない（別コンピュートとして増える）。
+# 1 ブランチに read_write は 1 つまでだが、read_only は追加できる。
+#
+# コストは Free プランの枠内。レポートは週 1 回で、繋いで数秒クエリしたら
+# 5 分後にサスペンドする。0.25 CU × 6 分 × 月 4〜5 回 ≒ 0.12 CU 時間/月で、
+# Free 枠 100 CU 時間に対して 0.1% 程度。Free プランはプロジェクトあたり
+# read replica を 3 つまで持てる。
+resource "neon_endpoint" "readonly" {
+  project_id = neon_project.default.id
+  branch_id  = neon_project.default.default_branch_id
+  type       = "read_only"
+
+  # レポートは週 1 回しか繋がない。最小構成にして、待機中はゼロにスケールさせる。
+  autoscaling_limit_min_cu = 0.25
+  autoscaling_limit_max_cu = 1
+
+  # 5 分無操作でサスペンド。値を 0 にすると Neon の既定に従う。
+  suspend_timeout_seconds = 300
+}
+
+output "neon_readonly_endpoint_host" {
+  description = "週次レポートが接続する読み取り専用エンドポイント（書き込みは 25006 で拒否される）"
+  value       = neon_endpoint.readonly.host
+}
+
+# =============================================================================
+# 週次レポート用のロール
+# =============================================================================
+# アプリの neondb_owner を使い回さず、レポート専用の認証情報を持たせる。
+# 接続文字列が漏れてもローテーションはこのロールだけで済み、アプリを止めずにすむ。
+#
+# **重要**: このロールは DB 権限としては最小権限ではない。
+#
+# Neon が API/コンソールで作るロールは neon_superuser のメンバーになり、
+# neon_superuser は pg_read_all_data と **pg_write_all_data** を持つ。
+# つまりこのロールは GRANT 無しで全テーブルを読めるが、同時に書き換えもできてしまう
+# （本番で has_table_privilege を確認済み: users/user_answers とも INSERT/UPDATE/DELETE = true）。
+#
+# 読み取り専用を担保しているのは **上の read_only エンドポイントだけ**。したがって
+# 接続先は必ず neon_endpoint.readonly.host にすること。通常の read_write エンドポイントへ
+# 向けると、このロールで本番を書き換えられる。下の output はその組み合わせを固定した
+# 接続文字列を返すので、これをそのまま使う。
+#
+# 権限側でも縛るには SELECT だけのロールを SQL で作る必要があるが、GRANT は Terraform で
+# 管理できず、手作業がコードの外に残るため採らない。
+resource "neon_role" "report" {
+  project_id = neon_project.default.id
+  branch_id  = neon_project.default.default_branch_id
+  name       = "rikako_report"
+}
+
+# レポートが使う接続文字列。read_only エンドポイント + レポート専用ロールの組み合わせ。
+#
+# apply 後、これを GCP Secret Manager へ入れる（レポートは gcp-iac 側で動くため）:
+#
+#   terraform output -raw neon_report_connection_uri \
+#     | gcloud secrets versions add rikako-neon-report-url --data-file=- \
+#       --project=takoikatakotako-analytics
+output "neon_report_connection_uri" {
+  description = "週次レポート用の接続文字列（読み取り専用エンドポイント経由）"
+  value       = "postgresql://${neon_role.report.name}:${neon_role.report.password}@${neon_endpoint.readonly.host}/neondb?sslmode=require"
+  sensitive   = true
+}
