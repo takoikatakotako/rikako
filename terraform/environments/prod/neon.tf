@@ -112,3 +112,42 @@ output "neon_readonly_endpoint_host" {
   description = "週次レポートが接続する読み取り専用エンドポイント（書き込みは 25006 で拒否される）"
   value       = neon_endpoint.readonly.host
 }
+
+# =============================================================================
+# 週次レポート用のロール
+# =============================================================================
+# アプリの neondb_owner を使い回さず、レポート専用の認証情報を持たせる。
+# 接続文字列が漏れてもローテーションはこのロールだけで済み、アプリを止めずにすむ。
+#
+# **重要**: このロールは DB 権限としては最小権限ではない。
+#
+# Neon が API/コンソールで作るロールは neon_superuser のメンバーになり、
+# neon_superuser は pg_read_all_data と **pg_write_all_data** を持つ。
+# つまりこのロールは GRANT 無しで全テーブルを読めるが、同時に書き換えもできてしまう
+# （本番で has_table_privilege を確認済み: users/user_answers とも INSERT/UPDATE/DELETE = true）。
+#
+# 読み取り専用を担保しているのは **上の read_only エンドポイントだけ**。したがって
+# 接続先は必ず neon_endpoint.readonly.host にすること。通常の read_write エンドポイントへ
+# 向けると、このロールで本番を書き換えられる。下の output はその組み合わせを固定した
+# 接続文字列を返すので、これをそのまま使う。
+#
+# 権限側でも縛るには SELECT だけのロールを SQL で作る必要があるが、GRANT は Terraform で
+# 管理できず、手作業がコードの外に残るため採らない。
+resource "neon_role" "report" {
+  project_id = neon_project.default.id
+  branch_id  = neon_project.default.default_branch_id
+  name       = "rikako_report"
+}
+
+# レポートが使う接続文字列。read_only エンドポイント + レポート専用ロールの組み合わせ。
+#
+# apply 後、これを GCP Secret Manager へ入れる（レポートは gcp-iac 側で動くため）:
+#
+#   terraform output -raw neon_report_connection_uri \
+#     | gcloud secrets versions add rikako-neon-report-url --data-file=- \
+#       --project=takoikatakotako-analytics
+output "neon_report_connection_uri" {
+  description = "週次レポート用の接続文字列（読み取り専用エンドポイント経由）"
+  value       = "postgresql://${neon_role.report.name}:${neon_role.report.password}@${neon_endpoint.readonly.host}/neondb?sslmode=require"
+  sensitive   = true
+}
