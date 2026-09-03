@@ -610,7 +610,12 @@ aws logs get-query-results --query-id "$QID" --output table
 
 ### Neon CU（コンピューティングユニット）変更
 
-現在: dev は 0.25〜2 CU、prod は 0.25〜4 CU（auto-scaling、auto-suspend 無効）。
+現在: dev は 0.25〜2 CU、prod は 0.25〜4 CU（auto-scaling）。
+
+auto-suspend は **有効**（既定の 5 分）。`suspend_timeout_seconds = 0` は
+「プラン既定値を使う」の意味で、常時起動ではない（常時起動は `-1`）。
+Free プランではこの値を変更できず、指定して apply すると
+`412 modifying the suspend interval is not permitted on this account` で失敗する。
 
 ```bash
 cd terraform/environments/dev   # prod は environments/prod
@@ -628,7 +633,7 @@ resource "neon_project" "default" {
   default_endpoint_settings {
     autoscaling_limit_min_cu = 0.25  # 最小CU
     autoscaling_limit_max_cu = 2     # 最大CU（prod は 4）
-    suspend_timeout_seconds  = 0     # 常時稼働（auto-suspend 無効）
+    suspend_timeout_seconds  = 0     # プラン既定値を使う（常時起動は -1。Free では変更不可）
   }
 }
 ```
