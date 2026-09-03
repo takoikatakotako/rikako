@@ -60,29 +60,6 @@ resource "neon_database" "app" {
 }
 
 # =============================================================================
-# 週次レポート用の読み取り専用ロール
-# =============================================================================
-# gcp-iac の etl/rikako-neon が学習指標を集計するために使う。SELECT だけを持ち、
-# アプリのオーナー権限（neondb_owner）は使い回さない。
-#
-# ロール自体は Neon が作るが、**SELECT 権限の付与は SQL でしか行えない**ため
-# Terraform の管理外になる。ロールを作り直したときは以下を実行すること:
-#
-#   GRANT CONNECT ON DATABASE neondb TO rikako_readonly;
-#   GRANT USAGE ON SCHEMA public TO rikako_readonly;
-#   GRANT SELECT ON ALL TABLES IN SCHEMA public TO rikako_readonly;
-#   ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA public
-#     GRANT SELECT ON TABLES TO rikako_readonly;
-#
-# 接続文字列は GCP Secret Manager の rikako-neon-readonly-url に置く
-# （レポートが GCP 認証だけで完結するようにするため）。
-resource "neon_role" "readonly" {
-  project_id = neon_project.default.id
-  branch_id  = neon_project.default.default_branch_id
-  name       = "rikako_readonly"
-}
-
-# =============================================================================
 # import（既存リソースを state へ取り込む）
 # =============================================================================
 # ID は <project_id>/<branch_id>/<name>。plan で確認してから apply する。
@@ -94,9 +71,4 @@ import {
 import {
   to = neon_database.app
   id = "fragrant-poetry-87067174/br-icy-field-aokksku7/neondb"
-}
-
-import {
-  to = neon_role.readonly
-  id = "fragrant-poetry-87067174/br-icy-field-aokksku7/rikako_readonly"
 }
