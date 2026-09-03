@@ -7,7 +7,13 @@ resource "neon_project" "default" {
   default_endpoint_settings {
     autoscaling_limit_min_cu = 0.25
     autoscaling_limit_max_cu = 4
-    suspend_timeout_seconds  = 0 # Always active (no auto-suspend)
+
+    # 0 は「プラン既定値を使う」であって「常時起動」ではない。常時起動にするなら -1。
+    # Free プランではそもそもこの値を変更できず、既定の 5 分で自動サスペンドする。
+    # 実測でも自動サスペンドが効いている（2.4 日でコンピュート消費 0.2 CU 時間・
+    # アクティブ 49 分。常時起動なら最低 12 CU 時間になるはず）。
+    # https://api-docs.neon.tech/reference/createprojectendpoint
+    suspend_timeout_seconds = 0
   }
 
   lifecycle {
