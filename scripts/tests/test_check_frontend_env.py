@@ -32,8 +32,8 @@ DEV_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
 
 # 実ワークフローの S3 同期相当。対象が重ならない 2 本立て。
 VALID_SYNC = """
+aws s3 sync out/ s3://bucket/ --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
 aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
-aws s3 sync out/ s3://bucket/ --delete --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
 """
 
 
@@ -281,12 +281,22 @@ aws s3 sync out/ s3://bucket/ --cache-control "public, max-age=31536000, immutab
         self.assertTrue(errors, errors)
 
     def test_missing_delete_is_detected(self):
-        """--delete の無い pass があると、その担当分の stale が消えない。"""
+        """HTML の --delete は引き続き必要。"""
         errors = self.run_check(workflow(PROD, sync="""
 aws s3 sync out/ s3://bucket/ --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
 aws s3 sync out/ s3://bucket/ --delete --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
 """))
         self.assertTrue(any("--delete" in e for e in errors), errors)
+
+    def test_deleting_old_chunks_is_detected(self):
+        sync = VALID_SYNC.replace('--exclude "*"', '--delete --exclude "*"')
+        errors = self.run_check(workflow(PROD, sync=sync))
+        self.assertTrue(any("即削除" in e for e in errors), errors)
+
+    def test_html_before_chunks_is_detected(self):
+        sync = "\n".join(reversed(VALID_SYNC.strip().splitlines()))
+        errors = self.run_check(workflow(PROD, sync=sync))
+        self.assertTrue(any("HTML より先" in e for e in errors), errors)
 
     def test_immutable_beyond_next_static_is_detected(self):
         """public/ の画像はハッシュが付かない。1年 immutable にすると更新が届かない。"""
