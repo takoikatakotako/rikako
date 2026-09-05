@@ -109,23 +109,17 @@ jobs:
         working-directory: web
         run: |
           set -euo pipefail
-          # aws s3 sync は「ローカルの方が新しい/サイズが違う」ファイルしか転送しない。
-          # 全同期してから cache-control を上書きしようとしても、2本目はスキップされて
-          # 効かない（#336）。そのため対象を重ならないように分け、それぞれ最初から
-          # 目的の cache-control で入れる。--delete も両方に付けて各自の stale を消す。
-          #
-          # immutable にしてよいのは _next/static/ のみ。Next.js がハッシュ名で出力する
-          # ため内容が変われば URL も変わる。public/ の画像などはハッシュが付かないので、
-          # 1年 immutable にすると更新が届かなくなる。
+          # チャンクを先に公開し、開いている旧画面のため古いチャンクも残す（#342）。
+          # 対象を分けて初回から正しい cache-control を設定する（#336）。
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
+            --exclude "*" \
+            --include "_next/static/*" \
+            --cache-control "public, max-age=31536000, immutable"
+          # HTML 等の stale は削除する。旧チャンクは削除対象からも外す。
           aws s3 sync out/ s3://${{ matrix.bucket }}/ \
             --delete \
             --exclude "_next/static/*" \
             --cache-control "public, max-age=0, must-revalidate"
-          aws s3 sync out/ s3://${{ matrix.bucket }}/ \
-            --delete \
-            --exclude "*" \
-            --include "_next/static/*" \
-            --cache-control "public, max-age=31536000, immutable"
 
       - name: Invalidate CloudFront cache
         run: |
