@@ -134,9 +134,12 @@ def check_cache_control(path: Path, job: dict | None) -> list[str]:
             errors.append(f"{path.name}: immutable / must-revalidate の sync が 1 本ずつになっていない")
             return errors
 
-        for cmd in syncs:
-            if "--delete" not in cmd:
-                errors.append(f"{path.name}: --delete の無い s3 sync がある（stale が消えない）")
+        if "--delete" not in revalidate[0]:
+            errors.append(f"{path.name}: HTML 等の sync に --delete が無い（stale が消えない）")
+        if "--delete" in immutable[0]:
+            errors.append(f"{path.name}: immutable の sync に --delete がある（旧チャンクが即削除される）")
+        if syncs.index(immutable[0]) > syncs.index(revalidate[0]):
+            errors.append(f"{path.name}: チャンクは HTML より先に同期すること")
 
         # ハッシュ名が付くのは _next/static のみ。public/ の画像などを immutable に
         # すると、内容を変えても URL が同じままで更新が届かなくなる。

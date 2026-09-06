@@ -195,6 +195,16 @@ gitで前のコミットに戻してデプロイワークフローを再実行�
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref <commit-sha>
 ```
 
+### Web / ポータルの旧チャンク保持（#342）
+
+Web とポータルの dev/prod は `_next/static/` を先にアップロードしてから HTML 等を
+同期する。デプロイ前から開いている画面が旧チャンクを取得できるよう、
+`_next/static/` の同期には `--delete` を付けず、HTML 等の削除対象からも除外する。
+
+旧チャンクの自動回収は行わないため、デプロイのたびに S3 上のファイルは蓄積する。
+回収方式は #342 の残件とする。単純な「作成から30日」の Lifecycle expiration は、
+長期間更新していない現行チャンクも消すため追加しない。
+
 ### アカウントポータル（account.rikako.org）
 
 web と同じ方式。`portal-prod/*` タグが付いた commit にだけ戻せる。
