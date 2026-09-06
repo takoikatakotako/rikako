@@ -30,10 +30,11 @@ DEV_REF_CHECK = ('[[ "$CHECKOUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] && '
                  'git merge-base --is-ancestor "$CHECKOUT_REF" origin/main')
 
 
-# 実ワークフローの S3 同期相当。対象が重ならない 2 本立て。
+# 実ワークフローの S3 同期相当。チャンクを --delete 無しで先に、HTML 等を --delete 付きで後に。
+# Cache-Control は CloudFront の ResponseHeadersPolicy で付けるので sync では指定しない。
 VALID_SYNC = """
-aws s3 sync out/ s3://bucket/ --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
-aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
+aws s3 sync out/_next/static/ s3://bucket/_next/static/
+aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*"
 """
 
 
@@ -42,7 +43,7 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
              include: list | None = None, environment: str | None = "production",
              env_name: str = "prod", checkout: bool = True, fetch_depth: int = 0,
              validate: str | None = VALID_REF_CHECK, install: bool = True,
-             sync: str | None = VALID_SYNC) -> str:
+             sync: str | None = VALID_SYNC, extra_sync: str | None = None) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
@@ -73,6 +74,9 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
     if sync is not None:
         lines += ["      - name: Deploy to S3", "        run: |"]
         lines += [f"          {l}" for l in sync.strip().splitlines()]
+    if extra_sync is not None:
+        lines += ["      - name: Deploy to S3 (extra)", "        run: |"]
+        lines += [f"          {l}" for l in extra_sync.strip().splitlines()]
     lines += [
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
@@ -94,6 +98,13 @@ class CheckFrontendEnvTest(unittest.TestCase):
             path = Path(d) / name
             path.write_text(content, encoding="utf-8")
             return mod.check(path, expected or PROD)
+
+    def run_sync_check(self, content: str, name: str = "deploy-web-prod.yml"):
+        import yaml
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / name
+            path.write_text(content, encoding="utf-8")
+            return mod.check_s3_sync(path, yaml.safe_load(content))
 
     # --- 正常系 ---
 
@@ -267,54 +278,119 @@ class CheckFrontendEnvTest(unittest.TestCase):
         errors = self.run_check(workflow(PROD, fetch_depth=1))
         self.assertTrue(any("fetch-depth" in e for e in errors), errors)
 
-    # --- キャッシュ制御（#336: 2本目が no-op になっていた）---
+    # --- S3 同期の形（#336: cache-control が効いていなかった / #342: 旧チャンクが消えていた）---
 
     def test_valid_sync_passes(self):
-        self.assertEqual(self.run_check(workflow(PROD)), [])
+        self.assertEqual(self.run_sync_check(workflow(PROD)), [])
 
-    def test_overwrite_style_sync_is_detected(self):
-        """全同期 → 後から上書き、は sync がスキップして効かない。"""
-        errors = self.run_check(workflow(PROD, sync="""
-aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-revalidate"
-aws s3 sync out/ s3://bucket/ --cache-control "public, max-age=31536000, immutable" --exclude "*.html"
-"""))
-        self.assertTrue(errors, errors)
-
-    def test_missing_delete_is_detected(self):
-        """HTML の --delete は引き続き必要。"""
-        errors = self.run_check(workflow(PROD, sync="""
-aws s3 sync out/ s3://bucket/ --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
-aws s3 sync out/ s3://bucket/ --delete --exclude "*" --include "_next/static/*" --cache-control "public, max-age=31536000, immutable"
-"""))
-        self.assertTrue(any("--delete" in e for e in errors), errors)
+    def test_cache_control_in_sync_is_detected(self):
+        """Cache-Control は CloudFront の責務。sync に戻すと #336 が再発する。"""
+        sync = VALID_SYNC.replace(
+            "s3://bucket/_next/static/",
+            's3://bucket/_next/static/ --cache-control "public, max-age=31536000, immutable"')
+        errors = self.run_sync_check(workflow(PROD, sync=sync))
+        self.assertTrue(any("--cache-control" in e for e in errors), errors)
 
     def test_deleting_old_chunks_is_detected(self):
-        sync = VALID_SYNC.replace('--exclude "*"', '--delete --exclude "*"')
-        errors = self.run_check(workflow(PROD, sync=sync))
+        """チャンクに --delete を付けると、開いたままの画面が ChunkLoadError になる。"""
+        sync = VALID_SYNC.replace(
+            "s3://bucket/_next/static/\n", "s3://bucket/_next/static/ --delete\n")
+        errors = self.run_sync_check(workflow(PROD, sync=sync))
         self.assertTrue(any("即削除" in e for e in errors), errors)
 
     def test_html_before_chunks_is_detected(self):
+        """HTML が先だと、新 HTML が参照するチャンクがまだ無い瞬間ができる。"""
         sync = "\n".join(reversed(VALID_SYNC.strip().splitlines()))
-        errors = self.run_check(workflow(PROD, sync=sync))
-        self.assertTrue(any("HTML より先" in e for e in errors), errors)
+        errors = self.run_sync_check(workflow(PROD, sync=sync))
+        self.assertTrue(errors, errors)
 
-    def test_immutable_beyond_next_static_is_detected(self):
-        """public/ の画像はハッシュが付かない。1年 immutable にすると更新が届かない。"""
-        errors = self.run_check(workflow(PROD, sync="""
-aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
-aws s3 sync out/ s3://bucket/ --delete --exclude "*.html" --cache-control "public, max-age=31536000, immutable"
-"""))
-        self.assertTrue(any("_next/static" in e for e in errors), errors)
+    def test_missing_delete_is_detected(self):
+        """HTML 側の --delete が無いと、消したページが公開され続ける。"""
+        sync = VALID_SYNC.replace(" --delete", "")
+        errors = self.run_sync_check(workflow(PROD, sync=sync))
+        self.assertTrue(any("--delete が無い" in e for e in errors), errors)
+
+    def test_chunk_exclusion_in_html_sync_is_required(self):
+        """HTML 側が _next/static を除外しないと、--delete が旧チャンクを消す。"""
+        sync = VALID_SYNC.replace(' --exclude "_next/static/*"', "")
+        errors = self.run_sync_check(workflow(PROD, sync=sync))
+        self.assertTrue(any("除外していない" in e for e in errors), errors)
 
     def test_single_sync_is_detected(self):
-        errors = self.run_check(workflow(PROD, sync="""
-aws s3 sync out/ s3://bucket/ --delete --cache-control "public, max-age=0, must-revalidate"
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/ --delete
 """))
         self.assertTrue(any("2 回" in e for e in errors), errors)
 
     def test_missing_sync_step_is_detected(self):
-        errors = self.run_check(workflow(PROD, sync=None))
+        errors = self.run_sync_check(workflow(PROD, sync=None))
         self.assertTrue(any("s3 sync する step" in e for e in errors), errors)
+
+    def test_sync_workflows_are_covered(self):
+        """検査対象が黙って減らないこと。web だけでなく portal / admin も含む。"""
+        self.assertEqual(sorted(mod.SYNC_WORKFLOWS), [
+            "deploy-admin-frontend-dev.yml",
+            "deploy-admin-frontend-prod.yml",
+            "deploy-portal-dev.yml",
+            "deploy-portal-prod.yml",
+            "deploy-web-dev.yml",
+            "deploy-web-prod.yml",
+        ])
+
+    def test_real_workflows_sync_passes(self):
+        """リポジトリの実ファイルが、6 本とも同じ配信手順になっていること。"""
+        import yaml
+        for name in mod.SYNC_WORKFLOWS:
+            path = mod.WORKFLOWS / name
+            workflow_doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            self.assertEqual(mod.check_s3_sync(path, workflow_doc), [], name)
+
+    # --- source / destination（フラグが合っていても転送先を間違えれば壊れる）---
+
+    def test_whole_site_into_chunk_prefix_is_detected(self):
+        """サイト全体をチャンク階層へ流し込む誤り。フラグだけでは見抜けない。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/_next/static/
+aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("_next/static/ どうし" in e for e in errors), errors)
+
+    def test_wrong_source_in_html_sync_is_detected(self):
+        """2 本目の source を間違えると、--delete が公開中のファイルを消す。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://bucket/_next/static/
+aws s3 sync wrong/ s3://bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("親になっていない" in e for e in errors), errors)
+
+    def test_bucket_mismatch_is_detected(self):
+        """2 本の宛先バケットがずれていると、片方のサイトを別サイトの内容で壊す。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://bucket/_next/static/
+aws s3 sync out/ s3://other-bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("親になっていない" in e for e in errors), errors)
+
+    def test_matrix_expression_destination_passes(self):
+        """${{ matrix.bucket }} のような expression でも位置引数として読めること。"""
+        self.assertEqual(self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://${{ matrix.bucket }}/_next/static/
+aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete --exclude "_next/static/*"
+""")), [])
+
+    # --- 後続 step に足された sync ---
+
+    def test_extra_sync_in_later_step_is_detected(self):
+        """最初の step で打ち切ると、後から足した全消し sync を見逃す。"""
+        errors = self.run_sync_check(workflow(
+            PROD, extra_sync="aws s3 sync empty/ s3://bucket/ --delete"))
+        self.assertTrue(any("3 回" in e for e in errors), errors)
+
+    def test_extra_cache_control_sync_in_later_step_is_detected(self):
+        errors = self.run_sync_check(workflow(
+            PROD,
+            extra_sync='aws s3 sync out/ s3://bucket/ --cache-control "public, max-age=0"'))
+        self.assertTrue(errors, errors)
 
     # --- 本番の承認ゲート ---
 
