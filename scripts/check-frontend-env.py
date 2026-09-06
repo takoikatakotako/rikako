@@ -63,6 +63,18 @@ EXPECTED: dict[str, dict[str, str]] = {
 }
 
 
+# S3 同期の形を検証する対象。web だけでなく portal / admin も同じ手順に揃えている。
+# ここに列挙したものだけが検査される（自動検出だと黙って対象から外れるため）。
+SYNC_WORKFLOWS = [
+    "deploy-web-dev.yml",
+    "deploy-web-prod.yml",
+    "deploy-portal-dev.yml",
+    "deploy-portal-prod.yml",
+    "deploy-admin-frontend-dev.yml",
+    "deploy-admin-frontend-prod.yml",
+]
+
+
 # トリガーも IT / 化学で揃える。片方だけ自動デプロイ、という非対称は事故のもと。
 #   dev  : main への push（web/** と自ファイル）＋ 手動
 #   prod : 手動のみ
@@ -104,53 +116,68 @@ def check_matrix(path: Path, job: dict | None, env_name: str) -> list[str]:
     return []
 
 
-def check_cache_control(path: Path, job: dict | None) -> list[str]:
-    """S3 同期の cache-control が実際に効く形になっているかを検証する（#336）。
+def s3_sync_step(workflow: dict) -> str | None:
+    """`aws s3 sync` を実行する step の run を返す。無ければ None。
 
-    aws s3 sync は差分のあるファイルしか転送しないため、「全同期してから
-    cache-control を上書き」という書き方だと 2 本目がスキップされて効かない。
-    実際 it.rikako.org のハッシュ付きチャンクは immutable 指定にもかかわらず
-    max-age=0 で配信されていた。対象が重ならないように分けることを強制する。
+    web/ 決め打ちにはしない。portal / admin も同じ配信手順に揃えているため、
+    どのワークフローでも同じ形を強制する。
     """
-    for step in (job or {}).get("steps") or []:
-        run = str(step.get("run", ""))
-        if "aws s3 sync" not in run:
-            continue
+    for job in (workflow.get("jobs") or {}).values():
+        for step in job.get("steps") or []:
+            run = str(step.get("run", ""))
+            if "aws s3 sync" in run:
+                return run
+    return None
 
-        errors = []
-        # 各 sync 呼び出しを、行継続（\）をつないでから取り出す。
-        joined = run.replace("\\\n", " ")
-        syncs = [
-            line for line in joined.splitlines()
-            if "aws s3 sync" in line and not line.strip().startswith("#")
-        ]
 
-        if len(syncs) != 2:
-            return [f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。長期キャッシュ用と再検証用）"]
+def check_s3_sync(path: Path, workflow: dict) -> list[str]:
+    """S3 同期が「チャンク保持」の形になっているかを検証する（#336 / #342）。
 
-        immutable = [c for c in syncs if "immutable" in c]
-        revalidate = [c for c in syncs if "must-revalidate" in c]
-        if len(immutable) != 1 or len(revalidate) != 1:
-            errors.append(f"{path.name}: immutable / must-revalidate の sync が 1 本ずつになっていない")
-            return errors
+    Cache-Control は CloudFront の ResponseHeadersPolicy で付ける
+    （terraform/environments/*/frontend_cache.tf）。`aws s3 sync --cache-control` は
+    「ローカルの方が新しい/サイズが違う」ファイルしか転送しない性質のせいで、対象が
+    重なると 2 本目がスキップされて値が付かなかった（#336 の実害）。デプロイ手順に
+    戻さないよう、ここで禁止する。
 
-        if "--delete" not in revalidate[0]:
-            errors.append(f"{path.name}: HTML 等の sync に --delete が無い（stale が消えない）")
-        if "--delete" in immutable[0]:
-            errors.append(f"{path.name}: immutable の sync に --delete がある（旧チャンクが即削除される）")
-        if syncs.index(immutable[0]) > syncs.index(revalidate[0]):
-            errors.append(f"{path.name}: チャンクは HTML より先に同期すること")
+    sync を 2 本に分ける理由は --delete の適用範囲だけ。ハッシュ付きチャンクを
+    --delete 無しで先に上げ、HTML 等の削除対象からも外すことで、デプロイ前から
+    開いている画面が旧チャンクを取得できる（#342）。
+    """
+    run = s3_sync_step(workflow)
+    if run is None:
+        return [f"{path.name}: s3 sync する step が見つからない"]
 
-        # ハッシュ名が付くのは _next/static のみ。public/ の画像などを immutable に
-        # すると、内容を変えても URL が同じままで更新が届かなくなる。
-        if '--include "_next/static/*"' not in immutable[0] or '--exclude "*"' not in immutable[0]:
-            errors.append(f'{path.name}: immutable の sync は --exclude "*" --include "_next/static/*" に絞ること')
-        if '--exclude "_next/static/*"' not in revalidate[0]:
-            errors.append(f'{path.name}: must-revalidate の sync が _next/static を除外していない（対象が重なると後勝ちにならず効かない）')
+    # 各 sync 呼び出しを、行継続（\）をつないでから取り出す。
+    joined = run.replace("\\\n", " ")
+    syncs = [
+        line for line in joined.splitlines()
+        if "aws s3 sync" in line and not line.strip().startswith("#")
+    ]
 
-        return errors
+    if len(syncs) != 2:
+        return [f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。チャンク用と HTML 用）"]
 
-    return [f"{path.name}: s3 sync する step が見つからない"]
+    chunks, rest = syncs
+
+    errors = []
+    for cmd in syncs:
+        if "--cache-control" in cmd:
+            errors.append(
+                f"{path.name}: s3 sync に --cache-control がある"
+                "（Cache-Control は CloudFront の ResponseHeadersPolicy で付ける）"
+            )
+            break
+
+    if "/_next/static/" not in chunks:
+        errors.append(f"{path.name}: 1 本目が _next/static/ の同期になっていない（チャンクを先に公開すること）")
+    if "--delete" in chunks:
+        errors.append(f"{path.name}: チャンクの sync に --delete がある（旧チャンクが即削除される）")
+    if "--delete" not in rest:
+        errors.append(f"{path.name}: HTML 等の sync に --delete が無い（stale が消えない）")
+    if '--exclude "_next/static/*"' not in rest:
+        errors.append(f"{path.name}: HTML 等の sync が _next/static を除外していない（旧チャンクが消える）")
+
+    return errors
 
 
 def check_ref_validation(path: Path, job: dict | None, env_name: str) -> list[str]:
@@ -235,7 +262,6 @@ def check(path: Path, expected: dict[str, str]) -> list[str]:
 
     errors += check_matrix(path, job, env_name)
     errors += check_ref_validation(path, job, env_name)
-    errors += check_cache_control(path, job)
 
     # `on:` は YAML では True として読まれることがある（on/yes が真偽値扱いのため）。
     triggers = workflow.get("on") or workflow.get(True) or {}
@@ -272,6 +298,21 @@ def main() -> int:
         errors.extend(found)
         if not found:
             print(f"OK: {name}")
+
+    for name in SYNC_WORKFLOWS:
+        path = WORKFLOWS / name
+        if not path.exists():
+            errors.append(f"{name}: ワークフローが見つからない（SYNC_WORKFLOWS に列挙されている）")
+            continue
+        try:
+            workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as e:
+            errors.append(f"{name}: YAML を解析できない: {e}")
+            continue
+        found = check_s3_sync(path, workflow)
+        errors.extend(found)
+        if not found:
+            print(f"OK: {name} (s3 sync)")
 
     if errors:
         print("", file=sys.stderr)

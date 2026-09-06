@@ -83,17 +83,15 @@ jobs:
         working-directory: portal
         run: |
           set -euo pipefail
-          # チャンクを先に公開し、開いている旧画面のため古いチャンクも残す（#342）。
-          # 対象を分けて初回から正しい cache-control を設定する（#336）。
-          aws s3 sync out/ s3://${S3_BUCKET}/ \
-            --exclude "*" \
-            --include "_next/static/*" \
-            --cache-control "public, max-age=31536000, immutable"
-          # HTML 等の stale は削除する。旧チャンクは削除対象からも外す。
-          aws s3 sync out/ s3://${S3_BUCKET}/ \
-            --delete \
-            --exclude "_next/static/*" \
-            --cache-control "public, max-age=0, must-revalidate"
+          # Cache-Control は CloudFront の ResponseHeadersPolicy で付ける
+          # （terraform/environments/*/frontend_cache.tf）。sync は転送するファイルを
+          # 選ぶだけなので、ここで 2 本に分けているのは --delete の適用範囲のためだけ。
+          #
+          # 1) ハッシュ名付きチャンクを先に公開する。--delete を付けないので、デプロイ前から
+          #    開いている画面が参照する旧チャンクも残る（#342）。
+          aws s3 sync out/_next/static/ s3://${S3_BUCKET}/_next/static/
+          # 2) HTML 等を同期し、こちらだけ stale を削除する。旧チャンクは削除対象から外す。
+          aws s3 sync out/ s3://${S3_BUCKET}/ --delete --exclude "_next/static/*"
 
       - name: Invalidate CloudFront cache
         run: |

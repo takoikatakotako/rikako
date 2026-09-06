@@ -195,11 +195,20 @@ gitで前のコミットに戻してデプロイワークフローを再実行�
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref <commit-sha>
 ```
 
-### Web / ポータルの旧チャンク保持（#342）
+### 旧チャンクの保持（#342）
 
-Web とポータルの dev/prod は `_next/static/` を先にアップロードしてから HTML 等を
-同期する。デプロイ前から開いている画面が旧チャンクを取得できるよう、
-`_next/static/` の同期には `--delete` を付けず、HTML 等の削除対象からも除外する。
+web / portal / admin の dev・prod（6 ワークフロー）は、同じ 2 段構えで S3 に同期する。
+
+```bash
+# 1) チャンクを先に公開する。--delete を付けないので旧チャンクが残る。
+aws s3 sync out/_next/static/ s3://<bucket>/_next/static/
+# 2) HTML 等を同期し、こちらだけ stale を削除する。旧チャンクは削除対象から外す。
+aws s3 sync out/ s3://<bucket>/ --delete --exclude "_next/static/*"
+```
+
+デプロイ前から開いている画面は旧チャンクを参照し続けるため、即削除すると画面遷移で
+`ChunkLoadError` になる。順序も重要で、HTML を先に出すと新 HTML が参照するチャンクが
+まだ無い瞬間ができる。`scripts/check-frontend-env.py` が 6 本ともこの形であることを検査する。
 
 旧チャンクの自動回収は行わないため、デプロイのたびに S3 上のファイルは蓄積する。
 回収方式は #342 の残件とする。単純な「作成から30日」の Lifecycle expiration は、
