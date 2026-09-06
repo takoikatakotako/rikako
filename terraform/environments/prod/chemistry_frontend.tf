@@ -60,11 +60,12 @@ resource "aws_cloudfront_distribution" "chemistry" {
   aliases             = ["chemistry.rikako.org"]
 
   default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-${local.chemistry_bucket_name}"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "s3-${local.chemistry_bucket_name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.html_revalidate.id
 
     forwarded_values {
       query_string = false
@@ -76,6 +77,36 @@ resource "aws_cloudfront_distribution" "chemistry" {
     min_ttl     = 0
     default_ttl = 300
     max_ttl     = 86400
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.chemistry_dir_index.arn
+    }
+  }
+
+  # ハッシュ名付きアセットだけを恒久キャッシュにする（#336 / #342）。
+  # ordered_cache_behavior は default_cache_behavior から何も継承しないため、
+  # viewer-request 関数（dev の Basic Auth を含む）も明示的に付け直す。
+  ordered_cache_behavior {
+    path_pattern               = "/_next/static/*"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "s3-${local.chemistry_bucket_name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.next_static.id
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    # 内容が変われば URL も変わるので、エッジでも恒久的に保持してよい。
+    min_ttl     = 0
+    default_ttl = 31536000
+    max_ttl     = 31536000
 
     function_association {
       event_type   = "viewer-request"

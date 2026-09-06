@@ -65,6 +65,15 @@ resource "aws_cloudfront_function" "portal_dir_index" {
 resource "aws_cloudfront_response_headers_policy" "portal" {
   name = "${local.project}-portal-security-${local.environment}"
 
+  # HTML 等は毎回再検証させる（Cache-Control は CloudFront 側で付ける。frontend_cache.tf 参照）。
+  custom_headers_config {
+    items {
+      header   = "Cache-Control"
+      value    = "public, max-age=0, must-revalidate"
+      override = true
+    }
+  }
+
   security_headers_config {
     content_security_policy {
       override = true
@@ -91,6 +100,32 @@ resource "aws_cloudfront_response_headers_policy" "portal" {
     referrer_policy {
       referrer_policy = "same-origin"
       override        = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+  }
+}
+
+# ハッシュ名付きアセット用。セキュリティヘッダは上と揃えるが、CSP はドキュメント応答にしか
+# 意味がないため付けない（JS/CSS に付けてもブラウザは無視する）。
+resource "aws_cloudfront_response_headers_policy" "portal_next_static" {
+  name = "${local.project}-portal-next-static-${local.environment}"
+
+  custom_headers_config {
+    items {
+      header   = "Cache-Control"
+      value    = "public, max-age=31536000, immutable"
+      override = true
+    }
+  }
+
+  security_headers_config {
+    content_type_options {
+      override = true
     }
     strict_transport_security {
       access_control_max_age_sec = 31536000
@@ -132,6 +167,36 @@ resource "aws_cloudfront_distribution" "portal" {
     min_ttl     = 0
     default_ttl = 300
     max_ttl     = 86400
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.portal_dir_index.arn
+    }
+  }
+
+  # ハッシュ名付きアセットだけを恒久キャッシュにする（#336 / #342）。
+  # ordered_cache_behavior は default_cache_behavior から何も継承しないため、
+  # viewer-request 関数（dev の Basic Auth を含む）も明示的に付け直す。
+  ordered_cache_behavior {
+    path_pattern               = "/_next/static/*"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "s3-${local.portal_bucket_name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.portal_next_static.id
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    # 内容が変われば URL も変わるので、エッジでも恒久的に保持してよい。
+    min_ttl     = 0
+    default_ttl = 31536000
+    max_ttl     = 31536000
 
     function_association {
       event_type   = "viewer-request"
