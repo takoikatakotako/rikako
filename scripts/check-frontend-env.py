@@ -17,6 +17,8 @@ it / chemistry は 1 つのワークフロー内で matrix により両方ビル
 """
 from __future__ import annotations
 
+import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -116,18 +118,55 @@ def check_matrix(path: Path, job: dict | None, env_name: str) -> list[str]:
     return []
 
 
-def s3_sync_step(workflow: dict) -> str | None:
-    """`aws s3 sync` を実行する step の run を返す。無ければ None。
+# `aws s3 sync` で値を伴うオプション。位置引数（source / destination）を拾うときに
+# オプションの値を取り違えないよう、ここに列挙したものは次のトークンごと読み飛ばす。
+S3_SYNC_VALUE_FLAGS = {
+    "--exclude", "--include", "--cache-control", "--content-type", "--acl",
+    "--metadata", "--metadata-directive", "--sse", "--storage-class", "--profile",
+    "--region", "--endpoint-url",
+}
 
-    web/ 決め打ちにはしない。portal / admin も同じ配信手順に揃えているため、
-    どのワークフローでも同じ形を強制する。
+
+def s3_sync_commands(workflow: dict) -> list[str]:
+    """ワークフロー全体の `aws s3 sync` 呼び出しを、現れる順にすべて返す。
+
+    最初の step で打ち切らない。打ち切ると、後続の step に余計な sync
+    （`--cache-control` 付きや、バケット全体を消すもの）を足しても検出できない。
     """
+    commands = []
     for job in (workflow.get("jobs") or {}).values():
         for step in job.get("steps") or []:
             run = str(step.get("run", ""))
-            if "aws s3 sync" in run:
-                return run
-    return None
+            if "aws s3 sync" not in run:
+                continue
+            # 行継続（\）をつないでから 1 呼び出し 1 行にする。
+            joined = run.replace("\\\n", " ")
+            commands += [
+                line for line in joined.splitlines()
+                if "aws s3 sync" in line and not line.strip().startswith("#")
+            ]
+    return commands
+
+
+def s3_sync_operands(cmd: str) -> list[str]:
+    """sync コマンドの位置引数（source, destination）を返す。
+
+    `${{ matrix.bucket }}` は中に空白を含むので、shlex に渡す前に潰しておく。
+    バケット名そのものは環境ごとに違うため、ここでは比較可能な形にするだけでよい。
+    """
+    normalized = re.sub(r"\$\{\{[^}]*\}\}", "EXPR", cmd)
+    tokens = shlex.split(normalized)
+    tokens = tokens[tokens.index("sync") + 1:]
+
+    operands, skip = [], False
+    for token in tokens:
+        if skip:
+            skip = False
+        elif token.startswith("-"):
+            skip = token in S3_SYNC_VALUE_FLAGS
+        else:
+            operands.append(token)
+    return operands
 
 
 def check_s3_sync(path: Path, workflow: dict) -> list[str]:
@@ -142,24 +181,23 @@ def check_s3_sync(path: Path, workflow: dict) -> list[str]:
     sync を 2 本に分ける理由は --delete の適用範囲だけ。ハッシュ付きチャンクを
     --delete 無しで先に上げ、HTML 等の削除対象からも外すことで、デプロイ前から
     開いている画面が旧チャンクを取得できる（#342）。
+
+    source / destination も検証する。フラグだけ合っていても転送元・転送先を間違えれば
+    壊れるため（例: `aws s3 sync out/ s3://bucket/_next/static/` はサイト全体を
+    チャンク階層へ流し込む）。
     """
-    run = s3_sync_step(workflow)
-    if run is None:
+    syncs = s3_sync_commands(workflow)
+    if not syncs:
         return [f"{path.name}: s3 sync する step が見つからない"]
-
-    # 各 sync 呼び出しを、行継続（\）をつないでから取り出す。
-    joined = run.replace("\\\n", " ")
-    syncs = [
-        line for line in joined.splitlines()
-        if "aws s3 sync" in line and not line.strip().startswith("#")
-    ]
-
     if len(syncs) != 2:
-        return [f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。チャンク用と HTML 用）"]
+        return [
+            f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。チャンク用と HTML 用）"
+            "\n    " + "\n    ".join(c.strip() for c in syncs)
+        ]
 
     chunks, rest = syncs
-
     errors = []
+
     for cmd in syncs:
         if "--cache-control" in cmd:
             errors.append(
@@ -168,14 +206,43 @@ def check_s3_sync(path: Path, workflow: dict) -> list[str]:
             )
             break
 
-    if "/_next/static/" not in chunks:
-        errors.append(f"{path.name}: 1 本目が _next/static/ の同期になっていない（チャンクを先に公開すること）")
     if "--delete" in chunks:
         errors.append(f"{path.name}: チャンクの sync に --delete がある（旧チャンクが即削除される）")
     if "--delete" not in rest:
         errors.append(f"{path.name}: HTML 等の sync に --delete が無い（stale が消えない）")
     if '--exclude "_next/static/*"' not in rest:
         errors.append(f"{path.name}: HTML 等の sync が _next/static を除外していない（旧チャンクが消える）")
+
+    # source / destination。1 本目は必ず _next/static/ 階層どうしで、2 本目はその親どうし。
+    # 「親を剥がすと一致する」ことを見るので、バケット名の取り違えも同時に弾ける。
+    chunk_operands = s3_sync_operands(chunks)
+    rest_operands = s3_sync_operands(rest)
+
+    if len(chunk_operands) != 2 or len(rest_operands) != 2:
+        errors.append(
+            f"{path.name}: sync の位置引数が source / destination の 2 つになっていない"
+            f"（チャンク: {chunk_operands}、HTML 等: {rest_operands}）"
+        )
+        return errors
+
+    suffix = "_next/static/"
+    chunk_src, chunk_dst = chunk_operands
+    rest_src, rest_dst = rest_operands
+
+    if not chunk_src.endswith("/" + suffix) or not chunk_dst.endswith("/" + suffix):
+        errors.append(
+            f"{path.name}: 1 本目が _next/static/ どうしの同期になっていない"
+            f"（{chunk_src} → {chunk_dst}）"
+        )
+    elif rest_src != chunk_src[: -len(suffix)] or rest_dst != chunk_dst[: -len(suffix)]:
+        errors.append(
+            f"{path.name}: 2 本目の source / destination が 1 本目の親になっていない"
+            f"（期待値: {chunk_src[: -len(suffix)]} → {chunk_dst[: -len(suffix)]}、"
+            f"実際: {rest_src} → {rest_dst}）"
+        )
+
+    if not chunk_dst.startswith("s3://") or not rest_dst.startswith("s3://"):
+        errors.append(f"{path.name}: destination が s3:// になっていない（{chunk_dst} / {rest_dst}）")
 
     return errors
 

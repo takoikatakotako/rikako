@@ -43,7 +43,7 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
              include: list | None = None, environment: str | None = "production",
              env_name: str = "prod", checkout: bool = True, fetch_depth: int = 0,
              validate: str | None = VALID_REF_CHECK, install: bool = True,
-             sync: str | None = VALID_SYNC) -> str:
+             sync: str | None = VALID_SYNC, extra_sync: str | None = None) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
     for t in (triggers or ["workflow_dispatch"]):
@@ -74,6 +74,9 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
     if sync is not None:
         lines += ["      - name: Deploy to S3", "        run: |"]
         lines += [f"          {l}" for l in sync.strip().splitlines()]
+    if extra_sync is not None:
+        lines += ["      - name: Deploy to S3 (extra)", "        run: |"]
+        lines += [f"          {l}" for l in extra_sync.strip().splitlines()]
     lines += [
         "      - name: Build", f"        working-directory: {working_dir}",
         f"        run: {build_cmd}", "        env:",
@@ -341,6 +344,53 @@ aws s3 sync out/ s3://bucket/ --delete
             path = mod.WORKFLOWS / name
             workflow_doc = yaml.safe_load(path.read_text(encoding="utf-8"))
             self.assertEqual(mod.check_s3_sync(path, workflow_doc), [], name)
+
+    # --- source / destination（フラグが合っていても転送先を間違えれば壊れる）---
+
+    def test_whole_site_into_chunk_prefix_is_detected(self):
+        """サイト全体をチャンク階層へ流し込む誤り。フラグだけでは見抜けない。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/ s3://bucket/_next/static/
+aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("_next/static/ どうし" in e for e in errors), errors)
+
+    def test_wrong_source_in_html_sync_is_detected(self):
+        """2 本目の source を間違えると、--delete が公開中のファイルを消す。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://bucket/_next/static/
+aws s3 sync wrong/ s3://bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("親になっていない" in e for e in errors), errors)
+
+    def test_bucket_mismatch_is_detected(self):
+        """2 本の宛先バケットがずれていると、片方のサイトを別サイトの内容で壊す。"""
+        errors = self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://bucket/_next/static/
+aws s3 sync out/ s3://other-bucket/ --delete --exclude "_next/static/*"
+"""))
+        self.assertTrue(any("親になっていない" in e for e in errors), errors)
+
+    def test_matrix_expression_destination_passes(self):
+        """${{ matrix.bucket }} のような expression でも位置引数として読めること。"""
+        self.assertEqual(self.run_sync_check(workflow(PROD, sync="""
+aws s3 sync out/_next/static/ s3://${{ matrix.bucket }}/_next/static/
+aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete --exclude "_next/static/*"
+""")), [])
+
+    # --- 後続 step に足された sync ---
+
+    def test_extra_sync_in_later_step_is_detected(self):
+        """最初の step で打ち切ると、後から足した全消し sync を見逃す。"""
+        errors = self.run_sync_check(workflow(
+            PROD, extra_sync="aws s3 sync empty/ s3://bucket/ --delete"))
+        self.assertTrue(any("3 回" in e for e in errors), errors)
+
+    def test_extra_cache_control_sync_in_later_step_is_detected(self):
+        errors = self.run_sync_check(workflow(
+            PROD,
+            extra_sync='aws s3 sync out/ s3://bucket/ --cache-control "public, max-age=0"'))
+        self.assertTrue(errors, errors)
 
     # --- 本番の承認ゲート ---
 
