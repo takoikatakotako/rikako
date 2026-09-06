@@ -205,6 +205,25 @@ Web とポータルの dev/prod は `_next/static/` を先にアップロード�
 回収方式は #342 の残件とする。単純な「作成から30日」の Lifecycle expiration は、
 長期間更新していない現行チャンクも消すため追加しない。
 
+### Cache-Control は CloudFront で付ける（#336）
+
+web / portal / admin の `Cache-Control` は S3 オブジェクトのメタデータではなく、
+CloudFront の ResponseHeadersPolicy で付与する（`terraform/environments/*/frontend_cache.tf`）。
+
+- `/_next/static/*` の `ordered_cache_behavior` → `public, max-age=31536000, immutable`
+- それ以外（HTML・`public/` のハッシュ無しアセット）→ `public, max-age=0, must-revalidate`
+
+`aws s3 sync` は「ローカルの方が新しい / サイズが違う」ファイルしか転送しないため、
+`--cache-control` で付ける方式は対象が少しでも重なると 2 本目がスキップされて値が付かない
+（#336 の実害）。配信ヘッダを配信基盤の責務にすることで、この取りこぼしを構造的に無くす。
+
+policy は `override = true` なので、S3 に残っている古いメタデータも上書きされる。
+既存オブジェクトを貼り直す必要はない。
+
+`ordered_cache_behavior` は `default_cache_behavior` から `function_association` も
+`response_headers_policy_id` も継承しない。**新しいビヘイビアを足すときは viewer-request
+関数を必ず付け直すこと**（付け忘れると dev の Basic Auth を迂回できてしまう）。
+
 ### アカウントポータル（account.rikako.org）
 
 web と同じ方式。`portal-prod/*` タグが付いた commit にだけ戻せる。
