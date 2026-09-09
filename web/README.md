@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# web — 問題集 Web
 
-## Getting Started
+過去問を解く学習用 Web。**1 つのコードベースを `NEXT_PUBLIC_SITE` で出し分けて**
+2 サイトを配信している。
 
-First, run the development server:
+| サイト | dev | prod |
+|--------|-----|------|
+| `it`（ITパスポート） | https://it.dev.rikako.org/ | https://it.rikako.org/ |
+| `chemistry`（化学） | https://chemistry.dev.rikako.org/ | https://chemistry.rikako.org/ |
+
+Next.js 16（App Router / 静的 export）。S3 + CloudFront で配信する。dev は Basic 認証あり。
+
+**問題データはビルド時に焼き込む。** コンテンツ CDN（`NEXT_PUBLIC_CONTENT_BASE_URL`）から
+取得した JSON を静的エクスポートに埋め込むため、公開内容を変えたら管理 API の `/publish`
+を実行したうえで **web を再デプロイする**必要がある。
+
+## ビルド時の環境変数（NEXT_PUBLIC_*）
+
+| 変数 | 用途 |
+|------|------|
+| `NEXT_PUBLIC_SITE` | `it` / `chemistry` の出し分け |
+| `NEXT_PUBLIC_CONTENT_BASE_URL` | コンテンツ CDN（問題データの取得元） |
+| `NEXT_PUBLIC_API_BASE_URL` | 公開 API |
+| `NEXT_PUBLIC_COGNITO_REGION` | Cognito のリージョン |
+| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | Cognito App Client ID |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 の測定 ID |
+
+dev / prod の実際の値はデプロイワークフローに直接書いてある。**取り違えると本番サイトが
+dev に書き込むなどの事故になるため、`scripts/check-frontend-env.py` が CI で値を検証する。**
+値を変えるときはこのスクリプトの `EXPECTED` も更新すること。
+
+## コマンド
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+NEXT_PUBLIC_SITE=chemistry npm run dev   # ローカル確認
+npm run build                             # 静的 export（out/）
+npm run lint
+npm run test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 関連ドキュメント
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [アーキテクチャ](../docs/architecture.md)
+- [運用ランブック](../docs/runbook.md)
