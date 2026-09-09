@@ -41,6 +41,63 @@
 | PUT | `/workbooks/{workbookId}` | 問題集更新 |
 | DELETE | `/workbooks/{workbookId}` | 問題集削除 |
 
+### Categories (CRUD)
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/categories` | カテゴリ一覧 |
+| POST | `/categories` | カテゴリ作成 |
+| GET | `/categories/{categoryId}` | カテゴリ取得 |
+| PUT | `/categories/{categoryId}` | カテゴリ更新 |
+| DELETE | `/categories/{categoryId}` | カテゴリ削除 |
+
+### Announcements (CRUD)
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/announcements` | お知らせ一覧 |
+| POST | `/announcements` | お知らせ作成 |
+| GET | `/announcements/{announcementId}` | お知らせ取得 |
+| PUT | `/announcements/{announcementId}` | お知らせ更新 |
+| DELETE | `/announcements/{announcementId}` | お知らせ削除 |
+
+### Apps (CRUD)
+
+アプリ（flavor）ごとの設定。`app_slug` 単位で最低バージョンなどを持つ。
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/apps` | アプリ一覧 |
+| POST | `/apps` | アプリ作成 |
+| GET | `/apps/{appId}` | アプリ取得 |
+| PUT | `/apps/{appId}` | アプリ更新 |
+| DELETE | `/apps/{appId}` | アプリ削除 |
+
+### App Status
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/app-status` | アプリステータス取得（メンテナンス表示など） |
+| PUT | `/app-status` | アプリステータス更新 |
+
+### Users（参照のみ）
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/users` | ユーザー一覧 |
+| GET | `/users/{userId}` | ユーザー詳細 |
+| GET | `/users/{userId}/answers` | ユーザーの回答ログ一覧 |
+
+### Publish
+
+| Method | Path | 説明 |
+|--------|------|------|
+| POST | `/publish` | DB の内容を S3 に静的 JSON として書き出す |
+
+`/publish` を叩くまでコンテンツ CDN の内容は変わらない。さらに問題集 Web は
+ビルド時に JSON を焼き込むため、web にも反映したい場合は publish 後に web を
+再デプロイする。詳細は [データ同期](datasync.md) と [runbook](runbook.md)。
+
 ### Images
 
 | Method | Path | 説明 |
@@ -111,18 +168,25 @@
 |--------|------|-----------|
 | `DATABASE_URL` | PostgreSQL接続文字列 | `postgres://rikako:password@localhost:5432/rikako?sslmode=disable` |
 | `IMAGE_BASE_URL` | 画像CDNのベースURL | `https://example.com` |
-| `IMAGE_S3_BUCKET` | S3バケット名（Presigned URL用） | （未設定時はPresigned URL無効） |
+| `IMAGE_S3_BUCKET` | 画像用 S3 バケット名（Presigned URL 用） | （未設定時は Presigned URL 無効） |
+| `CONTENT_S3_BUCKET` | コンテンツ用 S3 バケット名（`/publish` の書き出し先） | （未設定時は `/publish` 無効） |
+| `DB_USE_POOLER` | `true` なら Neon の pooled endpoint に接続する | （未設定 = direct） |
 | `PORT` | リッスンポート | `8081` |
+
+Lambda では `DATABASE_URL` などに `ssm:/rikako/<env>/...` の参照が入り、起動時に
+`app/internal/secrets.Resolve` が実値へ展開する。
 
 ## アーキテクチャ
 
 ```mermaid
 graph TB
-    Admin[Admin Client] -->|CRUD| AdminAPI[Admin API<br/>:8081]
+    Admin[管理画面] -->|CRUD| AdminAPI["Admin API<br/>:8081"]
     AdminAPI --> DB[(PostgreSQL)]
-    AdminAPI -->|Presigned URL| S3[S3 Bucket]
-    Admin -->|Upload via Presigned URL| S3
-    S3 --> CF[CloudFront]
+    AdminAPI -->|Presigned URL| S3["S3 画像"]
+    AdminAPI -->|"POST /publish"| ContentS3["S3 コンテンツ"]
+    Admin -->|Presigned URL で直接アップロード| S3
+    S3 --> CF["image.rikako.org"]
+    ContentS3 --> ContentCF["content.rikako.org"]
 ```
 
 ## ローカル開発

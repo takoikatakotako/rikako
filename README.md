@@ -118,16 +118,25 @@ go run ./cmd/server
 
 ### エンドポイント
 
-| パス | 説明 |
-|------|------|
-| `GET /` | ルート |
-| `GET /health` | ヘルスチェック |
-| `GET /questions` | 問題一覧 |
-| `GET /questions/{id}` | 問題詳細 |
-| `GET /workbooks` | 問題集一覧 |
-| `GET /workbooks/{id}` | 問題集詳細 |
+全 28 エンドポイント。正確な仕様は OpenAPI を参照。
 
-API仕様: https://takoikatakotako.github.io/rikako/api/
+| 分類 | パス |
+|------|------|
+| システム | `GET /`、`GET /health`、`GET /status` |
+| コンテンツ | `GET /questions`、`GET /questions/{id}`、`GET /workbooks`、`GET /workbooks/{id}`、`GET /categories`、`GET /categories/{id}`、`GET /apps/{appSlug}` |
+| お知らせ | `GET /announcements`、`GET /announcements/{id}` |
+| AIチャット | `POST /questions/{id}/chat` |
+| 匿名認証 | `POST /auth/anonymous/sign-in`、`POST /auth/anonymous/sign-out` |
+| 学習記録 | `POST /answers`、`GET|PUT /users/me`、`GET /users/me/workbook-progress`、`GET /users/me/summary`、`GET /users/me/answer-logs`、`GET /users/me/wrong-answers` |
+| 引き継ぎ | `GET|POST /transfer/token`、`POST /transfer/apply` |
+| アカウント | `POST /account/link`、`GET /account/services` |
+| その他 | `POST /contact` |
+
+> iOS アプリと問題集 Web は、**問題データをこの API からは取得しない**。
+> コンテンツ CDN（`content.rikako.org`）の静的 JSON を読む。この API は回答送信・
+> 学習記録・お知らせなど動的なものを担当する。
+
+API仕様: https://docs.rikako.org/api/
 
 ## スキーマドキュメント生成
 
