@@ -77,15 +77,27 @@ Rikako - 問題集アプリ
 │       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
-└── .github/workflows/      # CI設定
-    ├── deploy-api-dev.yml          # 公開APIデプロイ（ECRビルド&プッシュ + Lambda更新）
-    ├── deploy-admin-api-dev.yml    # 管理APIデプロイ
-    ├── deploy-admin-frontend-dev.yml # 管理フロントエンドデプロイ
-    ├── apply-terraform-dev.yml     # main pushで dev のTerraform自動apply
-    ├── plan-terraform.yml          # PR時にTerraform plan
-    ├── plan-datasync.yml           # PR時に data 差分plan
-    ├── docs.yml                    # ドキュメント生成・デプロイ
-    └── migrate-dev.yml / migrate-prod.yml # マイグレーション（手動 dispatch）
+└── .github/workflows/      # CI設定（全28本）
+    # デプロイ: dev は main push で自動（paths で領域判定）、prod は手動 dispatch + 承認
+    ├── deploy-api-{dev,prod}.yml            # 公開API（ECRビルド&プッシュ + Lambda更新）
+    ├── deploy-admin-api-{dev,prod}.yml      # 管理API
+    ├── deploy-admin-frontend-{dev,prod}.yml # 管理画面フロントエンド
+    ├── deploy-admin-prod.yml               # 管理API+フロントをまとめて（workflow_call）
+    ├── deploy-web-{dev,prod}.yml            # 問題集Web（it / chemistry を matrix）
+    ├── deploy-portal-{dev,prod}.yml         # アカウントポータル
+    ├── deploy-lp-{dev,prod}.yml             # LP
+    # Terraform / データ
+    ├── apply-terraform-dev.yml     # main push で dev を自動 apply
+    ├── apply-terraform-prod.yml    # 手動。plan → production 承認 → apply
+    ├── plan-terraform.yml          # PR時に dev の plan（tfcmt でコメント）
+    ├── plan-datasync.yml           # PR時に data 差分 plan
+    ├── migrate-{dev,prod}.yml      # マイグレーション（手動 dispatch。prod は承認）
+    ├── backup-db-prod.yml          # prod DB を毎日バックアップ
+    # テスト
+    ├── ci.yml / ci-portal.yml / web.yml     # Go / portal / web
+    ├── ios.yml / ios-e2e.yml / ios-screenshots.yml
+    ├── test-cloudfront-functions.yml
+    └── docs.yml                    # tbls + MkDocs を生成して docs.rikako.org へ
 ```
 
 ## データ形式
