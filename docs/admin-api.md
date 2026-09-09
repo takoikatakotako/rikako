@@ -9,8 +9,13 @@
 | エントリーポイント | `app/cmd/admin/main.go` |
 | OpenAPI仕様 | `openapi-admin.yaml` |
 | デフォルトポート | 8081 |
-| 認証 | なし（将来追加予定） |
-| デプロイ | Lambda + Lambda Web Adapter（#77 完了後） |
+| 認証 | CloudFront の Basic Auth + Lambda Function URL の `AWS_IAM`（OAC で CloudFront のみ署名可） |
+| デプロイ | Lambda + Lambda Web Adapter（`deploy-admin-api-dev.yml` / `deploy-admin-api-prod.yml`） |
+| Dev URL | https://admin.dev.rikako.org/api |
+| Prod URL | https://admin.rikako.org/api |
+
+> `/api` 配下がこの管理APIで、それ以外のパスは同じ CloudFront が管理画面フロントエンド（S3）へ流す。
+> `POST /publish` を叩くときに `/api` を落とすとフロントエンドの SPA に当たるので注意。
 
 ## エンドポイント
 
@@ -163,6 +168,4 @@ sequenceDiagram
 
 ## 今後の予定
 
-- 認証の追加（Cognito or API Key）
-- `admin-api.dev.rikako.jp` でのデプロイ（#77 完了後）
-- Lambda + CloudFront でのホスティング
+- 認証を Basic Auth から Cognito ベースへ移行するか検討（現状は CloudFront Function の Basic Auth）

@@ -87,9 +87,10 @@ go run ./cmd/importer -data ../data
 ```
 
 インポート内容：
-- 問題データ（3000問）
-- 画像（121枚）
-- 問題集（4件）
+- 問題データ（`data/questions/`、3,000問）
+- 画像（`data/images/`、122枚）
+- 問題集（`data/workbooks/`、24件）
+- カテゴリ（`data/categories/`）
 
 ## APIサーバー
 
@@ -247,7 +248,7 @@ GitHub ActionsのDeployワークフローを実行するだけでOK:
 
 - **Dev**: `main` ブランチへの push で自動実行（`deploy-api-dev.yml` / `deploy-admin-api-dev.yml`）
 - **Prod**: 手動 dispatch のみ（`deploy-api-prod.yml` / `deploy-admin-api-prod.yml`）
-- **Terraform**: Dev は main push で `apply-terraform-dev.yml` が自動 apply、Prod はローカルから手動 `terraform apply`
+- **Terraform**: Dev は main push で `apply-terraform-dev.yml` が自動 apply、Prod は **Apply Terraform Prod**（`apply-terraform-prod.yml`、plan → 承認 → apply）か、ローカルからの手動 `terraform apply`
 
 ### デプロイフロー
 
@@ -259,11 +260,13 @@ GitHub ActionsのDeployワークフローを実行するだけでOK:
 
 GitHub Actions経由でマイグレーションを実行:
 
-Actions → Run Database Migration → Run workflow
+環境の踏み間違いを防ぐため、dev と prod でワークフローが分かれている。
 
-- **Environment**: `dev` または `prod`
+- Actions → **Migrate Dev** / **Migrate Prod** → Run workflow
 - **Direction**: `up` または `down`
 - **Steps**: 空欄（すべて）または数値（ステップ数）
+
+prod は `production` environment の承認を通してから実行される。
 
 ### エンドポイントの確認
 

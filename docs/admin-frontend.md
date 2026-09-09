@@ -8,8 +8,9 @@
 |------|-----|
 | フレームワーク | Next.js 15 (App Router, static export) |
 | ソースコード | `admin/` |
-| デプロイ先 | S3 + CloudFront |
-| Dev URL | https://admin.dev.rikako.jp |
+| デプロイ先 | S3 + CloudFront（Basic Auth） |
+| Dev URL | https://admin.dev.rikako.org/ |
+| Prod URL | https://admin.rikako.org/ |
 
 ## ページ一覧
 
