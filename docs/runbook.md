@@ -368,6 +368,53 @@ curl -s -o /dev/null -w "%{http_code}\n" https://api.dev.rikako.org/workbooks
 
 prod は次のように読み替える: `AWS_PROFILE=rikako-production-sso`、`PROJECT_ID` は `cd terraform/environments/prod && terraform state show neon_project.default` の `id`、`BRANCH_ID` は同 `default_branch_id`、`ROLE=neondb_owner`、`DB=neondb`、SSM 名 `/rikako/production/database-url`、関数は `rikako-api-production` / `rikako-admin-api-production`。
 
+### Neon 接続プーリング（pooled endpoint）{#neon-pooling}
+
+アプリと datasync は Neon の **pooled endpoint**（PgBouncer, transaction pooling）を使う。
+マイグレーションだけは **direct 接続**（Issue #281 / #288）。
+
+| 用途 | エンドポイント | 接続元 |
+|------|--------------|--------|
+| 公開API / 管理API Lambda | pooled | SSM `/rikako/<env>/database-url`（`DB_USE_POOLER=true` で host に `-pooler` を付与） |
+| datasync | pooled | 同上 |
+| マイグレーション（golang-migrate） | **direct** | `terraform output -raw connection_string` |
+
+> **マイグレーションは今後も direct を維持すること。** golang-migrate の advisory lock は
+> セッション単位で、transaction pooling では正しく機能しない。`migrate-dev.yml` /
+> `migrate-prod.yml` は SSM ではなく terraform の `connection_string` を使っているため、
+> SSM を pooled にしても影響しない。
+
+#### transaction pooling と互換な理由
+
+transaction pooling ではセッションに依存する機能が使えないが、本アプリは該当機能を使っていない。
+
+- sqlc は `emit_prepared_queries: false`。生成コードは `QueryContext` / `ExecContext` の直呼びで、永続 prepared statement を持たない
+- さらに pgx を simple protocol で駆動している（`dbconn.SimpleProtocol`、#291 / #292）
+- advisory lock / 一時テーブル / `LISTEN`・`NOTIFY` / `SET SESSION` はアプリ側で未使用
+- `SetMaxOpenConns(10)` は pooled でも妥当。PgBouncer が多重化するため Neon の直接接続数は増えない
+
+#### rollback
+
+pooled で問題が出たら direct に戻して Lambda を cold start する（warm container の旧接続を破棄するため）。
+
+```bash
+export AWS_PROFILE=<prod のプロファイル>   # docs/aws-setup.md 参照
+
+# terraform で DB_USE_POOLER を "false" にして apply する
+# （SSM の値を direct host に書き換える方法もあるが、terraform 管理下なので apply で巻き戻る）
+
+TS=$(date +%s)
+for fn in rikako-api-production rikako-admin-api-production; do
+  aws lambda update-function-configuration --function-name "$fn" \
+    --description "pooler rollback $TS" >/dev/null
+  aws lambda wait function-updated --function-name "$fn"
+done
+
+curl -s -o /dev/null -w "%{http_code}\n" https://api.rikako.org/workbooks   # 200
+```
+
+> **DSN をログ・標準出力に出さないこと。** 切替の前後で Neon コンソールの接続数とエラーを比較する。
+
 ### 管理画面 Basic 認証（CloudFront Function）{#admin-basic-auth}
 
 管理画面（`admin.<env>.rikako.org` / フロント・`/api` 共通）の Basic 認証は SSM の `/rikako/admin-basic-auth-user` / `/rikako/admin-basic-auth-password` を使う。
