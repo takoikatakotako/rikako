@@ -4,8 +4,8 @@
 
 `ios/Rikako` のディレクトリ構成と責務を整理するためのメモです。
 
-- 関連ドキュメント: [README.md](./README.md)
-- 関連ドキュメント: [navigation.md](./navigation.md)
+- 画面遷移と画面一覧: [iOSアプリ](../ios.md)
+- オンボーディングの画面仕様: [onboarding.md](./onboarding.md)
 - 関連ドキュメント: [onboarding.md](./onboarding.md)
 
 現在の方針は、画面から直接 API を呼ばず、次の依存方向で組むことです。
@@ -27,6 +27,8 @@ ios/Rikako/
   RikakoApp.swift
 
   Domain/
+    Account/
+    Analytics/
     Entity/
     Repository/
     UseCase/
@@ -38,6 +40,9 @@ ios/Rikako/
     Repository/
 
   Infrastructure/
+    Analytics/
+    Audio/
+    Auth/
     Identity/
     Network/
 
@@ -49,20 +54,30 @@ ios/Rikako/
     StudyRecord/
     MyPage/
     Settings/
+    Quiz/
+    Result/
+    AIChat/
+    Notifications/
+    Transfer/
+
+  Firebase/        # GoogleService-Info-<slug>-<env>.plist（git 管理外）
+  Resources/
+  Support/
 ```
 
 補助的に、まだ feature ディレクトリへ移し切っていない画面もあります。
 
-- `Screen/QuizView.swift`
-- `Screen/ResultView.swift`
 - `Screen/ProfileView.swift`
 - `Screen/WrongAnswersView.swift`
 - `Screen/NotificationsView.swift`
 - `Screen/HelpAndSupportView.swift`
-- `Screen/LegacyTopView.swift`
-- `Screen/LegacyCategoryViews.swift`
 - `Screen/WorkbookListView.swift`
 - `Screen/WorkbookDetailView.swift`
+- `Screen/LoginView.swift` / `SignUpView.swift` / `ConfirmCodeView.swift` / `ForgotPasswordView.swift`
+- `Screen/MaintenanceView.swift` / `UpdateRequiredView.swift`
+
+> `WorkbookListView` は現在どこからも参照されていない。問題集の選択は `StudyHomeView` の
+> ピッカーに移っているため、整理の候補。
 
 ## 各レイヤの責務
 
@@ -213,7 +228,7 @@ flowchart TD
     D --> E[StudyHomeView]
 ```
 
-詳細は [navigation.md](./navigation.md) を参照してください。
+詳細は [iOSアプリ](../ios.md) を参照してください。
 
 ## モックが残っている場所
 

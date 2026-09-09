@@ -20,6 +20,8 @@ nav:
       - 管理API設計: admin-api.md
       - 管理画面: admin-frontend.md
       - iOSアプリ: ios.md
+      - iOS アーキテクチャ: ios/architecture.md
+      - iOS オンボーディング: ios/onboarding.md
   - APIリファレンス:
       - 公開API: api/index.html
       - 管理API (Swagger): admin-api/index.html
