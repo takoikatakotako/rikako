@@ -14,7 +14,7 @@ Rikako - 問題集アプリ
 - **マイグレーション**: golang-migrate/migrate
 - **API仕様**: OpenAPI 3.0.3（oapi-codegenでコード生成）
 - **ドキュメント**: MkDocs + tbls + Swagger UI
-- **CI/CD**: GitHub Actions → GitHub Pages
+- **CI/CD**: GitHub Actions → S3 + CloudFront（docs.rikako.org）
 
 ### AWS環境
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
@@ -79,6 +79,7 @@ Rikako - 問題集アプリ
 ├── openapi-admin.yaml      # 管理API仕様
 └── .github/workflows/      # CI設定（全28本）
     # デプロイ: dev は main push で自動（paths で領域判定）、prod は手動 dispatch + 承認
+    #（例外: docs.yml だけは main push で prod へ自動デプロイ）
     ├── deploy-api-{dev,prod}.yml            # 公開API（ECRビルド&プッシュ + Lambda更新）
     ├── deploy-admin-api-{dev,prod}.yml      # 管理API
     ├── deploy-admin-frontend-{dev,prod}.yml # 管理画面フロントエンド
@@ -315,7 +316,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 5. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
    - MkDocsビルド
-   - GitHub Pagesにデプロイ
+   - S3 + CloudFront（docs.rikako.org）にデプロイ
 
 6. **migrate-dev.yml / migrate-prod.yml** - 手動マイグレーション
    - dev / prod で別ワークフロー（環境の踏み間違い防止）

@@ -4,7 +4,6 @@
 
 - [iOSアプリ](../ios.md)
 - [architecture.md](./architecture.md)
-- [architecture.md](./architecture.md)
 
 ## 目的
 - 初回起動時にキャラクターとアプリの世界観を伝える

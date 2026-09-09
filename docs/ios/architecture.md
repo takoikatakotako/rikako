@@ -6,7 +6,6 @@
 
 - 画面遷移と画面一覧: [iOSアプリ](../ios.md)
 - オンボーディングの画面仕様: [onboarding.md](./onboarding.md)
-- 関連ドキュメント: [onboarding.md](./onboarding.md)
 
 現在の方針は、画面から直接 API を呼ばず、次の依存方向で組むことです。
 

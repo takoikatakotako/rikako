@@ -93,23 +93,30 @@ graph TB
 ```mermaid
 graph LR
     subgraph 通常利用
-        App1[iOS / Web] -->|GetId| CIP[Cognito Identity Pool]
-        CIP -->|Identity ID| App1
-        App1 -->|X-Device-ID| API[公開 API]
+        IOS1[iOS] -->|GetId| CIP[Cognito Identity Pool]
+        CIP -->|Identity ID| IOS1
+        WEB1["Web / ポータル"] -->|"crypto.randomUUID()"| LS[localStorage]
+        IOS1 -->|X-Device-ID| API[公開 API]
+        WEB1 -->|X-Device-ID| API
         API --> DB[("users / user_answers")]
     end
 
     subgraph ログイン
-        App2[iOS / ポータル] -->|SignUp / InitiateAuth| CUP[Cognito User Pool]
+        App2["iOS / Web / ポータル"] -->|SignUp / InitiateAuth| CUP[Cognito User Pool]
         CUP -->|メール確認コード| SESx[SES]
         CUP -->|JWT| App2
         App2 -->|"Authorization: Bearer + POST /account/link"| API2[公開 API]
-        API2 -->|Identity ID に sub を紐づけ| DB
+        API2 -->|端末識別子に sub を紐づけ| DB
     end
 ```
 
-- **Identity ID**: 匿名ユーザー識別子。iOS は Keychain に永続化する
-- **`POST /account/link`**: ログイン中の Cognito ユーザーに、いま使っている Identity ID の
+- **端末識別子（`X-Device-ID`）の出どころはクライアントで違う**。iOS は Cognito Identity Pool の
+  Identity ID を Keychain に永続化する。Web とポータルは Identity Pool を呼ばず、
+  `crypto.randomUUID()` で生成した UUID を localStorage に持つ（`src/lib/deviceId.ts`）。
+  サーバーは `identity_id` として受け取るだけなので、どちらでも同じように扱える
+- **メールログインは iOS / Web / ポータルのいずれからでもできる**。Web は `src/lib/cognito.ts` と
+  `(auth)` 配下で User Pool を直叩きしている
+- **`POST /account/link`**: ログイン中の Cognito ユーザーに、いま使っている端末識別子の
   学習記録を紐づける
 - サーバー側は JWT 検証のみ（`app/internal/auth/`）。JWKS は kid 単位でキャッシュ（TTL 1 時間）
 - 環境変数が未設定なら認証をスキップする（ローカル開発・CI 用）
@@ -149,7 +156,9 @@ graph TB
 
 - **dev**: `main` への push で、変更のあった領域だけが自動デプロイされる（各ワークフローの
   `paths` で判定。ワークフローファイル自身も `paths` に含める）
-- **prod**: すべて手動 dispatch + `production` environment の承認ゲート
+- **prod**: アプリのデプロイ・Terraform apply・マイグレーションは手動 dispatch +
+  `production` environment の承認ゲート。**ただしドキュメント（`docs.yml`）は例外**で、
+  `main` への push で prod アカウントの `rikako-docs` へ承認なしに自動デプロイされる
 - **Terraform**: dev は `apply-terraform-dev.yml` が自動 apply。prod は
   `apply-terraform-prod.yml`（plan → 承認 → apply）
 - **認証**: GitHub Actions OIDC。AWS のアクセスキーは持たない

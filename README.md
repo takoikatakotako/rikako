@@ -88,7 +88,7 @@ go run ./cmd/importer -data ../data
 
 インポート内容：
 - 問題データ（`data/questions/`、3,000問）
-- 画像（`data/images/`、122枚）
+- 画像（`data/images/`、120枚）
 - 問題集（`data/workbooks/`、24件）
 - カテゴリ（`data/categories/`）
 
