@@ -403,8 +403,9 @@ pooled で問題が出たら direct に戻して Lambda を cold start する（
 ```bash
 export AWS_PROFILE=<prod のプロファイル>   # docs/aws-setup.md 参照
 
-# terraform で DB_USE_POOLER を "false" にして apply する
-# （SSM の値を direct host に書き換える方法もあるが、terraform 管理下なので apply で巻き戻る）
+# terraform で DB_USE_POOLER を "false" にして apply する。
+# SSM の値はもともと direct host なので、SSM を書き換えても direct には戻せない
+# （DB_USE_POOLER=true のままだと dbconn.Pooled が再び -pooler を付けるため）。
 
 TS=$(date +%s)
 for fn in rikako-api-production rikako-admin-api-production; do

@@ -87,8 +87,12 @@ graph TB
 
 ## 3. 認証
 
-普段は**匿名認証（Cognito Identity Pool）**で登録なしに使える。機種変更などでデータを引き継ぎたい
-ときだけ**メールログイン（Cognito User Pool）**する（Issue #283）。
+普段は**登録なしの匿名利用**で、機種変更などでデータを引き継ぎたいときだけ
+**メールログイン（Cognito User Pool）**する（Issue #283）。
+
+匿名時の端末識別子はクライアントで出どころが違う。**iOS は Cognito Identity Pool の
+Identity ID**、**Web とポータルは `crypto.randomUUID()` で生成した UUID**（Identity Pool は
+呼ばない）。どちらも `X-Device-ID` ヘッダで送り、サーバーは `identity_id` として扱う。
 
 ```mermaid
 graph LR

@@ -335,7 +335,7 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 
 > **dev DB接続の注意**
 > - `datasync -env dev` は SSM `/rikako/dev/database-url` から接続URLを取得する。DB ドライバは **pgx(stdlib) + simple protocol**（#291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため `channel_binding=require` を付けてもよく、`dbconn.Pooled` は指定があれば保持する。SSM に入っている値は **direct ホスト**で、pooled endpoint への切替は `DB_USE_POOLER=true` を見て `dbconn.Pooled` がホスト名に `-pooler` を付ける（datasync はこの変換を行わないため direct 接続）。接続方針の詳細は [runbook の Neon 接続プーリング](docs/runbook.md#neon-pooling) を参照。
-> - SSM の `database-url` は Terraform 管理（Neon connection_uri から登録）。手動更新すると次の `terraform apply` で巻き戻る恐れがあるため、恒久対処は Terraform/Neon provider 側を現行値に整合させる。
+> - SSM の `database-url` は Terraform が Neon の `connection_uri` から**初期値だけ**登録し、`lifecycle.ignore_changes = [value]` を付けている。以降のローテーションは Terraform の管轄外（out-of-band）なので、`aws ssm put-parameter --overwrite` で更新してよく、次の `terraform apply` で巻き戻ることはない。
 > - `.github/workflows/plan-datasync.yml` の plan ステップは `set -o pipefail` + `tee` で datasync の失敗を検知する（2026-06-13 修正済み）。`tee` により datasync の標準出力が public な CI ログに出るため、datasync は接続先表示のパスワードを `url.Redacted()` でマスクしている。**DSN を生のままログや標準出力に出さないこと。**
 
 ### S3上のJSON構造

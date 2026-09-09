@@ -151,10 +151,12 @@ workbooks:
 
 > **dev の SSM は二重管理になっている。** datasync が読む `/rikako/dev/database-url` は手動登録で、
 > Lambda が読む `/rikako/development/database-url` は Terraform 管理（Neon の `connection_uri` から登録）。
-> 現状この 2 つは scheme 表記以外が同一だが、Neon 側でロールパスワードが変わると
-> Terraform 側しか更新されず datasync が認証失敗する。片方を消して一本化したい。
-> なお Terraform 側のパラメータは `lifecycle.ignore_changes = [value]` が付いているため、
-> 手動で `aws ssm put-parameter --overwrite` しても次の apply で巻き戻ることはない。
+> 現状この 2 つは scheme 表記以外が同一。ただし Terraform は `lifecycle.ignore_changes = [value]`
+> を付けていて**初期値を入れるだけ**なので、Neon 側でロールパスワードが変わったときの
+> 再登録はどちらも手作業になる。片方だけ更新すると、もう片方を読む経路が認証失敗する。
+> 片方を消して一本化したい。
+> なお `ignore_changes` があるため、`aws ssm put-parameter --overwrite` で更新した値が
+> 次の `terraform apply` で巻き戻ることはない。
 
 ## CI（plan-datasync）
 
