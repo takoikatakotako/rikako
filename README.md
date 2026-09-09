@@ -169,17 +169,23 @@ docker run --rm \
 
 ### 環境
 
-- **Dev環境** (AWSアカウント: 197865631794)
+- **Dev環境** (AWSアカウント: 197865631794) — LP / Web / ポータル / 管理画面はすべて Basic 認証
+  - LP: https://dev.rikako.org/
+  - 問題集Web: https://it.dev.rikako.org/ ・ https://chemistry.dev.rikako.org/
+  - アカウントポータル: https://account.dev.rikako.org/
+  - 管理画面 / 管理API: https://admin.dev.rikako.org/ ・ `/api`
   - 公開API: https://api.dev.rikako.org/
-  - 管理画面: https://admin.dev.rikako.org/
   - Image CDN: https://image.dev.rikako.org/
   - Content CDN: https://content.dev.rikako.org/
-- **Prod環境** (AWSアカウント: 211125415945)
+- **Prod環境** (AWSアカウント: 211125415945) — 管理画面のみ Basic 認証
   - LP: https://rikako.org/
+  - 問題集Web: https://it.rikako.org/ ・ https://chemistry.rikako.org/
+  - アカウントポータル: https://account.rikako.org/
+  - 管理画面 / 管理API: https://admin.rikako.org/ ・ `/api`
   - 公開API: https://api.rikako.org/
-  - 管理画面: https://admin.rikako.org/
   - Image CDN: https://image.rikako.org/
   - Content CDN: https://content.rikako.org/
+  - ドキュメント: https://docs.rikako.org/
 - **Shared環境** (AWSアカウント: 579039992557): ECR (`rikako-api`, `rikako-admin-api`)。IaC は別リポジトリ `aws-iac` で管理（このリポジトリでは扱わない）
 
 ### 初回セットアップ
