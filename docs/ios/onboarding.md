@@ -2,9 +2,9 @@
 
 ## 関連ドキュメント
 
-- [README.md](./README.md)
+- [iOSアプリ](../ios.md)
 - [architecture.md](./architecture.md)
-- [navigation.md](./navigation.md)
+- [architecture.md](./architecture.md)
 
 ## 目的
 - 初回起動時にキャラクターとアプリの世界観を伝える
@@ -149,7 +149,7 @@ flowchart TD
 - ログインはオンボーディング中に必須化しない
 - 利用規約への同意が済まないと最後の完了画面へ進めない
 - 選択した問題集は初期ホーム表示やおすすめ表示に利用できる
-- 現在の Root からの遷移は [navigation.md](./navigation.md) を参照
+- 現在の Root からの遷移は [iOSアプリ](../ios.md) を参照
 - レイヤ構成や責務分担は [architecture.md](./architecture.md) を参照
 
 ## 今後の検討

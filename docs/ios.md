@@ -1,96 +1,107 @@
 # iOS アプリ
 
-## 画面遷移図
+`ios/Rikako` の SwiftUI アプリ。**1 つのコードベースを flavor で出し分けて 2 アプリを配信**
+している（化学版 `jp.conol.chemist` / 4択IT `org.rikako.it-passport`）。
 
-### オンボーディングフロー
+レイヤ構成とディレクトリ責務は [iOS Architecture](ios/architecture.md)、オンボーディングの
+画面仕様は [iOS Onboarding](ios/onboarding.md) を参照。
 
-```mermaid
-flowchart LR
-    A[アプリ起動] --> B{初回起動?}
-    B -->|Yes| C[ウェルカム画面]
-    C --> D[アプリ紹介 1/3]
-    D --> E[アプリ紹介 2/3]
-    E --> F[アプリ紹介 3/3]
-    F --> G[カテゴリ選択]
-    G --> H{アカウント}
-    H -->|新規登録| I[サインアップ画面]
-    H -->|ログイン| J[ログイン画面]
-    H -->|スキップ| K[問題集一覧]
-    I --> K
-    J --> K
-    B -->|No| L{ログイン済み?}
-    L -->|Yes| K
-    L -->|No| J
-```
+## 起動フロー
 
-### メインフロー
+`RootView` が起動時にアプリ状態を取得し、強制アップデート・メンテナンス・通常を出し分ける。
 
 ```mermaid
-flowchart LR
-    A[問題集一覧] --> B[問題集詳細]
-    B --> C[クイズ解答]
-    C --> D{解答}
-    D --> E[正誤表示 + 解説]
-    E --> F{最後の問題?}
-    F -->|No| C
-    F -->|Yes| G[結果画面]
-    G --> A
+flowchart TD
+    A[RootView] --> B[スプラッシュ<br/>初期化]
+    B --> C{アプリ状態}
+    C -->|要アップデート| D[UpdateRequiredView]
+    C -->|メンテナンス| E[MaintenanceView]
+    C -->|通常| F{オンボーディング完了?}
+    F -->|No| G[OnboardingView]
+    F -->|Yes| H[MainView]
+    G -->|完了| H
 ```
 
-### 全体画面一覧
+- アプリ状態は公開 API の `GET /status` から取得する（`app_status` テーブル）
+- オンボーディング完了フラグは `AppState` が持つ
+
+## メイン画面（3 タブ）
+
+`MainView` は `TabView`。**ログインは起動時には求めず、マイページからの任意操作**。
 
 ```mermaid
-flowchart LR
-    subgraph オンボーディング
-        Welcome[ウェルカム]
-        Intro1[紹介 1/3]
-        Intro2[紹介 2/3]
-        Intro3[紹介 3/3]
-        CategorySelect[カテゴリ選択]
-    end
+flowchart TD
+    Main[MainView<br/>TabView] --> Study[学習<br/>StudyHomeView]
+    Main --> Record[学習記録<br/>StudyRecordView]
+    Main --> My[マイページ<br/>MyPageView]
 
-    subgraph 認証
-        SignUp[サインアップ]
-        Login[ログイン]
-    end
+    Study -->|問題集を変更（sheet）| Picker[問題集ピッカー]
+    Study -->|解く| Quiz[QuizView]
+    Quiz --> Result[ResultView]
+    Quiz -->|質問する| AIChat[AIChatView]
 
-    subgraph メイン
-        WorkbookList[問題集一覧]
-        WorkbookDetail[問題集詳細]
-        Quiz[クイズ解答]
-        Result[結果]
-    end
+    Record --> Wrong[WrongAnswersView]
 
-    subgraph 設定
-        Settings[設定]
-        Profile[プロフィール]
-    end
+    My --> Profile[ProfileView]
+    My --> Notifications[NotificationsView]
+    My --> Help[HelpAndSupportView]
+    My --> Settings[SettingsView]
 
-    Welcome --> Intro1 --> Intro2 --> Intro3 --> CategorySelect
-    CategorySelect --> SignUp
-    CategorySelect --> Login
-    CategorySelect --> WorkbookList
-    SignUp --> WorkbookList
-    Login --> WorkbookList
-    WorkbookList --> WorkbookDetail --> Quiz --> Result --> WorkbookList
-    WorkbookList --> Settings --> Profile
+    Profile --> Transfer[TransferView<br/>引き継ぎコード]
+    Settings --> Login[LoginView]
+    Settings --> Debug[DebugView<br/>DEBUG ビルドのみ]
+
+    Login --> SignUp[SignUpView]
+    Login --> Confirm[ConfirmCodeView]
+    Login --> Forgot[ForgotPasswordView]
+    SignUp --> Confirm
+    Notifications --> NotifDetail[NotificationDetailView]
 ```
 
-## 画面詳細
+## 画面一覧
 
-| 画面 | 状態 | 説明 |
-|------|------|------|
-| ウェルカム | 実装済み | 初回起動時のウェルカム画面 |
-| アプリ紹介 (1-3) | 実装済み | アプリの機能紹介スライド |
-| カテゴリ選択 | 実装済み | 学習カテゴリの選択（中学理科・化学基礎・化学・大学一般化学） |
-| サインアップ | 実装済み | メール+パスワード（モック） |
-| ログイン | 実装済み | メール+パスワード（モック） |
-| 問題集一覧 | 実装済み | 問題集のリスト表示（タイトル、説明、問題数） |
-| 問題集詳細 | 実装済み | 問題リスト + 「この問題集を解く」ボタン |
-| クイズ解答 | 実装済み | 問題文 + 選択肢、正誤表示 + 解説 |
-| 結果 | 実装済み | スコア、正誤一覧、一覧に戻る |
-| 設定 | 実装済み | カテゴリ変更、アカウント情報、学習統計、ログアウト |
-| プロフィール | 実装済み | ユーザー情報、学習記録 |
+| 画面 | 到達経路 | 説明 |
+|------|----------|------|
+| `RootView` | 起動 | 状態に応じて出し分ける入口 |
+| `UpdateRequiredView` | Root | 強制アップデート |
+| `MaintenanceView` | Root | メンテナンス表示 |
+| `OnboardingView` | Root（初回） | 問題集選択を含むオンボーディング |
+| `MainView` | Root | 3 タブのコンテナ |
+| `StudyHomeView` | タブ | 選択中の問題集と進捗、出題開始 |
+| `QuizView` | 学習タブ | 出題・解答・解説 |
+| `AIChatView` | Quiz | 問題について質問する（`POST /questions/{id}/chat`） |
+| `ResultView` | Quiz | スコアと正誤一覧 |
+| `StudyRecordView` | タブ | 学習記録（週次・累計） |
+| `WrongAnswersView` | 学習記録 | 間違えた問題の一覧 |
+| `MyPageView` | タブ | 各種メニューの入口 |
+| `ProfileView` | マイページ | プロフィール |
+| `TransferView` | プロフィール | 引き継ぎコードの発行・適用 |
+| `NotificationsView` / `NotificationDetailView` | マイページ | お知らせ |
+| `HelpAndSupportView` | マイページ | ヘルプ・問い合わせ |
+| `SettingsView` | マイページ | 設定 |
+| `LoginView` / `SignUpView` / `ConfirmCodeView` / `ForgotPasswordView` | 設定 | メールログイン（#283） |
+| `DebugView` / `DebugWorkbooksView` / `DebugLearningLogView` | 設定 | DEBUG ビルドのみ |
+
+> `WorkbookListView` は現在どこからも参照されていない（`WorkbookDetailView` も
+> `WorkbookListView` と `DebugWorkbooksView` からのみ）。問題集の選択は `StudyHomeView` の
+> ピッカー sheet に移っているため、整理の候補。
+
+## 認証の考え方
+
+普段は Cognito Identity Pool の**匿名認証**のまま使い、機種変更などでデータを引き継ぎたい
+ときだけ設定からメールログインする。詳細は [メールログイン設計](email-login-design.md) と
+[アーキテクチャ](architecture.md#3-認証)。
+
+引き継ぎ手段は 2 つある。
+
+- **メールログイン**（`POST /account/link`）: アカウントに紐づけて引き継ぐ
+- **引き継ぎコード**（`TransferView`、`/transfer/token` と `/transfer/apply`）: アカウント無しで移す
+
+## データの取得元
+
+**問題データは公開 API から取らない。** コンテンツ CDN（`content.rikako.org`）の静的 JSON を
+読む。公開 API は回答送信・学習記録・お知らせ・AIチャットなど動的なものを担当する。
+詳細は [アーキテクチャ](architecture.md#4-データの流れ)。
 
 ## 利用イベント計測（Analytics）
 

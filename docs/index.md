@@ -13,7 +13,9 @@
 - [メールログイン設計](email-login-design.md) — 匿名利用とログインの併存、データ引き継ぎ
 - [管理API設計](admin-api.md) — 管理 API の設計と仕様
 - [管理画面](admin-frontend.md) — 管理画面フロントエンドの画面一覧
-- [iOSアプリ](ios.md) — 画面遷移、計測
+- [iOSアプリ](ios.md) — 画面遷移、画面一覧、計測
+    - [iOS アーキテクチャ](ios/architecture.md) — レイヤ構成とディレクトリ責務
+    - [iOS オンボーディング](ios/onboarding.md) — オンボーディングの画面仕様
 
 ## API リファレンス
 
