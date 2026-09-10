@@ -2,8 +2,18 @@ name: Plan Data Sync
 
 on:
   pull_request:
+    # data の差分だけでなく、datasync バイナリに影響する変更でも走らせる。
+    # 接続先（SSM パラメータ名）やドライバ設定を変えたとき、この PR 上で dev への
+    # 実接続を確認できるようにするため（Issue #367）。
+    # ワークフローファイル自身も含める（含めないと、ここを直した PR で発火しない）。
     paths:
       - "data/**"
+      - "app/cmd/datasync/**"
+      - "app/internal/datasync/**"
+      - "app/internal/dbconn/**"
+      - "app/go.mod"
+      - "app/go.sum"
+      - ".github/workflows/plan-datasync.yml"
 
 permissions:
   contents: read
