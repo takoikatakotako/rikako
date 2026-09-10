@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	localDSN     = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
-	devSSMParam  = "/rikako/dev/database-url"
+	localDSN = "postgres://rikako:password@localhost:5432/rikako?sslmode=disable"
+	// Terraform が作る名前（/<project>/<local.environment>/database-url）に合わせる。
+	// local.environment は dev で "development"、prod で "production"（Issue #367）。
+	devSSMParam  = "/rikako/development/database-url"
 	prodSSMParam = "/rikako/production/database-url"
 )
 
