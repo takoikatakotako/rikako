@@ -1,19 +1,15 @@
 name: Plan Data Sync
 
 on:
+  # この job は PR のソースからビルドした datasync を、dev の AWS 認証情報付きで実行する。
+  # そのため paths は意図的に data/** だけに絞っている。datasync バイナリ側の変更を
+  # 検証したいときは、main にマージしてから workflow_dispatch で実行すること
+  # （信頼できる ref のコードだけを AWS 認証付きで走らせるため）。
+  # 権限そのものの見直しは Issue #370。
   pull_request:
-    # data の差分だけでなく、datasync バイナリに影響する変更でも走らせる。
-    # 接続先（SSM パラメータ名）やドライバ設定を変えたとき、この PR 上で dev への
-    # 実接続を確認できるようにするため（Issue #367）。
-    # ワークフローファイル自身も含める（含めないと、ここを直した PR で発火しない）。
     paths:
       - "data/**"
-      - "app/cmd/datasync/**"
-      - "app/internal/datasync/**"
-      - "app/internal/dbconn/**"
-      - "app/go.mod"
-      - "app/go.sum"
-      - ".github/workflows/plan-datasync.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,6 +51,7 @@ jobs:
           tail -n +2 datasync-plan-full.txt > ../datasync-plan.txt
 
       - name: Comment on PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v9
         with:
           script: |

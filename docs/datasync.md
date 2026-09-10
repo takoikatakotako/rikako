@@ -159,6 +159,12 @@ workbooks:
 `.github/workflows/plan-datasync.yml` の plan 実行ステップは `set -o pipefail` + `tee` で、
 datasync が非ゼロ終了したときにステップが失敗するようになっている（2026-06-13 修正済み）。
 
+**発火条件は `data/**` の変更だけ**に絞っている。この job は PR のソースからビルドした
+datasync を dev の AWS 認証情報付きで実行するため、対象を広げると PR 由来のコードを
+実行する機会が増えるため（[Issue #370](https://github.com/takoikatakotako/rikako/issues/370)）。
+datasync バイナリ側の変更を実接続で確かめたいときは、main にマージしてから
+`workflow_dispatch` で実行する。
+
 `tee` により datasync の標準出力が public リポジトリの CI ログに出るため、**DSN を生のまま
 ログや標準出力に出さないこと**。datasync は接続先表示のパスワードを `url.Redacted()` で
 マスクしている。
