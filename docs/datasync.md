@@ -76,7 +76,7 @@ go run ./cmd/datasync -data ../data -env dev plan
 go run ./cmd/datasync -data ../data -env dev apply
 ```
 
-AWS SSM Parameter Store (`/rikako/dev/database-url`) からNeonの接続URLを取得して接続します。
+AWS SSM Parameter Store (`/rikako/development/database-url`) からNeonの接続URLを取得して接続します。
 事前に `AWS_PROFILE` の設定と `aws sso login` が必要です（[AWS CLI セットアップ](aws-setup.md) 参照）。
 
 ### DATABASE_URL 直接指定
@@ -146,22 +146,25 @@ workbooks:
 
 - **DBドライバは pgx(stdlib) を simple protocol で駆動**する（Issue #291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため、接続文字列に `channel_binding=require` が付いていても構わない。
 - **datasync は direct エンドポイントに接続する。** pooled endpoint への切替を行う `dbconn.Pooled` を呼ぶのは `cmd/server` と `cmd/admin` だけで、datasync は呼ばない。接続方針の一覧は [runbook](runbook.md#neon-pooling) を参照。
-- 接続URLは SSM から取得する。dev は `/rikako/dev/database-url`、prod は `/rikako/production/database-url`。
+- 接続URLは SSM から取得する。dev は `/rikako/development/database-url`、prod は `/rikako/production/database-url`。パラメータ名は Terraform が作る `/<project>/<local.environment>/database-url` と一致している。
 - `DATABASE_URL` 環境変数を直接渡せば `-env` より優先される。SSM がズレているときの暫定回避に使える。
 
-> **dev の SSM は二重管理になっている。** datasync が読む `/rikako/dev/database-url` は手動登録で、
-> Lambda が読む `/rikako/development/database-url` は Terraform 管理（Neon の `connection_uri` から登録）。
-> 現状この 2 つは scheme 表記以外が同一。ただし Terraform は `lifecycle.ignore_changes = [value]`
-> を付けていて**初期値を入れるだけ**なので、Neon 側でロールパスワードが変わったときの
-> 再登録はどちらも手作業になる。片方だけ更新すると、もう片方を読む経路が認証失敗する。
-> 片方を消して一本化したい。
-> なお `ignore_changes` があるため、`aws ssm put-parameter --overwrite` で更新した値が
-> 次の `terraform apply` で巻き戻ることはない。
+> **パラメータは環境ごとに 1 本。** datasync も Lambda も同じものを読む。
+> Terraform は `lifecycle.ignore_changes = [value]` を付けていて**初期値を入れるだけ**なので、
+> Neon 側でロールパスワードが変わったときの再登録は手作業（out-of-band）になる。
+> `aws ssm put-parameter --overwrite` で更新してよく、次の `terraform apply` で巻き戻ることはない。
 
 ## CI（plan-datasync）
 
 `.github/workflows/plan-datasync.yml` の plan 実行ステップは `set -o pipefail` + `tee` で、
 datasync が非ゼロ終了したときにステップが失敗するようになっている（2026-06-13 修正済み）。
+
+**発火条件は `data/**` の変更だけ**に絞っている。この job は PR のソースからビルドした
+datasync を dev の AWS 認証情報付きで実行するため、対象を広げると PR 由来のコードを
+実行する機会が増えるため（[Issue #370](https://github.com/takoikatakotako/rikako/issues/370)）。
+datasync バイナリ側の変更を実接続で確かめたいときは、main にマージしてから
+`workflow_dispatch` で実行する。手動実行は job の `if` で **main の内容のみ許可**しており、
+他の ref を選ぶと AWS の認証情報を取りに行く前に skip される。
 
 `tee` により datasync の標準出力が public リポジトリの CI ログに出るため、**DSN を生のまま
 ログや標準出力に出さないこと**。datasync は接続先表示のパスワードを `url.Redacted()` で
