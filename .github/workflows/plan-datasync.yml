@@ -19,6 +19,10 @@ permissions:
 jobs:
   plan:
     name: datasync plan (dev)
+    # 手動実行は main の内容だけを許可する。workflow_dispatch は UI / gh --ref / REST API で
+    # 任意の ref を選べるため、条件が無いと「main 以外の改変済み datasync を AWS 認証付きで
+    # 実行する」経路になってしまう。AWS の認証情報を取りに行く前に job ごと skip させる。
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

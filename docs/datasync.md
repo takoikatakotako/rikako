@@ -163,7 +163,8 @@ datasync が非ゼロ終了したときにステップが失敗するように�
 datasync を dev の AWS 認証情報付きで実行するため、対象を広げると PR 由来のコードを
 実行する機会が増えるため（[Issue #370](https://github.com/takoikatakotako/rikako/issues/370)）。
 datasync バイナリ側の変更を実接続で確かめたいときは、main にマージしてから
-`workflow_dispatch` で実行する。
+`workflow_dispatch` で実行する。手動実行は job の `if` で **main の内容のみ許可**しており、
+他の ref を選ぶと AWS の認証情報を取りに行く前に skip される。
 
 `tee` により datasync の標準出力が public リポジトリの CI ログに出るため、**DSN を生のまま
 ログや標準出力に出さないこと**。datasync は接続先表示のパスワードを `url.Redacted()` で
