@@ -370,14 +370,17 @@ prod は次のように読み替える: `AWS_PROFILE=rikako-production-sso`、`P
 
 ### Neon 接続プーリング（pooled endpoint）{#neon-pooling}
 
-アプリと datasync は Neon の **pooled endpoint**（PgBouncer, transaction pooling）を使う。
-マイグレーションだけは **direct 接続**（Issue #281 / #288）。
+公開API / 管理API の Lambda だけが Neon の **pooled endpoint**（PgBouncer, transaction pooling）を使う。
+datasync とマイグレーションは **direct 接続**（Issue #281 / #288）。
+
+SSM に入っている値は direct ホストで、pooled への切替は環境変数 `DB_USE_POOLER=true` を見て
+`dbconn.Pooled` がホスト名に `-pooler` を付ける。この変換を呼ぶのは `cmd/server` と `cmd/admin` だけ。
 
 | 用途 | エンドポイント | 接続元 |
 |------|--------------|--------|
-| 公開API / 管理API Lambda | pooled | SSM `/rikako/<env>/database-url`（`DB_USE_POOLER=true` で host に `-pooler` を付与） |
-| datasync | pooled | 同上 |
-| マイグレーション（golang-migrate） | **direct** | `terraform output -raw connection_string` |
+| 公開API / 管理API Lambda | **pooled** | SSM `/rikako/<env>/database-url` + `DB_USE_POOLER=true` |
+| datasync | direct | SSM（`dbconn.Pooled` を呼ばないため変換されない） |
+| マイグレーション（golang-migrate） | direct | `terraform output -raw connection_string` |
 
 > **マイグレーションは今後も direct を維持すること。** golang-migrate の advisory lock は
 > セッション単位で、transaction pooling では正しく機能しない。`migrate-dev.yml` /
@@ -400,8 +403,9 @@ pooled で問題が出たら direct に戻して Lambda を cold start する（
 ```bash
 export AWS_PROFILE=<prod のプロファイル>   # docs/aws-setup.md 参照
 
-# terraform で DB_USE_POOLER を "false" にして apply する
-# （SSM の値を direct host に書き換える方法もあるが、terraform 管理下なので apply で巻き戻る）
+# terraform で DB_USE_POOLER を "false" にして apply する。
+# SSM の値はもともと direct host なので、SSM を書き換えても direct には戻せない
+# （DB_USE_POOLER=true のままだと dbconn.Pooled が再び -pooler を付けるため）。
 
 TS=$(date +%s)
 for fn in rikako-api-production rikako-admin-api-production; do

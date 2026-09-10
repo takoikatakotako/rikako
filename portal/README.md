@@ -12,7 +12,7 @@ Next.js 16（App Router / 静的 export、S3+CloudFront 配信想定）。
 |------|----|------|
 | `NEXT_PUBLIC_COGNITO_REGION` | `ap-northeast-1` | cognito-idp のリージョン |
 | `NEXT_PUBLIC_COGNITO_CLIENT_ID` | App Client ID | SignUp/InitiateAuth の ClientId |
-| `NEXT_PUBLIC_API_BASE_URL` | `https://api.rikako.org` | API（/account/link 等、後続 PR で使用）|
+| `NEXT_PUBLIC_API_BASE_URL` | `https://api.rikako.org` | 公開 API（`/account/link`・`/account/services`）|
 | `NEXT_PUBLIC_PORTAL_URL` | `https://account.dev.rikako.org` | metadataBase（配信ドメイン。環境別）|
 
 ## コマンド
@@ -24,8 +24,19 @@ npm run build   # 静的 export（out/）
 npm run lint
 ```
 
-## 現状（Phase 3 の一部・#283）
+## 配信先
 
-- 実装済み: 新規登録 → メール確認コード → ログイン → ログアウト、パスワード再設定。
-- 未実装（後続 PR）: ログイン後の `/account/link` 呼び出し、プロフィール/利用中サービス表示、
-  Terraform（apex rikako.org の S3+CloudFront）・デプロイワークフロー。
+| | URL |
+|---|---|
+| dev | https://account.dev.rikako.org/（Basic 認証あり） |
+| prod | https://account.rikako.org/ |
+
+Terraform（`portal_frontend.tf`）とデプロイワークフロー（`deploy-portal-{dev,prod}.yml`）
+とも整備済み。apex の `rikako.org` は LP を残すため、ポータルは `account.` サブドメインに置いている。
+
+## 実装済みの機能（#283）
+
+- 新規登録 → メール確認コード → ログイン → ログアウト
+- パスワード再設定
+- ログイン後の `POST /account/link`（匿名で貯めた学習記録をアカウントへ引き継ぐ）
+- 利用中サービス（アプリ）一覧の表示

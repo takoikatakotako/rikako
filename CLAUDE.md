@@ -14,7 +14,7 @@ Rikako - 問題集アプリ
 - **マイグレーション**: golang-migrate/migrate
 - **API仕様**: OpenAPI 3.0.3（oapi-codegenでコード生成）
 - **ドキュメント**: MkDocs + tbls + Swagger UI
-- **CI/CD**: GitHub Actions → GitHub Pages
+- **CI/CD**: GitHub Actions → S3 + CloudFront（docs.rikako.org）
 
 ### AWS環境
 - **コンピュート**: AWS Lambda (コンテナイメージ) + Lambda Web Adapter 0.9.1
@@ -77,15 +77,28 @@ Rikako - 問題集アプリ
 │       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
-└── .github/workflows/      # CI設定
-    ├── deploy-api-dev.yml          # 公開APIデプロイ（ECRビルド&プッシュ + Lambda更新）
-    ├── deploy-admin-api-dev.yml    # 管理APIデプロイ
-    ├── deploy-admin-frontend-dev.yml # 管理フロントエンドデプロイ
-    ├── apply-terraform-dev.yml     # main pushで dev のTerraform自動apply
-    ├── plan-terraform.yml          # PR時にTerraform plan
-    ├── plan-datasync.yml           # PR時に data 差分plan
-    ├── docs.yml                    # ドキュメント生成・デプロイ
-    └── migrate-dev.yml / migrate-prod.yml # マイグレーション（手動 dispatch）
+└── .github/workflows/      # CI設定（全28本）
+    # デプロイ: dev は main push で自動（paths で領域判定）、prod は手動 dispatch + 承認
+    #（例外: docs.yml だけは main push で prod へ自動デプロイ）
+    ├── deploy-api-{dev,prod}.yml            # 公開API（ECRビルド&プッシュ + Lambda更新）
+    ├── deploy-admin-api-{dev,prod}.yml      # 管理API
+    ├── deploy-admin-frontend-{dev,prod}.yml # 管理画面フロントエンド
+    ├── deploy-admin-prod.yml               # 管理API+フロントをまとめて（workflow_call）
+    ├── deploy-web-{dev,prod}.yml            # 問題集Web（it / chemistry を matrix）
+    ├── deploy-portal-{dev,prod}.yml         # アカウントポータル
+    ├── deploy-lp-{dev,prod}.yml             # LP
+    # Terraform / データ
+    ├── apply-terraform-dev.yml     # main push で dev を自動 apply
+    ├── apply-terraform-prod.yml    # 手動。plan → production 承認 → apply
+    ├── plan-terraform.yml          # PR時に dev の plan（tfcmt でコメント）
+    ├── plan-datasync.yml           # PR時に data 差分 plan
+    ├── migrate-{dev,prod}.yml      # マイグレーション（手動 dispatch。prod は承認）
+    ├── backup-db-prod.yml          # prod DB を毎日バックアップ
+    # テスト
+    ├── ci.yml / ci-portal.yml / web.yml     # Go / portal / web
+    ├── ios.yml / ios-e2e.yml / ios-screenshots.yml
+    ├── test-cloudfront-functions.yml
+    └── docs.yml                    # tbls + MkDocs を生成して docs.rikako.org へ
 ```
 
 ## データ形式
@@ -275,7 +288,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - Neon DB: `fragrant-poetry-87067174` (ap-southeast-1、エンドポイント `ep-misty-unit-aoxkoz1d`)
   - Cognito User Pool: `ap-northeast-1_d8LkqgsJU`
   - Terraform State: `s3://rikako-prod-terraform-state`
-  - 自動 apply 無し、ローカルから `AWS_PROFILE=rikako-production-sso terraform apply` で反映
+  - 自動 apply は無い。**Apply Terraform Prod**（`apply-terraform-prod.yml`）を手動 dispatch すると plan → `production` environment の承認 → apply が走る。ローカルからの `terraform apply` でも反映できる（プロファイルは [AWS CLI セットアップ](docs/aws-setup.md) 参照）
 
 - **Shared環境** (AWSアカウント: 579039992557)
   - ECR: `rikako-api` / `rikako-admin-api`（IaC は別リポジトリ `aws-iac` で管理）
@@ -303,7 +316,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 5. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
    - MkDocsビルド
-   - GitHub Pagesにデプロイ
+   - S3 + CloudFront（docs.rikako.org）にデプロイ
 
 6. **migrate-dev.yml / migrate-prod.yml** - 手動マイグレーション
    - dev / prod で別ワークフロー（環境の踏み間違い防止）
@@ -321,8 +334,12 @@ iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で
 4. CloudFrontが60秒以内に新JSONを配信
 
 > **dev DB接続の注意**
-> - `datasync -env dev` は SSM `/rikako/dev/database-url` から接続URLを取得する。DB ドライバは **pgx(stdlib) + simple protocol**（#291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため `channel_binding=require` を付けてもよく、`dbconn.Pooled` は指定があれば保持する。SSM の値は **pooler ホスト**にすること（直接エンドポイントだと `password authentication failed` になりやすい）。接続方針の詳細は [runbook の Neon 接続プーリング](docs/runbook.md#neon-pooling) を参照。
-> - SSM の `database-url` は Terraform 管理（Neon connection_uri から登録）。手動更新すると次の `terraform apply` で巻き戻る恐れがあるため、恒久対処は Terraform/Neon provider 側を現行値に整合させる。
+> - `datasync -env dev` は SSM `/rikako/dev/database-url` から接続URLを取得する。DB ドライバは **pgx(stdlib) + simple protocol**（#291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため `channel_binding=require` を付けてもよく、`dbconn.Pooled` は指定があれば保持する。SSM に入っている値は **direct ホスト**で、pooled endpoint への切替は `DB_USE_POOLER=true` を見て `dbconn.Pooled` がホスト名に `-pooler` を付ける（datasync はこの変換を行わないため direct 接続）。接続方針の詳細は [runbook の Neon 接続プーリング](docs/runbook.md#neon-pooling) を参照。
+> - **dev の `database-url` は 2 本あり、読む主体が違う。**
+>   - `/rikako/dev/database-url` … datasync が読む。**手動登録**で Terraform の管理外
+>   - `/rikako/development/database-url` … Lambda（公開API / 管理API）が読む。Terraform が Neon の `connection_uri` から**初期値だけ**登録し、`lifecycle.ignore_changes = [value]` を付けている（`local.environment` が `development` のため）
+>
+>   どちらもローテーションは Terraform の管轄外（out-of-band）なので `aws ssm put-parameter --overwrite` で更新してよく、次の `terraform apply` で巻き戻ることはない。**片方だけ更新すると、もう片方を読む経路が認証失敗する。**一本化したいが未対応（prod は `/rikako/production/database-url` の 1 本のみで datasync と一致している）。
 > - `.github/workflows/plan-datasync.yml` の plan ステップは `set -o pipefail` + `tee` で datasync の失敗を検知する（2026-06-13 修正済み）。`tee` により datasync の標準出力が public な CI ログに出るため、datasync は接続先表示のパスワードを `url.Redacted()` でマスクしている。**DSN を生のままログや標準出力に出さないこと。**
 
 ### S3上のJSON構造

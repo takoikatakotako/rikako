@@ -17,18 +17,18 @@ app/
 │       ├── workbooks.sql      # 問題集関連
 │       ├── images.sql         # 画像関連
 │       ├── answers.sql        # 回答履歴関連
+│       ├── accounts.sql       # アカウント（メールログイン）
+│       ├── announcements.sql  # お知らせ
+│       ├── apps.sql           # アプリ（flavor）設定
+│       ├── app_status.sql     # アプリステータス
+│       ├── transfer.sql       # 引き継ぎトークン
 │       └── importer.sql       # データインポート用
 ├── internal/
 │   └── db/                    # 生成されたコード（編集禁止）
 │       ├── db.go              # DB接続・トランザクション
 │       ├── models.go          # テーブルモデル
 │       ├── querier.go         # インターフェース定義
-│       ├── questions.sql.go
-│       ├── categories.sql.go
-│       ├── workbooks.sql.go
-│       ├── images.sql.go
-│       ├── answers.sql.go
-│       └── importer.sql.go
+│       └── *.sql.go            # queries/*.sql と 1:1 で対応
 ```
 
 ## コード生成
@@ -54,9 +54,18 @@ sql:
         out: "internal/db"
         sql_package: "database/sql"
         emit_json_tags: true
-        emit_interface: true      # Querier インターフェース生成
-        emit_empty_slices: true   # nil ではなく空スライスを返す
+        emit_prepared_queries: false  # 永続 prepared statement を作らない
+        emit_interface: true          # Querier インターフェース生成
+        emit_empty_slices: true       # nil ではなく空スライスを返す
 ```
+
+> `emit_prepared_queries: false` は変えないこと。生成コードが `QueryContext` /
+> `ExecContext` の直呼びになり永続 prepared statement を持たないため、Neon の
+> pooled endpoint（PgBouncer の transaction pooling）と両立できている。
+> 詳細は [runbook](runbook.md#neon-pooling)。
+
+> ドライバは `database/sql` 経由の **pgx(stdlib)** で、simple protocol で駆動している
+> （Issue #291 / #292）。`sql_package` の設定は `database/sql` のままでよい。
 
 - **schema**: マイグレーションファイル（`migrations/*.up.sql`）をスキーマ定義として使用。別途スキーマファイルを管理する必要がない
 - **emit_interface**: `Querier` インターフェースが生成され、テストでのモック差し替えが容易になる

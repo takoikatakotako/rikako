@@ -142,13 +142,27 @@ workbooks:
 - 明示的IDでINSERTするため、apply後にシーケンス（auto increment）は自動でリセットされます
 - `choices` が空の問題では `correct` の差分比較はスキップされます
 
-## dev環境への接続でハマる点
+## 接続まわりの前提
 
-- **DBドライバは lib/pq**。lib/pq は `channel_binding` パラメータを解釈できないため、接続文字列に `channel_binding=require` を含めると接続に失敗する。`?sslmode=require` のみにすること（Neonのコンソールが提示する `psql` 用URLには `channel_binding=require` が付いているのでそのまま使わない）。
-- dev Neon は **pooler ホスト**（`ep-...-pooler.<region>.aws.neon.tech`）を使う。直接エンドポイントだと `password authentication failed for user 'rikako_owner'` になりやすい。
-- 接続URLは SSM `/rikako/dev/database-url`（SecureString）から取得し、これは **Terraform 管理**（Neon `connection_uri` から登録）。Neon 側でロールパスワードが変わると SSM がズレて全接続が認証失敗するので、`terraform apply` で再登録するか、暫定で `aws ssm put-parameter --overwrite` で更新する（手動更新は次の apply で巻き戻る点に注意）。
-- `DATABASE_URL` 環境変数を直接渡せば `--env` より優先される。SSM がズレているときの暫定回避にも使える。
+- **DBドライバは pgx(stdlib) を simple protocol で駆動**する（Issue #291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため、接続文字列に `channel_binding=require` が付いていても構わない。
+- **datasync は direct エンドポイントに接続する。** pooled endpoint への切替を行う `dbconn.Pooled` を呼ぶのは `cmd/server` と `cmd/admin` だけで、datasync は呼ばない。接続方針の一覧は [runbook](runbook.md#neon-pooling) を参照。
+- 接続URLは SSM から取得する。dev は `/rikako/dev/database-url`、prod は `/rikako/production/database-url`。
+- `DATABASE_URL` 環境変数を直接渡せば `-env` より優先される。SSM がズレているときの暫定回避に使える。
 
-## CI（plan-datasync）の既知の不具合
+> **dev の SSM は二重管理になっている。** datasync が読む `/rikako/dev/database-url` は手動登録で、
+> Lambda が読む `/rikako/development/database-url` は Terraform 管理（Neon の `connection_uri` から登録）。
+> 現状この 2 つは scheme 表記以外が同一。ただし Terraform は `lifecycle.ignore_changes = [value]`
+> を付けていて**初期値を入れるだけ**なので、Neon 側でロールパスワードが変わったときの
+> 再登録はどちらも手作業になる。片方だけ更新すると、もう片方を読む経路が認証失敗する。
+> 片方を消して一本化したい。
+> なお `ignore_changes` があるため、`aws ssm put-parameter --overwrite` で更新した値が
+> 次の `terraform apply` で巻き戻ることはない。
 
-`.github/workflows/plan-datasync.yml` の plan 実行ステップは `./datasync ... plan 2>&1 | tail -n +2 > ...` とパイプしているため、datasync が非ゼロ終了してもパイプ末尾の `tail` の終了コードでステップが成功扱いになる。**DB接続失敗（認証エラー）でもCIが緑になり、PRコメントにエラー文だけが載る**ため気づきにくい。`set -o pipefail` を入れるか、中間ファイルに落としてから tail する形に直すこと。
+## CI（plan-datasync）
+
+`.github/workflows/plan-datasync.yml` の plan 実行ステップは `set -o pipefail` + `tee` で、
+datasync が非ゼロ終了したときにステップが失敗するようになっている（2026-06-13 修正済み）。
+
+`tee` により datasync の標準出力が public リポジトリの CI ログに出るため、**DSN を生のまま
+ログや標準出力に出さないこと**。datasync は接続先表示のパスワードを `url.Redacted()` で
+マスクしている。

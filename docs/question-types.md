@@ -74,7 +74,9 @@ explanation: |
 
 ## DB設計
 
-### テーブル一覧
+### テーブル一覧（問題まわり）
+
+このドキュメントが扱うのは問題・問題集まわりのテーブルだけ。
 
 ```
 questions                         # 問題（共通）
@@ -85,7 +87,15 @@ questions                         # 問題（共通）
 
 workbooks                         # 問題集
 └── workbook_questions            # 問題集と問題の紐付け
+
+categories                        # カテゴリ
+└── app_categories                # アプリ（flavor）とカテゴリの紐付け
 ```
+
+これ以外に、ユーザー・学習記録まわり（`users` / `user_answers` / `user_app_settings` /
+`accounts` / `transfer_tokens`）と、アプリ運用まわり（`apps` / `app_status` /
+`announcements`）のテーブルがある。**全テーブルの定義は
+[DBスキーマ](schema/README.md)**（tbls が実 DB から自動生成）を参照。
 
 ### questions（共通）
 

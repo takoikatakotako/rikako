@@ -87,9 +87,10 @@ go run ./cmd/importer -data ../data
 ```
 
 インポート内容：
-- 問題データ（3000問）
-- 画像（121枚）
-- 問題集（4件）
+- 問題データ（`data/questions/`、3,000問）
+- 画像（`data/images/`、120枚）
+- 問題集（`data/workbooks/`、24件）
+- カテゴリ（`data/categories/`）
 
 ## APIサーバー
 
@@ -118,16 +119,25 @@ go run ./cmd/server
 
 ### エンドポイント
 
-| パス | 説明 |
-|------|------|
-| `GET /` | ルート |
-| `GET /health` | ヘルスチェック |
-| `GET /questions` | 問題一覧 |
-| `GET /questions/{id}` | 問題詳細 |
-| `GET /workbooks` | 問題集一覧 |
-| `GET /workbooks/{id}` | 問題集詳細 |
+全 28 エンドポイント。正確な仕様は OpenAPI を参照。
 
-API仕様: https://takoikatakotako.github.io/rikako/api/
+| 分類 | パス |
+|------|------|
+| システム | `GET /`、`GET /health`、`GET /status` |
+| コンテンツ | `GET /questions`、`GET /questions/{id}`、`GET /workbooks`、`GET /workbooks/{id}`、`GET /categories`、`GET /categories/{id}`、`GET /apps/{appSlug}` |
+| お知らせ | `GET /announcements`、`GET /announcements/{id}` |
+| AIチャット | `POST /questions/{id}/chat` |
+| 匿名認証 | `POST /auth/anonymous/sign-in`、`POST /auth/anonymous/sign-out` |
+| 学習記録 | `POST /answers`、`GET|PUT /users/me`、`GET /users/me/workbook-progress`、`GET /users/me/summary`、`GET /users/me/answer-logs`、`GET /users/me/wrong-answers` |
+| 引き継ぎ | `GET|POST /transfer/token`、`POST /transfer/apply` |
+| アカウント | `POST /account/link`、`GET /account/services` |
+| その他 | `POST /contact` |
+
+> iOS アプリと問題集 Web は、**問題データをこの API からは取得しない**。
+> コンテンツ CDN（`content.rikako.org`）の静的 JSON を読む。この API は回答送信・
+> 学習記録・お知らせなど動的なものを担当する。
+
+API仕様: https://docs.rikako.org/api/
 
 ## スキーマドキュメント生成
 
@@ -159,17 +169,23 @@ docker run --rm \
 
 ### 環境
 
-- **Dev環境** (AWSアカウント: 197865631794)
+- **Dev環境** (AWSアカウント: 197865631794) — LP / Web / ポータル / 管理画面はすべて Basic 認証
+  - LP: https://dev.rikako.org/
+  - 問題集Web: https://it.dev.rikako.org/ ・ https://chemistry.dev.rikako.org/
+  - アカウントポータル: https://account.dev.rikako.org/
+  - 管理画面 / 管理API: https://admin.dev.rikako.org/ ・ `/api`
   - 公開API: https://api.dev.rikako.org/
-  - 管理画面: https://admin.dev.rikako.org/
   - Image CDN: https://image.dev.rikako.org/
   - Content CDN: https://content.dev.rikako.org/
-- **Prod環境** (AWSアカウント: 211125415945)
+- **Prod環境** (AWSアカウント: 211125415945) — 管理画面のみ Basic 認証
   - LP: https://rikako.org/
+  - 問題集Web: https://it.rikako.org/ ・ https://chemistry.rikako.org/
+  - アカウントポータル: https://account.rikako.org/
+  - 管理画面 / 管理API: https://admin.rikako.org/ ・ `/api`
   - 公開API: https://api.rikako.org/
-  - 管理画面: https://admin.rikako.org/
   - Image CDN: https://image.rikako.org/
   - Content CDN: https://content.rikako.org/
+  - ドキュメント: https://docs.rikako.org/
 - **Shared環境** (AWSアカウント: 579039992557): ECR (`rikako-api`, `rikako-admin-api`)。IaC は別リポジトリ `aws-iac` で管理（このリポジトリでは扱わない）
 
 ### 初回セットアップ
@@ -247,7 +263,7 @@ GitHub ActionsのDeployワークフローを実行するだけでOK:
 
 - **Dev**: `main` ブランチへの push で自動実行（`deploy-api-dev.yml` / `deploy-admin-api-dev.yml`）
 - **Prod**: 手動 dispatch のみ（`deploy-api-prod.yml` / `deploy-admin-api-prod.yml`）
-- **Terraform**: Dev は main push で `apply-terraform-dev.yml` が自動 apply、Prod はローカルから手動 `terraform apply`
+- **Terraform**: Dev は main push で `apply-terraform-dev.yml` が自動 apply、Prod は **Apply Terraform Prod**（`apply-terraform-prod.yml`、plan → 承認 → apply）か、ローカルからの手動 `terraform apply`
 
 ### デプロイフロー
 
@@ -259,11 +275,13 @@ GitHub ActionsのDeployワークフローを実行するだけでOK:
 
 GitHub Actions経由でマイグレーションを実行:
 
-Actions → Run Database Migration → Run workflow
+環境の踏み間違いを防ぐため、dev と prod でワークフローが分かれている。
 
-- **Environment**: `dev` または `prod`
+- Actions → **Migrate Dev** / **Migrate Prod** → Run workflow
 - **Direction**: `up` または `down`
 - **Steps**: 空欄（すべて）または数値（ステップ数）
+
+prod は `production` environment の承認を通してから実行される。
 
 ### エンドポイントの確認
 

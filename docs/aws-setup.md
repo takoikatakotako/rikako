@@ -16,7 +16,18 @@ sso_role_name = AdministratorAccess
 region = ap-northeast-1
 output = json
 
-# shared環境（AWSアカウント: 579039992557、ECR管理用）
+# prod環境（AWSアカウント: 211125415945）
+[profile rikako-production-sso]
+sso_start_url = https://your-sso-portal.awsapps.com/start
+sso_region = ap-northeast-1
+sso_account_id = 211125415945
+sso_role_name = AdministratorAccess
+region = ap-northeast-1
+output = json
+
+# shared環境（AWSアカウント: 579039992557）
+# ECR の IaC は別リポジトリ aws-iac で管理しているため、このリポジトリの作業で使うことは
+# ほとんど無い。イメージを直接確認したいときだけ。
 [profile rikako-shared-sso]
 sso_start_url = https://your-sso-portal.awsapps.com/start
 sso_region = ap-northeast-1
@@ -34,9 +45,15 @@ output = json
 # dev環境
 aws sso login --profile rikako-development-sso
 
-# shared環境（ECR操作時のみ）
+# prod環境
+aws sso login --profile rikako-production-sso
+
+# shared環境（ECR を直接見るときのみ）
 aws sso login --profile rikako-shared-sso
 ```
+
+> セッションは時間で切れる。`The SSO session associated with this profile has expired`
+> が出たら同じコマンドで入り直す。
 
 ## 使い方
 
