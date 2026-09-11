@@ -1,0 +1,132 @@
+name: Deploy All Prod
+
+# prod を一括デプロイする（Issue #358）。
+#
+# 個別にデプロイしたいときや、ロールバックしたいときは各ワークフローを直接使う。
+# ロールバック用の checkout_ref はここでは受け取らない（一括で過去へ戻すのは
+# 想定していないため）。
+#
+# **このワークフローの主目的は順序の強制**。web は静的エクスポートで、ビルド時に
+# コンテンツ CDN の JSON を焼き込む。そのため
+#
+#   管理API のデプロイ → /publish（DB → S3）→ web のビルド
+#
+# の順でないと、古い内容が焼き込まれたサイトが本番に出る。実際 2026-09-06 に
+# /publish の実行漏れで危うくこれを踏みかけた。
+on:
+  workflow_dispatch:
+
+# 呼び出す側の権限は、呼ばれる側の上限になる。release-note が contents: write を
+# 使うため、ここで与えておく必要がある。
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: deploy-all-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  ADMIN_API_URL: https://admin.rikako.org/api
+
+jobs:
+  # --- 順序の制約が無いもの（並列） ---
+
+  api:
+    name: 公開API
+    uses: ./.github/workflows/deploy-api-prod.yml
+    permissions:
+      contents: write
+      id-token: write
+
+  admin-api:
+    name: 管理API
+    uses: ./.github/workflows/deploy-admin-api-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  admin-frontend:
+    name: 管理画面
+    uses: ./.github/workflows/deploy-admin-frontend-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  lp:
+    name: LP
+    uses: ./.github/workflows/deploy-lp-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  # ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
+  portal:
+    name: アカウントポータル
+    uses: ./.github/workflows/deploy-portal-prod.yml
+    permissions:
+      contents: write
+      id-token: write
+
+  # --- 順序の制約があるもの ---
+
+  # 管理API のデプロイ後に叩く。新しい管理API が書き出すようにするため。
+  publish:
+    name: コンテンツ公開（DB → S3）
+    needs: [admin-api]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish content
+        run: |
+          set -euo pipefail
+          USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
+          PASS=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
+
+          # prod の管理API は普段使われないため、ほぼ必ずコールドスタートになる。
+          # 初回リクエストが 502 で落ちることがあるので、先に /health で温めてから
+          # publish し、失敗しても数回試す（Issue #359）。
+          curl -s -o /dev/null -u "${USER}:${PASS}" "${ADMIN_API_URL}/health" || true
+
+          for attempt in 1 2 3; do
+            CODE=$(curl -s -o /tmp/publish.json -w "%{http_code}" \
+              -u "${USER}:${PASS}" -X POST "${ADMIN_API_URL}/publish")
+            if [ "$CODE" = "200" ]; then
+              echo "publish OK (attempt ${attempt})"
+              cat /tmp/publish.json
+              exit 0
+            fi
+            echo "publish failed with HTTP ${CODE} (attempt ${attempt})"
+            cat /tmp/publish.json || true
+            sleep 10
+          done
+
+          echo "::error::publish が 3 回とも失敗しました。web のデプロイは行われません。"
+          exit 1
+
+      - name: Summary
+        run: |
+          {
+            echo "## コンテンツ公開"
+            echo ""
+            echo '```json'
+            cat /tmp/publish.json
+            echo ''
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # web はビルド時にコンテンツ CDN の JSON を焼き込むため、必ず publish の後に走らせる。
+  web:
+    name: 問題集Web
+    needs: [publish]
+    uses: ./.github/workflows/deploy-web-prod.yml
+    permissions:
+      contents: write
+      id-token: write

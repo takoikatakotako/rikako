@@ -46,7 +46,7 @@ def workflow(env: dict, *, working_dir: str = "web", build_cmd: str = "npm run b
              sync: str | None = VALID_SYNC, extra_sync: str | None = None) -> str:
     """Build step の env に指定した値を持つワークフローを組み立てる。"""
     trigger_lines = ["on:"]
-    for t in (triggers or ["workflow_dispatch"]):
+    for t in (triggers or ["workflow_dispatch", "workflow_call"]):
         trigger_lines.append(f"  {t}:")
     lines = [
         "name: Deploy", *trigger_lines, "jobs:", "  deploy:",
@@ -411,7 +411,12 @@ aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete --exclude "_next/static/*"
 
     def test_prod_with_push_trigger_is_detected(self):
         """prod が自動デプロイになっていたら弾く。"""
-        errors = self.run_check(workflow(PROD, triggers=["push", "workflow_dispatch"]))
+        errors = self.run_check(workflow(PROD, triggers=["push", "workflow_dispatch", "workflow_call"]))
+        self.assertTrue(any("トリガー" in e for e in errors), errors)
+
+    def test_prod_without_workflow_call_is_detected(self):
+        """Deploy All Prod から呼べなくなる（一括デプロイから web だけ外れる）。"""
+        errors = self.run_check(workflow(PROD, triggers=["workflow_dispatch"]))
         self.assertTrue(any("トリガー" in e for e in errors), errors)
 
     def test_dev_without_push_trigger_is_detected(self):
