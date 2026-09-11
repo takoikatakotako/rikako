@@ -80,6 +80,19 @@ checkout するため、main 以外から起動すると web / portal の祖先�
 前に他のコンポーネントがその ref の内容で本番へ出てしまう。先頭の `verify-ref`
 job で止めている。
 
+**Terraform に未適用の差分があると承認を求められる。** デプロイ前に
+`terraform plan -detailed-exitcode`（読み取り専用ロール）で prod の差分を見る。
+
+- 差分なし → そのまま進む（承認は増えない）
+- 差分あり → `drift-ack` job が `production` environment の承認待ちになる。
+  変更されるリソースの一覧が job の Summary に出るので、確認してから承認する
+
+止めずに承認制にしているのは、無関係な未適用の差分が 1 つあるだけでアプリを
+出せなくなるのを避けるため。「コードは main に入っているが、それが要求する
+インフラがまだ apply されていない」状態に気づくのが目的（#371 の invalidation 用
+IAM ポリシーがまさにこれで、apply 前に一括デプロイしていれば web だけ出ない
+部分反映になっていた）。
+
 ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
 
 > **承認は数回に分かれる。** 各コンポーネントの job が `production` environment を

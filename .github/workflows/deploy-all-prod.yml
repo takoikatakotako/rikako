@@ -53,11 +53,132 @@ jobs:
           fi
           echo "ref OK: ${REF}"
 
+
+  # prod の Terraform に未適用の差分が無いかを見る。
+  #
+  # 「コードは main に入っているが、それが要求するインフラがまだ apply されていない」
+  # 状態でアプリだけ出すと、途中まで反映されて止まる。実際 #371 の invalidation は
+  # IAM ポリシーの追加を伴っており、apply 前に一括デプロイしていれば publish の後で
+  # AccessDenied になり web だけ出ない部分反映になるところだった。
+  #
+  # 差分があってもここでは止めず、drift-ack で人に判断してもらう（無関係な未適用の
+  # 差分が 1 つあるだけでアプリを出せなくなるのは厳しすぎるため）。
+  terraform-drift:
+    name: Terraform の未適用差分チェック
+    needs: [verify-ref]
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    defaults:
+      run:
+        working-directory: terraform/environments/prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14"
+          terraform_wrapper: false
+
+      # apply はしないので読み取り専用ロールを使う。
+      - name: Configure AWS credentials (read-only)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions-terraform-plan
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          set -euo pipefail
+          # -detailed-exitcode: 0=差分なし / 1=エラー / 2=差分あり
+          set +e
+          terraform plan -input=false -lock=false -no-color -detailed-exitcode > /tmp/plan.txt 2>&1
+          CODE=$?
+          set -e
+
+          case "$CODE" in
+            0) echo "has_changes=false" >> "$GITHUB_OUTPUT"; echo "未適用の差分はありません" ;;
+            2) echo "has_changes=true"  >> "$GITHUB_OUTPUT"; echo "未適用の差分があります" ;;
+            *) echo "::error::terraform plan が失敗しました（exit ${CODE}）"; tail -30 /tmp/plan.txt; exit 1 ;;
+          esac
+
+      # 承認する人が中身を見ずに通さないよう、変更されるリソースの一覧を出す。
+      # 値は出さない（"# <address> will be ..." の行と "Plan:" の行だけを拾う）。
+      # plan が失敗した場合は job ごと落ちるので、ここは成功時だけでよい
+      # （失敗時に「差分なし」と書いてしまうのを避ける）。
+      - name: Publish drift summary
+        # expression を run へ直書きするとシェル入力になるため env 経由で渡す。
+        env:
+          HAS_CHANGES: ${{ steps.plan.outputs.has_changes }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Terraform の未適用差分（prod）"
+            echo ""
+            if [ "$HAS_CHANGES" = "true" ]; then
+              echo "**未適用の差分があります。** 承認前に内容を確認してください。"
+              echo ""
+              echo '```'
+              grep -E "^  # |^Plan: " /tmp/plan.txt || true
+              echo '```'
+              echo ""
+              echo "詳細な plan は **Apply Terraform Prod** で確認できます。"
+            else
+              echo "未適用の差分はありません。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # 差分があるときだけ承認を求める。差分が無ければ skip されるので承認は増えない。
+  # 新しい Environment は作らず production を再利用する（既に required reviewers 設定済み）。
+  drift-ack:
+    name: 未適用差分があるまま進めることの承認
+    needs: [terraform-drift]
+    if: needs.terraform-drift.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 承認された
+        run: echo "未適用の差分があるまま Deploy All Prod を続行します。"
+
+  # verify-ref / terraform-drift / drift-ack の結果をここで一本化する。
+  # drift-ack は差分が無いと skip されるため、後続の job が素直に needs できるよう
+  # 判定をこの job に閉じ込めている。
+  gate:
+    name: 事前チェック
+    needs: [verify-ref, terraform-drift, drift-ack]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 事前チェックの結果を判定する
+        env:
+          VERIFY: ${{ needs.verify-ref.result }}
+          DRIFT: ${{ needs.terraform-drift.result }}
+          ACK: ${{ needs.drift-ack.result }}
+        run: |
+          set -euo pipefail
+          echo "verify-ref=${VERIFY} terraform-drift=${DRIFT} drift-ack=${ACK}"
+          if [ "$VERIFY" != "success" ] || [ "$DRIFT" != "success" ]; then
+            echo "::error::事前チェックが通っていません"
+            exit 1
+          fi
+          # 差分が無ければ drift-ack は skipped。承認されれば success。
+          if [ "$ACK" != "success" ] && [ "$ACK" != "skipped" ]; then
+            echo "::error::未適用差分の承認が得られませんでした（${ACK}）"
+            exit 1
+          fi
+          echo "事前チェック OK"
+
   # --- 順序の制約が無いもの（並列） ---
 
   api:
     name: 公開API
-    needs: [verify-ref]
+    needs: [gate]
     uses: ./.github/workflows/deploy-api-prod.yml
     permissions:
       contents: write
@@ -65,7 +186,7 @@ jobs:
 
   admin-api:
     name: 管理API
-    needs: [verify-ref]
+    needs: [gate]
     uses: ./.github/workflows/deploy-admin-api-prod.yml
     permissions:
       contents: read
@@ -73,7 +194,7 @@ jobs:
 
   admin-frontend:
     name: 管理画面
-    needs: [verify-ref]
+    needs: [gate]
     uses: ./.github/workflows/deploy-admin-frontend-prod.yml
     permissions:
       contents: read
@@ -81,7 +202,7 @@ jobs:
 
   lp:
     name: LP
-    needs: [verify-ref]
+    needs: [gate]
     uses: ./.github/workflows/deploy-lp-prod.yml
     permissions:
       contents: read
@@ -90,7 +211,7 @@ jobs:
   # ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
   portal:
     name: アカウントポータル
-    needs: [verify-ref]
+    needs: [gate]
     uses: ./.github/workflows/deploy-portal-prod.yml
     permissions:
       contents: write
