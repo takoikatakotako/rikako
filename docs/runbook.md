@@ -44,6 +44,19 @@ Shared 環境（ECR を共有）: AWS アカウント `579039992557` / プロフ
 gh workflow run "Deploy All Prod" --repo takoikatakotako/rikako --ref main
 ```
 
+> **初回だけは先に `Apply Terraform Prod` が要る。**
+> publish job の invalidation に使う `cloudfront:CreateInvalidation` /
+> `GetInvalidation` は `terraform/environments/prod/content_cdn.tf` で追加したもので、
+> apply するまで本番の IAM ロールには付かない。未 apply のまま実行すると、
+> API・管理API・管理画面・LP のデプロイと `/publish` が終わったあとに
+> `Invalidate content CDN` が `AccessDenied` で落ち、**web だけ出ない部分反映**になる。
+>
+> 1. main へマージ
+> 2. `Apply Terraform Prod` を main から実行。plan に
+>    `aws_iam_role_policy.github_actions_content_invalidation` の追加が出ることを
+>    確認して承認・apply
+> 3. apply 成功後に `Deploy All Prod` を実行
+
 公開API / 管理API / 管理画面 / LP / ポータル / 問題集Web をまとめてデプロイする。
 **このワークフローの主目的は順序の強制**で、次の依存関係を保証する。
 
