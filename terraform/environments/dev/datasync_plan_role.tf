@@ -44,8 +44,10 @@ data "aws_iam_policy_document" "datasync_plan_assume_role" {
 }
 
 resource "aws_iam_role" "datasync_plan" {
-  name               = "${local.project}-${local.environment}-github-actions-datasync-plan"
-  description        = "plan-datasync 専用。SSM から dev の接続URLを読むだけ"
+  name = "${local.project}-${local.environment}-github-actions-datasync-plan"
+  # IAM の CreateRole は Description を ASCII / Latin-1 に限定しているため日本語は使えない。
+  # 日本語の説明はこのファイル冒頭のコメントに書いてある。
+  description        = "Least-privilege role for plan-datasync; reads only the dev database URL from SSM"
   assume_role_policy = data.aws_iam_policy_document.datasync_plan_assume_role.json
 
   tags = {
