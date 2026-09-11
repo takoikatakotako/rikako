@@ -41,7 +41,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          # datasync plan 専用の最小権限ロール（Issue #370）。
+          # 共有ロール（AdministratorAccess）は使わない。この job は PR のソースから
+          # ビルドしたバイナリを実行するため、渡す権限を SSM の接続URL読み取りだけに絞る。
+          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions-datasync-plan
           aws-region: ap-northeast-1
 
       - name: Run datasync plan
