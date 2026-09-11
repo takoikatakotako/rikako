@@ -1,0 +1,214 @@
+name: Deploy All Prod
+
+# prod を一括デプロイする（Issue #358）。
+#
+# 個別にデプロイしたいときや、ロールバックしたいときは各ワークフローを直接使う。
+# ロールバック用の checkout_ref はここでは受け取らない（一括で過去へ戻すのは
+# 想定していないため）。
+#
+# **このワークフローの主目的は順序の強制**。問題集Web は静的エクスポートで、
+# ビルド時にコンテンツ CDN の JSON を焼き込む。そのため
+#
+#   管理API のデプロイ → /publish（DB → S3）→ CDN の invalidation → web のビルド
+#
+# の順でないと、古い内容が焼き込まれたサイトが本番に出る。実際 2026-09-06 に
+# /publish の実行漏れで危うくこれを踏みかけた。
+on:
+  workflow_dispatch:
+
+# 呼び出す側の権限は、呼ばれる側の上限になる。release-note が contents: write を
+# 使うため、ここで与えておく必要がある。
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: deploy-all-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  ADMIN_API_URL: https://admin.rikako.org/api
+  CONTENT_CF_ALIAS: content.rikako.org
+
+jobs:
+  # 同一リポジトリの reusable workflow は呼び出し元の ref を checkout する。
+  # main 以外から起動されると、web / portal の main 祖先チェックが弾くより前に
+  # 公開API・管理API・管理画面・LP がその ref の内容で本番へ出てしまう。
+  # 先頭で止める（GitHub 側でも production environment の deployment branches を
+  # main に限定しておくとより堅い）。
+  verify-ref:
+    name: ref チェック
+    runs-on: ubuntu-latest
+    steps:
+      - name: main 以外からの実行を拒否する
+        # expression を run へ直書きするとシェル入力になるため env 経由で渡す。
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::Deploy All Prod は main からのみ実行できます（指定: ${REF}）"
+            exit 1
+          fi
+          echo "ref OK: ${REF}"
+
+  # --- 順序の制約が無いもの（並列） ---
+
+  api:
+    name: 公開API
+    needs: [verify-ref]
+    uses: ./.github/workflows/deploy-api-prod.yml
+    permissions:
+      contents: write
+      id-token: write
+
+  admin-api:
+    name: 管理API
+    needs: [verify-ref]
+    uses: ./.github/workflows/deploy-admin-api-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  admin-frontend:
+    name: 管理画面
+    needs: [verify-ref]
+    uses: ./.github/workflows/deploy-admin-frontend-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  lp:
+    name: LP
+    needs: [verify-ref]
+    uses: ./.github/workflows/deploy-lp-prod.yml
+    permissions:
+      contents: read
+      id-token: write
+
+  # ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
+  portal:
+    name: アカウントポータル
+    needs: [verify-ref]
+    uses: ./.github/workflows/deploy-portal-prod.yml
+    permissions:
+      contents: write
+      id-token: write
+
+  # 管理API とフロントの両方が出たあとにデプロイ記録を残す。
+  # Deploy Admin Prod と同じ admin-prod/* タグを使う（個別に出しても一括で出しても、
+  # 最新タグが「最後に本番へ出した commit」を指すようにするため）。
+  admin-release-note:
+    name: 管理画面のデプロイ記録
+    needs: [admin-api, admin-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Create deploy release note
+        uses: ./.github/actions/deploy-release-note
+        with:
+          tag-prefix: admin-prod
+          title: "Admin Prod"
+          github-token: ${{ github.token }}
+
+  # --- 順序の制約があるもの ---
+
+  # 管理API のデプロイ後に叩く。新しい管理API が書き出すようにするため。
+  publish:
+    name: コンテンツ公開（DB → S3 → CDN）
+    needs: [admin-api]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish content
+        run: |
+          set -euo pipefail
+          USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
+          PASS=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
+
+          # prod の管理API は普段使われないため、ほぼ必ずコールドスタートになる。
+          # 初回リクエストが 502 で落ちることがあるので、先に /health で温めてから
+          # publish し、失敗しても数回試す（Issue #359）。
+          curl -s -o /dev/null -u "${USER}:${PASS}" "${ADMIN_API_URL}/health" || true
+
+          for attempt in 1 2 3; do
+            # curl が接続・TLS・DNS で落ちると非ゼロ終了する。set -e でその場で
+            # 止まらないよう if で受けて、HTTP 応答が無かった場合もリトライ対象にする。
+            if CODE=$(curl -s -o /tmp/publish.json -w "%{http_code}" \
+              -u "${USER}:${PASS}" -X POST "${ADMIN_API_URL}/publish"); then
+              :
+            else
+              CODE="000"
+            fi
+
+            if [ "$CODE" = "200" ]; then
+              echo "publish OK (attempt ${attempt})"
+              cat /tmp/publish.json
+              exit 0
+            fi
+
+            echo "publish failed with HTTP ${CODE} (attempt ${attempt})"
+            cat /tmp/publish.json 2>/dev/null || true
+            sleep 10
+          done
+
+          echo "::error::publish が 3 回とも失敗しました。web のデプロイは行われません。"
+          exit 1
+
+      - name: Invalidate content CDN
+        # publish は S3 を上書きするだけで CloudFront のキャッシュは消えない。
+        # JSON は max-age=60、ディストリビューションの default_ttl も 60 なので、
+        # publish 直前に edge へ載った古い JSON が最大 60 秒返り続ける。
+        # web はビルド時にこれを焼き込むため、完了を待ってから次へ進む。
+        run: |
+          set -euo pipefail
+          DIST_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${CONTENT_CF_ALIAS}')].Id | [0]" \
+            --output text)
+          if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
+            echo "::error::${CONTENT_CF_ALIAS} の CloudFront distribution が見つかりません"
+            exit 1
+          fi
+
+          INV_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$DIST_ID" --paths "/v1/*" \
+            --query 'Invalidation.Id' --output text)
+          echo "Invalidation ${INV_ID} on ${DIST_ID} ..."
+
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DIST_ID" --id "$INV_ID"
+          echo "invalidation completed"
+
+      - name: Summary
+        run: |
+          {
+            echo "## コンテンツ公開"
+            echo ""
+            echo '```json'
+            cat /tmp/publish.json
+            echo ''
+            echo '```'
+            echo ""
+            echo "コンテンツ CDN の \`/v1/*\` を invalidate し、完了を待ってから web をビルドする。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # web はビルド時にコンテンツ CDN の JSON を焼き込むため、必ず publish の後に走らせる。
+  web:
+    name: 問題集Web
+    needs: [publish]
+    uses: ./.github/workflows/deploy-web-prod.yml
+    permissions:
+      contents: write
+      id-token: write

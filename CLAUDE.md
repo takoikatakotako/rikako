@@ -88,6 +88,7 @@ Rikako - 問題集アプリ
     ├── deploy-portal-{dev,prod}.yml         # アカウントポータル
     ├── deploy-lp-{dev,prod}.yml             # LP
     # Terraform / データ
+    ├── deploy-all-prod.yml         # prod 一括。publish → web の順序を強制する
     ├── apply-terraform-dev.yml     # main push で dev を自動 apply
     ├── apply-terraform-prod.yml    # 手動。plan → production 承認 → apply
     ├── plan-terraform.yml          # PR時に dev の plan（tfcmt でコメント）

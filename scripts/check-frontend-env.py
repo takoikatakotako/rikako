@@ -79,8 +79,15 @@ SYNC_WORKFLOWS = [
 
 # トリガーも IT / 化学で揃える。片方だけ自動デプロイ、という非対称は事故のもと。
 #   dev  : main への push（web/** と自ファイル）＋ 手動
-#   prod : 手動のみ
-EXPECTED_TRIGGERS = {"dev": {"push", "workflow_dispatch"}, "prod": {"workflow_dispatch"}}
+#   prod : 手動 ＋ Deploy All Prod からの workflow_call
+#
+# prod に workflow_call を許すのは、それ自体では発火しないため（呼び出し元の
+# ワークフローが手動 dispatch される必要がある）。**push は引き続き禁止**で、
+# ここに push が入ると「prod が main への push で自動デプロイされる」状態になる。
+EXPECTED_TRIGGERS = {
+    "dev": {"push", "workflow_dispatch"},
+    "prod": {"workflow_dispatch", "workflow_call"},
+}
 
 # prod は承認を通してから反映する（Terraform の Apply Terraform Prod と同じ方式）。
 EXPECTED_ENVIRONMENT = {"dev": None, "prod": "production"}

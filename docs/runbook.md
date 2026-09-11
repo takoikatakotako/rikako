@@ -38,6 +38,61 @@ Shared 環境（ECR を共有）: AWS アカウント `579039992557` / プロフ
 
 ## 1. デプロイ手順
 
+### prod を一括で出す（Deploy All Prod）
+
+```bash
+gh workflow run "Deploy All Prod" --repo takoikatakotako/rikako --ref main
+```
+
+> **初回だけは先に `Apply Terraform Prod` が要る。**
+> publish job の invalidation に使う `cloudfront:CreateInvalidation` /
+> `GetInvalidation` は `terraform/environments/prod/content_cdn.tf` で追加したもので、
+> apply するまで本番の IAM ロールには付かない。未 apply のまま実行すると、
+> API・管理API・管理画面・LP のデプロイと `/publish` が終わったあとに
+> `Invalidate content CDN` が `AccessDenied` で落ち、**web だけ出ない部分反映**になる。
+>
+> 1. main へマージ
+> 2. `Apply Terraform Prod` を main から実行。plan に
+>    `aws_iam_role_policy.github_actions_content_invalidation` の追加が出ることを
+>    確認して承認・apply
+> 3. apply 成功後に `Deploy All Prod` を実行
+
+公開API / 管理API / 管理画面 / LP / ポータル / 問題集Web をまとめてデプロイする。
+**このワークフローの主目的は順序の強制**で、次の依存関係を保証する。
+
+```
+管理API のデプロイ → /publish（DB → S3）→ CDN の invalidation → 問題集Web のビルド
+```
+
+問題集Web は静的エクスポートで、ビルド時にコンテンツ CDN の JSON を焼き込む。
+この順序を外すと古い内容が焼き込まれたサイトが本番に出る（2026-09-06 に
+`/publish` の実行漏れで踏みかけた）。`publish` が失敗した場合、web のデプロイは
+実行されない。
+
+**invalidation を挟むのは、publish が S3 を上書きするだけでエッジのキャッシュを
+消さないため。** JSON の `Cache-Control` は `max-age=60`、コンテンツ CDN の
+`default_ttl` も 60 なので、publish 直前にエッジへ載った古い JSON が最大 60 秒
+返り続ける。web のビルドがそれを掴むと、publish した意味が無くなる。
+`aws cloudfront wait invalidation-completed` で完了を待ってから web に進む。
+
+**main 以外からは実行できない。** reusable workflow は呼び出し元の ref を
+checkout するため、main 以外から起動すると web / portal の祖先チェックが弾くより
+前に他のコンポーネントがその ref の内容で本番へ出てしまう。先頭の `verify-ref`
+job で止めている。
+
+ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
+
+> **承認は数回に分かれる。** 各コンポーネントの job が `production` environment を
+> 使うため、同時に走る job の分をまとめて承認したあと、`publish`、続いて `web` の
+> 分を順に承認することになる。
+
+> **ロールバックはこのワークフローでは行わない。** 一括で過去へ戻すのは想定して
+> いないため `checkout_ref` を受け取らない。個別のワークフローを使うこと
+> （[ロールバック手順](#2-ロールバック手順)）。
+
+個別に出したいとき、あるいは特定のコンポーネントだけ戻したいときは、以下の
+個別ワークフローを直接実行する。
+
 ### 公開API / 管理API
 
 **Dev**: mainブランチへのマージで自動デプロイ（GitHub Actions）。

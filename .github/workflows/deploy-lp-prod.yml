@@ -5,6 +5,8 @@ name: Deploy LP Prod
 # 手動起動 + environment: production の承認を通す。
 on:
   workflow_dispatch:
+  # Deploy All Prod から呼ばれる
+  workflow_call:
 
 permissions:
   contents: read

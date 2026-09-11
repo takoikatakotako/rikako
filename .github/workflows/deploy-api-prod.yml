@@ -2,6 +2,8 @@ name: Deploy API Prod
 
 on:
   workflow_dispatch:
+  # Deploy All Prod から呼ばれる
+  workflow_call:
 
 permissions:
   contents: read

@@ -59,3 +59,33 @@ data "aws_iam_policy_document" "content_cdn_s3_access" {
     }
   }
 }
+
+# =============================================================================
+# GitHub Actions - コンテンツ CDN の invalidation
+# =============================================================================
+# Deploy All Prod の publish job が使う（Issue #358）。
+#
+# publish は S3 のオブジェクトを上書きするだけで、CloudFront のキャッシュは消えない。
+# JSON の Cache-Control は max-age=60、ディストリビューションの default_ttl も 60 なので、
+# publish 直前に edge に載った古い JSON が最大 60 秒返り続ける。問題集 Web は
+# ビルド時にこの JSON を焼き込むため、待たずに web を建てると古い内容が本番に出る。
+#
+# そのため publish の後に invalidation を作り、完了を待ってから web をビルドする。
+# GetInvalidation は完了待ちに必要。
+# （ListDistributions は docs_cdn.tf の github_actions_s3_docs で付与済み）
+resource "aws_iam_role_policy" "github_actions_content_invalidation" {
+  name   = "content-cdn-invalidation"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_content_invalidation.json
+}
+
+data "aws_iam_policy_document" "github_actions_content_invalidation" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudfront:CreateInvalidation",
+      "cloudfront:GetInvalidation",
+    ]
+    resources = [module.content_cloudfront.distribution_arn]
+  }
+}

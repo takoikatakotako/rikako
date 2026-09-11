@@ -9,6 +9,13 @@ on:
         description: "ロールバック用。戻したい commit の 40 桁 SHA（portal-prod/* タグが付いたものだけ。未指定なら main の HEAD）"
         required: false
         type: string
+  # Deploy All Prod から呼ばれる。ロールバックは個別ワークフローで行うため、
+  # 呼び出し側は checkout_ref を渡さない（未指定 = 呼び出し元の ref の HEAD）。
+  workflow_call:
+    inputs:
+      checkout_ref:
+        required: false
+        type: string
 
 permissions:
   contents: read
