@@ -3,7 +3,7 @@ type: single_choice
 text: 貴ガスはどのような元素の事であるか。
 choices:
 - 2族の元素
-- Hを除く一族の元素
+- Hを除く1族の元素
 - 17族の元素
 - 18族の元素
 correct: 3
