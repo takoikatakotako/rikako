@@ -22,6 +22,7 @@ nav:
       - iOSアプリ: ios.md
       - iOS アーキテクチャ: ios/architecture.md
       - iOS オンボーディング: ios/onboarding.md
+      - Androidアプリ: android.md
   - APIリファレンス:
       - 公開API: api/index.html
       - 管理API (Swagger): admin-api/index.html

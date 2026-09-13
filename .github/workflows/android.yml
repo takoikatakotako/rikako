@@ -1,0 +1,65 @@
+name: Android
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # gradle-wrapper.jar をリポジトリに入れているため、差し替えられていないか検証する。
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Unit test
+        working-directory: ./android
+        run: ./gradlew --no-daemon :app:testChemistryDevDebugUnitTest
+
+      - name: Lint
+        working-directory: ./android
+        run: ./gradlew --no-daemon :app:lintChemistryDevDebug
+
+      # フレーバーごとにリソース（アプリ名など）が別ディレクトリなので、
+      # 片方だけ壊れる事故を防ぐため両方ビルドする。
+      - name: Assemble (chemistry / dev)
+        working-directory: ./android
+        run: ./gradlew --no-daemon :app:assembleChemistryDevDebug
+
+      - name: Assemble (itPassport / dev)
+        working-directory: ./android
+        run: ./gradlew --no-daemon :app:assembleItPassportDevDebug
+
+      # R8 の縮小はリリースビルドでしか走らないため、prod の release も通しておく。
+      - name: Assemble (chemistry / prod release)
+        working-directory: ./android
+        run: ./gradlew --no-daemon :app:assembleChemistryProdRelease
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports
+          path: android/app/build/reports/
+          retention-days: 7
