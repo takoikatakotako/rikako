@@ -109,7 +109,6 @@ fun QuizScreen(
 
                 is QuizUiState.Finished -> ResultContent(
                     state = current,
-                    onRetrySubmit = viewModel::submitAnswers,
                     onRestart = viewModel::restart,
                     onBack = onFinish,
                 )

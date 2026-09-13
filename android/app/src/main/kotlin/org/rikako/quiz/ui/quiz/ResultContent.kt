@@ -14,7 +14,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +23,6 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ResultContent(
     state: QuizUiState.Finished,
-    onRetrySubmit: () -> Unit,
     onRestart: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -34,7 +32,7 @@ fun ResultContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { ScoreCard(state) }
-        item { SubmissionRow(state.submission, onRetrySubmit) }
+        item { SubmissionRow(state.submission) }
 
         itemsIndexed(state.questions, key = { _, question -> question.id }) { index, question ->
             val selected = state.answers.getOrNull(index)
@@ -96,9 +94,12 @@ private fun ScoreCard(state: QuizUiState.Finished) {
     }
 }
 
-/** 送信状態。失敗しても結果は表示したまま、ここから再送できる。 */
+/**
+ * 送信状態。再送ボタンは出さない。POST /answers に冪等化が無く、レスポンスだけ失われた
+ * ケースで再送すると回答と集計が二重計上されるため（#377）。
+ */
 @Composable
-private fun SubmissionRow(submission: SubmissionState, onRetrySubmit: () -> Unit) {
+private fun SubmissionRow(submission: SubmissionState) {
     when (submission) {
         is SubmissionState.Submitting -> Text(
             text = "学習記録を送信中…",
@@ -110,17 +111,10 @@ private fun SubmissionRow(submission: SubmissionState, onRetrySubmit: () -> Unit
             style = MaterialTheme.typography.bodySmall,
         )
 
-        is SubmissionState.Failed -> Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "学習記録を送信できませんでした",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-            TextButton(onClick = onRetrySubmit) { Text("再送信") }
-        }
+        is SubmissionState.Failed -> Text(
+            text = "学習記録を送信できませんでした",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }

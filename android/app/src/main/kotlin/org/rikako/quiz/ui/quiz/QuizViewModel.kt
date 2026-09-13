@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +55,8 @@ sealed interface SubmissionState {
 class QuizViewModel(
     private val workbookId: Long,
     private val repository: LearningRepository = ServiceLocator.learningRepository,
+    // 送信は画面のライフサイクルから切り離す。結果画面を閉じても送信は最後まで走る。
+    private val submissionScope: CoroutineScope = ServiceLocator.applicationScope,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<QuizUiState>(QuizUiState.Loading)
@@ -113,8 +118,8 @@ class QuizViewModel(
         }
     }
 
-    /** 送信に失敗しても結果画面は出したままにして、ここから再送できるようにする。 */
-    fun submitAnswers() {
+    /** 結果画面に入ったときに一度だけ送る。再送導線は冪等化（#377）まで出さない。 */
+    private fun submitAnswers() {
         val finished = _uiState.value as? QuizUiState.Finished ?: return
         val items = QuizScoring.answerItems(finished.questions, finished.answers)
         if (items.isEmpty()) {
@@ -124,7 +129,11 @@ class QuizViewModel(
 
         _uiState.value = finished.copy(submission = SubmissionState.Submitting)
         viewModelScope.launch {
-            val result = runCatching { repository.submitAnswers(workbookId, items) }
+            // async は submissionScope 側なので、この ViewModel が破棄されても送信自体は継続する。
+            val submission = submissionScope.async { repository.submitAnswers(workbookId, items) }
+            val result = runCatching { submission.await() }
+            // 画面を離れたことによるキャンセルは状態更新せずそのまま伝播させる。
+            (result.exceptionOrNull() as? CancellationException)?.let { throw it }
             _uiState.update { state ->
                 val current = state as? QuizUiState.Finished ?: return@update state
                 current.copy(
@@ -144,14 +153,12 @@ class QuizViewModel(
     fun submitAnswersAndExit(onFinished: () -> Unit) {
         val playing = _uiState.value as? QuizUiState.Playing
         val items = playing?.let { QuizScoring.answerItems(it.questions, it.answers) }.orEmpty()
-        if (items.isEmpty()) {
-            onFinished()
-            return
+        if (items.isNotEmpty()) {
+            // 送信を待たずに閉じる。送信は submissionScope で完走するので、
+            // 送信中に画面が操作できてしまう状態も、二重送信も起きない。
+            submissionScope.launch { runCatching { repository.submitAnswers(workbookId, items) } }
         }
-        viewModelScope.launch {
-            runCatching { repository.submitAnswers(workbookId, items) }
-            onFinished()
-        }
+        onFinished()
     }
 
     fun restart() {
