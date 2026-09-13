@@ -64,6 +64,19 @@ cd android
 一覧は取得後に「そのフレーバーのカテゴリに属する問題集」だけへ絞り込む（iOS の
 `RemoteLearningRepository` と同じ挙動）。
 
+## CI
+
+`.github/workflows/android.yml` が `android/**` の変更で走る（main への push と PR）。
+
+1. `gradle/actions/wrapper-validation` で `gradle-wrapper.jar` を検証
+2. `:app:testChemistryDevDebugUnitTest`（ユニットテスト）
+3. `:app:lintChemistryDevDebug`（Android Lint）
+4. `:app:assembleChemistryDevDebug` / `:app:assembleItPassportDevDebug`
+   （フレーバーごとにリソースが別ディレクトリなので両方ビルドする）
+5. `:app:assembleChemistryProdRelease`（R8 の縮小はリリースビルドでしか走らないため）
+
+失敗時は `android/app/build/reports/` をアーティファクトとして残す。
+
 ## 未実装
 
 雛形の時点では一覧と詳細表示のみ。以下は今後追加する。
@@ -71,4 +84,4 @@ cd android
 - 解答フロー（`POST /answers`）と結果画面
 - Cognito 匿名認証 / メールログイン（`COGNITO_*` の値は BuildConfig に用意済み）
 - ランチャーアイコン（現状はプレースホルダーのベクター画像）
-- CI（GitHub Actions）でのビルド・テスト
+- デプロイ（Play Console へのアップロード）

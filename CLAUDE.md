@@ -77,7 +77,7 @@ Rikako - 問題集アプリ
 │       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
-└── .github/workflows/      # CI設定（全28本）
+└── .github/workflows/      # CI設定（全30本）
     # デプロイ: dev は main push で自動（paths で領域判定）、prod は手動 dispatch + 承認
     #（例外: docs.yml だけは main push で prod へ自動デプロイ）
     ├── deploy-api-{dev,prod}.yml            # 公開API（ECRビルド&プッシュ + Lambda更新）
@@ -98,6 +98,7 @@ Rikako - 問題集アプリ
     # テスト
     ├── ci.yml / ci-portal.yml / web.yml     # Go / portal / web
     ├── ios.yml / ios-e2e.yml / ios-screenshots.yml
+    ├── android.yml                 # Android（テスト + lint + 各フレーバーのビルド）
     ├── test-cloudfront-functions.yml
     └── docs.yml                    # tbls + MkDocs を生成して docs.rikako.org へ
 ```
