@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -174,23 +176,45 @@ private fun ChoiceButton(
 ) {
     val label = "${index + 1}. $text"
 
-    when {
-        revealed && index == correctIndex -> Button(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(label) }
+    if (!revealed) {
+        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        return
+    }
 
-        revealed && index == selectedChoice -> OutlinedButton(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(label) }
+    // 正誤を出した後は押せなくするが、無効化しただけだと Material の disabled 色に
+    // 引きずられて正解が見分けられなくなるので、色は明示する。
+    when {
+        index == correctIndex -> DisabledChoiceButton(
+            label = label,
+            container = MaterialTheme.colorScheme.primaryContainer,
+            content = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+
+        index == selectedChoice -> DisabledChoiceButton(
+            label = label,
+            container = MaterialTheme.colorScheme.errorContainer,
+            content = MaterialTheme.colorScheme.onErrorContainer,
+        )
 
         else -> OutlinedButton(
-            onClick = onClick,
-            enabled = !revealed,
+            onClick = {},
+            enabled = false,
             modifier = Modifier.fillMaxWidth(),
         ) { Text(label) }
+    }
+}
+
+@Composable
+private fun DisabledChoiceButton(label: String, container: Color, content: Color) {
+    Button(
+        onClick = {},
+        enabled = false,
+        colors = ButtonDefaults.buttonColors(
+            disabledContainerColor = container,
+            disabledContentColor = content,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(label)
     }
 }
