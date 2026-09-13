@@ -19,10 +19,12 @@ sealed interface WrongAnswersUiState {
     data class Success(
         val questions: List<WrongAnswerQuestion>,
         val total: Int,
+        /** 次に要求する offset。表示件数ではなくサーバーから受け取った件数で進める。 */
+        val nextOffset: Int,
         val expandedIds: Set<Long> = emptySet(),
         val isLoadingMore: Boolean = false,
     ) : WrongAnswersUiState {
-        val canLoadMore: Boolean get() = questions.size < total
+        val canLoadMore: Boolean get() = nextOffset < total
     }
 }
 
@@ -35,6 +37,11 @@ class WrongAnswersViewModel(
 
     init {
         load()
+        // 回答が送信されたら読み直す。init だけだと、タブを開いたあとに問題を解いても
+        // 古い集計・古い間違い状態が残り続ける。
+        viewModelScope.launch {
+            repository.learningDataChanged.collect { load() }
+        }
     }
 
     fun load() {
@@ -42,7 +49,13 @@ class WrongAnswersViewModel(
         viewModelScope.launch {
             _uiState.value = runCatching { repository.fetchWrongAnswers() }
                 .fold(
-                    onSuccess = { WrongAnswersUiState.Success(it.questions, it.total) },
+                    onSuccess = {
+                        WrongAnswersUiState.Success(
+                            questions = it.questions,
+                            total = it.total,
+                            nextOffset = it.questions.size,
+                        )
+                    },
                     onFailure = { WrongAnswersUiState.Error(it.message ?: "読み込みに失敗しました") },
                 )
         }
@@ -54,7 +67,7 @@ class WrongAnswersViewModel(
 
         _uiState.value = current.copy(isLoadingMore = true)
         viewModelScope.launch {
-            val result = runCatching { repository.fetchWrongAnswers(offset = current.questions.size) }
+            val result = runCatching { repository.fetchWrongAnswers(offset = current.nextOffset) }
             _uiState.update { state ->
                 val success = state as? WrongAnswersUiState.Success ?: return@update state
                 result.fold(
@@ -63,6 +76,7 @@ class WrongAnswersViewModel(
                         success.copy(
                             questions = success.questions + page.questions.filter { it.id !in known },
                             total = page.total,
+                            nextOffset = success.nextOffset + page.questions.size,
                             isLoadingMore = false,
                         )
                     },

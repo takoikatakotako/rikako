@@ -108,6 +108,8 @@ type Querier interface {
 	ListQuestionsWithChoices(ctx context.Context, arg ListQuestionsWithChoicesParams) ([]ListQuestionsWithChoicesRow, error)
 	ListQuestionsWithChoicesByWorkbook(ctx context.Context, workbookID int64) ([]ListQuestionsWithChoicesByWorkbookRow, error)
 	ListStudyDates(ctx context.Context, userID int64) ([]string, error)
+	// 一括送信した回答は answered_at が同じ値になるため、id を tie-breaker に入れないと
+	// LIMIT/OFFSET のページングで並びが安定せず、取りこぼしや重複が起きる。
 	ListUserAnswerLogs(ctx context.Context, arg ListUserAnswerLogsParams) ([]ListUserAnswerLogsRow, error)
 	ListUserAppSettings(ctx context.Context, userID int64) ([]ListUserAppSettingsRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)

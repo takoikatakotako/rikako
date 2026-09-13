@@ -21,9 +21,15 @@ sealed interface StudyRecordUiState {
         val summary: UserSummary,
         val logs: List<AnswerLogItem>,
         val total: Int,
+        /**
+         * 次に要求する offset。表示件数ではなくサーバーから受け取った件数で進める。
+         * 重複を弾いた後の logs.size を使うと、ページ境界で行が増えたときに毎回
+         * 1件ずつ重なって終端に到達できなくなる。
+         */
+        val nextOffset: Int,
         val isLoadingMore: Boolean = false,
     ) : StudyRecordUiState {
-        val canLoadMore: Boolean get() = logs.size < total
+        val canLoadMore: Boolean get() = nextOffset < total
     }
 }
 
@@ -36,6 +42,11 @@ class StudyRecordViewModel(
 
     init {
         load()
+        // 回答が送信されたら読み直す。init だけだと、タブを開いたあとに問題を解いても
+        // 古い集計・古い間違い状態が残り続ける。
+        viewModelScope.launch {
+            repository.learningDataChanged.collect { load() }
+        }
     }
 
     fun load() {
@@ -44,7 +55,12 @@ class StudyRecordViewModel(
             _uiState.value = runCatching {
                 val summary = repository.fetchSummary()
                 val logs = repository.fetchAnswerLogs()
-                StudyRecordUiState.Success(summary, logs.logs, logs.total)
+                StudyRecordUiState.Success(
+                    summary = summary,
+                    logs = logs.logs,
+                    total = logs.total,
+                    nextOffset = logs.logs.size,
+                )
             }.getOrElse { StudyRecordUiState.Error(it.message ?: "読み込みに失敗しました") }
         }
     }
@@ -55,7 +71,7 @@ class StudyRecordViewModel(
 
         _uiState.value = current.copy(isLoadingMore = true)
         viewModelScope.launch {
-            val result = runCatching { repository.fetchAnswerLogs(offset = current.logs.size) }
+            val result = runCatching { repository.fetchAnswerLogs(offset = current.nextOffset) }
             _uiState.update { state ->
                 val success = state as? StudyRecordUiState.Success ?: return@update state
                 result.fold(
@@ -65,9 +81,11 @@ class StudyRecordViewModel(
                         success.copy(
                             logs = success.logs + page.logs.filter { it.id !in known },
                             total = page.total,
+                            nextOffset = success.nextOffset + page.logs.size,
                             isLoadingMore = false,
                         )
                     },
+                    // 取得できなかったページは進めない（次のスクロールで同じ offset を取り直す）。
                     onFailure = { success.copy(isLoadingMore = false) },
                 )
             }
