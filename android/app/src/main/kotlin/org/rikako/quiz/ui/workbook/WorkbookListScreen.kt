@@ -31,11 +31,15 @@ import org.rikako.quiz.data.model.Workbook
 @Composable
 fun WorkbookListScreen(
     onWorkbookClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: WorkbookListViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("問題集") }) }) { padding ->
+    Scaffold(
+        modifier = modifier,
+        topBar = { TopAppBar(title = { Text("問題集") }) },
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when (val current = state) {
                 is WorkbookListUiState.Loading -> CircularProgressIndicator()

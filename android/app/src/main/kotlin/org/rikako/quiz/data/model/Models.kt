@@ -74,3 +74,53 @@ data class SubmitAnswersResponse(
     @SerialName("correctCount") val correctCount: Int,
     @SerialName("totalCount") val totalCount: Int,
 )
+
+/** GET /users/me/summary */
+@Serializable
+data class UserSummary(
+    @SerialName("totalAnswered") val totalAnswered: Int,
+    @SerialName("totalCorrect") val totalCorrect: Int,
+    @SerialName("weeklyAnswered") val weeklyAnswered: Int,
+    @SerialName("weeklyCorrect") val weeklyCorrect: Int,
+    /** yyyy-MM-dd 形式の学習日。 */
+    @SerialName("studyDates") val studyDates: List<String> = emptyList(),
+    @SerialName("weeklyWorkbookIds") val weeklyWorkbookIds: List<Long> = emptyList(),
+)
+
+/** GET /users/me/answer-logs */
+@Serializable
+data class AnswerLogsResponse(
+    val logs: List<AnswerLogItem> = emptyList(),
+    val total: Int = 0,
+)
+
+@Serializable
+data class AnswerLogItem(
+    val id: Long,
+    @SerialName("questionId") val questionId: Long,
+    @SerialName("questionText") val questionText: String,
+    @SerialName("workbookId") val workbookId: Long,
+    @SerialName("workbookTitle") val workbookTitle: String,
+    @SerialName("selectedChoice") val selectedChoice: Int,
+    @SerialName("isCorrect") val isCorrect: Boolean,
+    @SerialName("answeredAt") val answeredAt: String,
+)
+
+/** GET /users/me/wrong-answers */
+@Serializable
+data class WrongAnswersResponse(
+    val questions: List<WrongAnswerQuestion> = emptyList(),
+    val total: Int = 0,
+)
+
+@Serializable
+data class WrongAnswerQuestion(
+    val id: Long,
+    val type: String = "single_choice",
+    val text: String,
+    val choices: List<String> = emptyList(),
+    val correct: Int? = null,
+    val explanation: String? = null,
+    val images: List<String> = emptyList(),
+    @SerialName("workbookId") val workbookId: Long,
+)

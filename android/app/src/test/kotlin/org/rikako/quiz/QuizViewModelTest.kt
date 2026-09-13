@@ -7,8 +7,11 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -22,6 +25,7 @@ import org.junit.Before
 import org.junit.Test
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
+import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
 import org.rikako.quiz.ui.quiz.QuizUiState
 import org.rikako.quiz.ui.quiz.QuizViewModel
@@ -69,13 +73,25 @@ class QuizViewModelTest {
         val client = ContentApi.defaultClient(engine)
         return LearningRepository(
             api = ContentApi("https://content.example/v1", "https://api.example", client),
+            userApi = UserApi("https://api.example", client),
             answerApi = AnswerApi("https://api.example", client),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
             slug = "high-school-chemistry",
         )
     }
 
-    private fun viewModel() = QuizViewModel(4, repository(), CoroutineScope(Dispatchers.Unconfined))
+    /**
+     * 送信用スコープ。テストをまたいで例外やコルーチンが漏れると、次のテストが
+     * UncaughtExceptionsBeforeTest で落ちるため、SupervisorJob + ハンドラを付けて
+     * tearDown で必ず片付ける。
+     */
+    private val submissionErrors = mutableListOf<Throwable>()
+    private val submissionScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Unconfined +
+            CoroutineExceptionHandler { _, e -> submissionErrors += e },
+    )
+
+    private fun viewModel() = QuizViewModel(4, repository(), submissionScope)
 
     @Before
     fun setUp() {
@@ -84,7 +100,11 @@ class QuizViewModelTest {
 
     @After
     fun tearDown() {
+        // 保留中のリクエストを解放してからスコープを閉じる。
+        releaseResponse.complete(Unit)
+        submissionScope.cancel()
         Dispatchers.resetMain()
+        assertTrue(submissionErrors.isEmpty())
     }
 
     @Test

@@ -14,6 +14,7 @@ import org.junit.Test
 import org.rikako.quiz.data.model.AnswerItem
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
+import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
 
 class SubmitAnswersTest {
@@ -41,6 +42,7 @@ class SubmitAnswersTest {
         val client = ContentApi.defaultClient(engine)
         val repository = LearningRepository(
             api = ContentApi("https://content.example/v1", "https://api.example", client),
+            userApi = UserApi("https://api.example", client),
             answerApi = AnswerApi("https://api.example", client),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
             slug = "high-school-chemistry",

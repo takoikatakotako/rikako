@@ -12,6 +12,7 @@ import org.junit.Test
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
+import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
 
 class LearningRepositoryTest {
@@ -46,6 +47,7 @@ class LearningRepositoryTest {
         val repository = LearningRepository(
             api = api,
             answerApi = AnswerApi("https://api.example", ContentApi.defaultClient(engine)),
+            userApi = UserApi("https://api.example", ContentApi.defaultClient(engine)),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:test"),
             slug = "high-school-chemistry",
         )
