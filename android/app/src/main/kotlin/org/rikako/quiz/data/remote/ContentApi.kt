@@ -35,6 +35,8 @@ class ContentApi(
 
         fun defaultClient(engine: HttpClientEngine = OkHttp.create()): HttpClient =
             HttpClient(engine) {
+                // 4xx/5xx を握り潰さず例外にして、UI 側でエラー表示に倒す。
+                expectSuccess = true
                 install(ContentNegotiation) { json(json) }
             }
     }

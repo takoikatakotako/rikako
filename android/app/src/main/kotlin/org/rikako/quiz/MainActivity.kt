@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.rikako.quiz.ui.quiz.QuizScreen
 import org.rikako.quiz.ui.theme.RikakoTheme
 import org.rikako.quiz.ui.workbook.WorkbookDetailScreen
 import org.rikako.quiz.ui.workbook.WorkbookListScreen
@@ -28,8 +29,11 @@ class MainActivity : ComponentActivity() {
 private object Routes {
     const val WORKBOOK_LIST = "workbooks"
     const val WORKBOOK_DETAIL = "workbooks/{workbookId}"
+    const val QUIZ = "quiz/{workbookId}"
 
     fun workbookDetail(id: Long) = "workbooks/$id"
+
+    fun quiz(id: Long) = "quiz/$id"
 }
 
 @androidx.compose.runtime.Composable
@@ -46,7 +50,18 @@ private fun RikakoApp() {
             arguments = listOf(navArgument("workbookId") { type = NavType.LongType }),
         ) { backStackEntry ->
             val workbookId = backStackEntry.arguments?.getLong("workbookId") ?: return@composable
-            WorkbookDetailScreen(workbookId = workbookId, onBack = navController::popBackStack)
+            WorkbookDetailScreen(
+                workbookId = workbookId,
+                onBack = navController::popBackStack,
+                onStartQuiz = { navController.navigate(Routes.quiz(workbookId)) },
+            )
+        }
+        composable(
+            route = Routes.QUIZ,
+            arguments = listOf(navArgument("workbookId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val workbookId = backStackEntry.arguments?.getLong("workbookId") ?: return@composable
+            QuizScreen(workbookId = workbookId, onFinish = navController::popBackStack)
         }
     }
 }
