@@ -87,7 +87,12 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 - `CognitoUserPoolApi` が cognito-idp を直接叩く（SignUp / ConfirmSignUp / ResendConfirmationCode /
   InitiateAuth（USER_PASSWORD_AUTH・REFRESH_TOKEN_AUTH）/ ForgotPassword / ConfirmForgotPassword / RevokeToken）。
   エラーコードの日本語文言は iOS の `CognitoError` と `portal/src/lib/cognito.ts` に合わせている
-- トークンはアプリ専用の SharedPreferences に保存し、再起動後もログインが続く
+- トークンは **Android Keystore の鍵で暗号化**して保存する（`KeystoreAuthTokenStore`）。
+  refresh token は再利用可能な認証情報なので平文で置かない。鍵は Keystore から取り出せないため、
+  バックアップが端末外へ出ても復号できない。加えて `rikako_auth` / `rikako_identity` の
+  SharedPreferences はクラウドバックアップと端末間転送から除外している（`res/xml/*.xml`）。
+  iOS の Keychain `AfterFirstUnlockThisDeviceOnly` と同じ位置づけ。
+  秘密情報でない `linkPending` は別の prefs に置く
 - `AccountSession.validIdToken()` は期限が近ければ refresh する。refresh の失敗は
   **terminal（refresh token 失効）と transient（オフライン等）を区別**し、どちらも throw する。
   terminal でもローカルを消したうえで throw するのが要点で、null を返すと期限切れを検知した
@@ -99,7 +104,13 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
   紐付き済み）のときは匿名 identity を取り直して再試行する
 - ログイン中の API 呼び出しは `AuthorizedCall` を通す。**401 のときだけ**期限を見ずに refresh して
   1回だけ再送し、それでも 401 ならセッションを終了する（再試行しないと、端末の時計では有効なのに
-  以後の取得・送信が失敗し続ける）
+  以後の取得・送信が失敗し続ける）。再試行は**開始時のセッションに束縛**する。通信中にログアウト →
+  別アカウントでログインした場合に、古いリクエストの 401 で新しいアカウントのトークンを refresh したり、
+  同じ操作を別アカウントとして再送したりしないため
+- メール未確認のままログインすると `UserNotConfirmedException` になるので、確認コード入力へ誘導する
+  （iOS / portal と同じ。ここが無いと、再ログインも再登録もできずアカウントを確認できなくなる）
+- `/account/link` の進行状況は `AccountRepository.linkState` に出す。起動時の再試行結果も
+  アカウント画面から見えて、その場で再試行できる
 - `signIn` / `signOut` / refresh は同じ mutex と世代番号で直列化する。これが無いと、
   refresh の通信中にログアウトしたときに clear → refresh 成功 → apply の順になり、
   ログアウト後もトークンが復活してしまう
@@ -169,6 +180,9 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 5. `:app:assembleChemistryProdRelease`（R8 の縮小はリリースビルドでしか走らないため）
 
 失敗時は `android/app/build/reports/` をアーティファクトとして残す。
+
+Keystore は実機／エミュレータでしか動かないため、トークン保存まわりだけ計装テストにしてある
+（`./gradlew :app:connectedChemistryDevDebugAndroidTest`。CI では動かさない）。
 
 ## 未実装
 

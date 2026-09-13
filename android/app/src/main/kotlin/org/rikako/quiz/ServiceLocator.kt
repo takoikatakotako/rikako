@@ -5,7 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.rikako.quiz.data.auth.AccountSession
-import org.rikako.quiz.data.auth.SharedPrefsAuthTokenStore
+import org.rikako.quiz.data.auth.KeystoreAuthTokenStore
 import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.identity.CognitoDeviceIdentityProvider
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
@@ -53,7 +53,7 @@ object ServiceLocator {
     val accountSession: AccountSession by lazy {
         AccountSession(
             api = CognitoUserPoolApi(clientId = flavor.cognitoClientId, client = httpClient),
-            store = SharedPrefsAuthTokenStore(appContext),
+            store = KeystoreAuthTokenStore(appContext),
         )
     }
 

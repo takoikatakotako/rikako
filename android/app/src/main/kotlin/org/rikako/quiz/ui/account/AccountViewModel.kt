@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.rikako.quiz.ServiceLocator
 import org.rikako.quiz.data.auth.AccountSession
+import org.rikako.quiz.data.remote.CognitoException
 import org.rikako.quiz.data.repository.AccountRepository
+import org.rikako.quiz.data.repository.LinkState
 
 /** 未ログイン時にどのフォームを出しているか。 */
 enum class AccountForm {
@@ -50,6 +52,12 @@ class AccountViewModel(
                 _uiState.update { it.copy(isLoggedIn = account.isLoggedIn, email = account.email) }
             }
         }
+        // 起動時の再試行結果もここに出る。画面を開いた時点で失敗が分かるようにするため。
+        viewModelScope.launch {
+            accountRepository.linkState.collect { link ->
+                _uiState.update { it.copy(linkFailed = link == LinkState.Failed) }
+            }
+        }
     }
 
     fun showForm(form: AccountForm) {
@@ -71,7 +79,17 @@ class AccountViewModel(
     }
 
     fun signIn(email: String, password: String) = run(null) {
-        session.signIn(email, password)
+        try {
+            session.signIn(email, password)
+        } catch (e: CognitoException) {
+            // メール未確認のままアプリを閉じると、再ログインは UserNotConfirmed、
+            // 再登録は UsernameExists になり、確認コード画面へ戻る経路が無くなる。
+            // iOS / portal と同じく、この場合は確認コード入力へ誘導する。
+            if (e.code == "UserNotConfirmedException") {
+                _uiState.update { it.copy(form = AccountForm.ConfirmSignUp) }
+            }
+            throw e
+        }
         linkAccount()
     }
 
@@ -94,9 +112,9 @@ class AccountViewModel(
     /** 引き継ぎ（/account/link）の再試行。 */
     fun retryLink() = run(null) { linkAccount() }
 
+    /** 失敗の表示は linkState の購読側で更新される。 */
     private suspend fun linkAccount() {
-        val failed = runCatching { accountRepository.ensureLinked() }.isFailure
-        _uiState.update { it.copy(linkFailed = failed) }
+        runCatching { accountRepository.ensureLinked() }
     }
 
     private fun run(successMessage: String?, block: suspend () -> Unit) {

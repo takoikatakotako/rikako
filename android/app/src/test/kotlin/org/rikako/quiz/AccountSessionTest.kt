@@ -161,6 +161,15 @@ class AccountSessionTest {
     }
 
     @Test
+    fun `UserNotConfirmed は terminal として扱う`() {
+        // iOS の AccountSession.isTerminal と同じ集合。
+        assertEquals(
+            setOf("NotAuthorizedException", "UserNotFoundException", "UserNotConfirmedException"),
+            CognitoException.TERMINAL_CODES,
+        )
+    }
+
+    @Test
     fun `エラーコードは日本語メッセージに寄せる`() {
         assertEquals(
             "メールアドレスまたはパスワードが正しくありません。",

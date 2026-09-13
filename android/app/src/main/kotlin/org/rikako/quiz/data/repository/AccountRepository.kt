@@ -1,6 +1,9 @@
 package org.rikako.quiz.data.repository
 
 import io.ktor.client.plugins.ClientRequestException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import io.ktor.http.HttpStatusCode
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthorizedCall
@@ -9,6 +12,13 @@ import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.remote.AccountApi
 import org.rikako.quiz.data.remote.AccountLink
 
+/** `/account/link` の進行状況。起動時の再試行結果も画面から見えるようにする。 */
+enum class LinkState {
+    Idle,
+    Linking,
+    Failed,
+}
+
 class AccountRepository(
     private val session: AccountSession,
     private val accountApi: AccountApi,
@@ -16,6 +26,11 @@ class AccountRepository(
     private val submissionGate: SubmissionGate,
 ) {
     private val authorized = AuthorizedCall(session)
+
+    private val _linkState = MutableStateFlow(LinkState.Idle)
+
+    /** 起動時・ログイン直後・明示的な再試行のいずれから呼ばれても、ここに結果が出る。 */
+    val linkState: StateFlow<LinkState> = _linkState.asStateFlow()
 
     /**
      * 匿名データをアカウントへ紐付ける。
@@ -30,8 +45,16 @@ class AccountRepository(
     suspend fun ensureLinked(): AccountLink? {
         if (!session.isLoggedIn || !session.linkPending) return null
 
-        val link = submissionGate.link { linkWithRotationOnConflict() }
+        _linkState.value = LinkState.Linking
+        val link = try {
+            submissionGate.link { linkWithRotationOnConflict() }
+        } catch (e: Throwable) {
+            // pending は落とさない。次回起動または明示的な再試行でやり直す。
+            _linkState.value = LinkState.Failed
+            throw e
+        }
         session.linkPending = false
+        _linkState.value = LinkState.Idle
         return link
     }
 

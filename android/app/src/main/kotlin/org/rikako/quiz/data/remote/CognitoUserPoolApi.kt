@@ -45,11 +45,14 @@ class CognitoException(val code: String, val rawMessage: String) : Exception(
             else -> fallback.ifEmpty { "エラーが発生しました。" }
         }
 
-        /** refresh token が無効で、再ログイン以外に回復手段が無いもの。 */
+        /**
+         * refresh token が無効で、再ログイン以外に回復手段が無いもの。
+         * iOS の AccountSession.isTerminal と同じ集合にしてある。
+         */
         val TERMINAL_CODES = setOf(
             "NotAuthorizedException",
             "UserNotFoundException",
-            "InvalidParameterException",
+            "UserNotConfirmedException",
         )
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 以前のバックアップ設定。トークンは端末外へ出さない。 -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="rikako_auth.xml" />
+    <exclude domain="sharedpref" path="rikako_identity.xml" />
+</full-backup-content>

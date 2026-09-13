@@ -37,6 +37,7 @@ class AccountSession(
      * セッションの世代。ログイン・ログアウトのたびに進める。ネットワーク呼び出しの
      * 前後で変わっていたら、その結果は古いセッションのものなので捨てる。
      */
+    @Volatile
     private var generation = 0L
 
     @Volatile
@@ -48,6 +49,12 @@ class AccountSession(
     val state: StateFlow<AccountState> = _state.asStateFlow()
 
     val isLoggedIn: Boolean get() = tokens != null
+
+    /**
+     * 現在のセッションの世代。ログイン・ログアウトのたびに変わる。
+     * 通信を挟む操作は、開始時の世代を持っておいて同じセッションのときだけ続行する。
+     */
+    val sessionGeneration: Long get() = generation
 
     var linkPending: Boolean
         get() = store.linkPending
@@ -92,9 +99,14 @@ class AccountSession(
         if (refreshToken != null) runCatching { api.revokeToken(refreshToken) }
     }
 
-    /** サーバーに 401 を返され続けたときなど、ローカルのセッションだけ終了する。 */
-    suspend fun endSession() {
+    /**
+     * サーバーに 401 を返され続けたときなど、ローカルのセッションだけ終了する。
+     * [expectedGeneration] を渡すと、そのセッションがまだ続いているときだけ終了する
+     * （古いリクエストの後始末で、別アカウントのログインを巻き込まないため）。
+     */
+    suspend fun endSession(expectedGeneration: Long? = null) {
         mutex.withLock {
+            if (expectedGeneration != null && expectedGeneration != generation) return
             generation++
             clear()
         }
@@ -114,14 +126,25 @@ class AccountSession(
         return refreshLocked(current.refreshToken)
     }
 
-    /** 期限内でもサーバーが 401 を返すことがあるので、その再試行用に期限を見ずに refresh する。 */
-    suspend fun forceRefresh(): String? {
+    /**
+     * 期限内でもサーバーが 401 を返すことがあるので、その再試行用に期限を見ずに refresh する。
+     *
+     * [expectedGeneration] を渡すと、開始時と同じセッションのときだけ refresh する。
+     * これが無いと、通信中にログアウト → 別アカウントでログインした場合に、
+     * 古いリクエストの 401 で新しいアカウントのトークンを更新してしまう。
+     */
+    suspend fun forceRefresh(expectedGeneration: Long? = null): String? {
+        if (expectedGeneration != null && expectedGeneration != generation) return null
         val current = tokens ?: return null
-        return refreshLocked(current.refreshToken)
+        return refreshLocked(current.refreshToken, expectedGeneration)
     }
 
-    private suspend fun refreshLocked(refreshToken: String): String? = mutex.withLock {
+    private suspend fun refreshLocked(
+        refreshToken: String,
+        expectedGeneration: Long? = null,
+    ): String? = mutex.withLock {
         // ロック待ちの間にログアウトされたか、他のコルーチンが更新済みかもしれない。
+        if (expectedGeneration != null && expectedGeneration != generation) return@withLock null
         val current = tokens ?: return@withLock null
         if (current.refreshToken != refreshToken) return@withLock current.idToken
 

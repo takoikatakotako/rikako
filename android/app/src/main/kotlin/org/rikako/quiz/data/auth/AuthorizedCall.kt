@@ -13,19 +13,24 @@ import io.ktor.http.HttpStatusCode
 class AuthorizedCall(private val session: AccountSession) {
 
     suspend fun <T> execute(block: suspend (idToken: String?) -> T): T {
+        // 再試行は開始時のセッションに束縛する。通信中にログアウト → 別アカウントでログイン
+        // されていた場合、古いリクエストの 401 で新しいアカウントのトークンを refresh したり、
+        // 同じ操作を別アカウントとして再送したりしてはいけない。
+        val startedAt = session.sessionGeneration
         val idToken = session.validIdToken()
         return try {
             block(idToken)
         } catch (e: ClientRequestException) {
             if (e.response.status != HttpStatusCode.Unauthorized || idToken == null) throw e
+            if (session.sessionGeneration != startedAt) throw e
 
-            val refreshed = session.forceRefresh() ?: throw e
+            val refreshed = session.forceRefresh(startedAt) ?: throw e
             try {
                 block(refreshed)
             } catch (retryError: ClientRequestException) {
                 if (retryError.response.status != HttpStatusCode.Unauthorized) throw retryError
                 // refresh 後のトークンでも 401 なら、このセッションでは回復できない。
-                session.endSession()
+                session.endSession(startedAt)
                 throw SessionExpiredException()
             }
         }
