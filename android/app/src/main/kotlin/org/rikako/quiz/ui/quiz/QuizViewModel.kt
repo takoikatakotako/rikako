@@ -30,6 +30,7 @@ sealed interface QuizUiState {
         val currentQuestion: Question get() = questions[currentIndex]
         val selectedChoice: Int? get() = answers.getOrNull(currentIndex)
         val isLastQuestion: Boolean get() = currentIndex == questions.lastIndex
+        val hasAnswers: Boolean get() = answers.any { it != null }
     }
 
     data class Finished(
@@ -133,6 +134,23 @@ class QuizViewModel(
                     ),
                 )
             }
+        }
+    }
+
+    /**
+     * 途中で抜けるときに、そこまでの回答だけ送る（iOS の「履歴を保存して戻る」に相当）。
+     * 送信の成否に関わらず [onFinished] を呼んで画面を閉じる。
+     */
+    fun submitAnswersAndExit(onFinished: () -> Unit) {
+        val playing = _uiState.value as? QuizUiState.Playing
+        val items = playing?.let { QuizScoring.answerItems(it.questions, it.answers) }.orEmpty()
+        if (items.isEmpty()) {
+            onFinished()
+            return
+        }
+        viewModelScope.launch {
+            runCatching { repository.submitAnswers(workbookId, items) }
+            onFinished()
         }
     }
 

@@ -3,6 +3,7 @@ package org.rikako.quiz.ui.quiz
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -23,9 +26,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,13 +51,36 @@ fun QuizScreen(
     viewModel: QuizViewModel = viewModel(factory = QuizViewModel.factory(workbookId)),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showExitConfirmation by remember { mutableStateOf(false) }
+
+    // 回答済みの問題があるまま抜けると記録が消えるので、システム Back も確認を挟む。
+    val needsExitConfirmation = (state as? QuizUiState.Playing)?.hasAnswers == true
+    BackHandler(enabled = needsExitConfirmation) { showExitConfirmation = true }
+
+    val requestExit = {
+        if (needsExitConfirmation) showExitConfirmation = true else onFinish()
+    }
+
+    if (showExitConfirmation) {
+        ExitConfirmationDialog(
+            onDismiss = { showExitConfirmation = false },
+            onDiscard = {
+                showExitConfirmation = false
+                onFinish()
+            },
+            onSave = {
+                showExitConfirmation = false
+                viewModel.submitAnswersAndExit(onFinish)
+            },
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(state.title()) },
                 navigationIcon = {
-                    IconButton(onClick = onFinish) {
+                    IconButton(onClick = requestExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
                 },
@@ -105,9 +136,13 @@ private fun PlayingContent(
     onNext: () -> Unit,
 ) {
     val question = state.currentQuestion
+    val scrollState = rememberScrollState()
+
+    // 解説を読んで下まで送った位置がそのまま次の問題に引き継がれないよう、問題が変わったら先頭に戻す。
+    LaunchedEffect(state.currentIndex) { scrollState.scrollTo(0) }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         LinearProgressIndicator(
@@ -217,4 +252,25 @@ private fun DisabledChoiceButton(label: String, container: Color, content: Color
     ) {
         Text(label)
     }
+}
+
+/** iOS の「クイズを終了しますか？」と同じ選択肢を出す。 */
+@Composable
+private fun ExitConfirmationDialog(
+    onDismiss: () -> Unit,
+    onDiscard: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("クイズを終了しますか？") },
+        text = { Text("ここまでの回答は保存されません。") },
+        confirmButton = { TextButton(onClick = onSave) { Text("履歴を保存して戻る") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDiscard) { Text("保存せず戻る") }
+                TextButton(onClick = onDismiss) { Text("キャンセル") }
+            }
+        },
+    )
 }
