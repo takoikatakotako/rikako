@@ -1,0 +1,93 @@
+name: Android E2E
+
+# メールログイン（#283）の E2E。dev バックエンドに実際につないで、
+# 匿名で解いた回答がログイン時にアカウントへマージされることを検証する。
+#
+# 実バックエンドに依存するため、ネットワークや dev 環境の状態で落ちることがある。
+# その場合はアプリ側の回帰と切り分けたうえで再実行すること。
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-e2e.yml'
+  workflow_dispatch:
+
+# dev の共有テストユーザーを使うため、**iOS の E2E とも含めて直列化**する。
+# このテストは「アカウントの回答数 baseline → +1」を検証するので、
+# 2つの run が同じ baseline を読んでから双方がマージすると +2 になり、
+# 実装が正しくても片方が落ちる。iOS 側と同じ group 名にしてあるのはそのため。
+concurrency:
+  group: account-e2e-shared-user
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    # public リポジトリなので fork からの pull_request には Secrets が渡らない。
+    # 認証情報が無いまま実行すると Android と無関係な PR まで必ず red になるため、
+    # 同一リポジトリの PR と手動実行に限る。
+    #
+    # pull_request_target で fork のコードに Secrets を渡す方式は、
+    # スクリプトを書き換えれば認証情報を持ち出せるため使わない。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # 端末（エミュレータ）は使わず、アプリと同じ data 層をそのまま dev バックエンドへ
+      # つないで検証する。Cognito のログインも identity の払い出しも実物を通る。
+      - name: Run account link E2E
+        working-directory: ./android
+        env:
+          RIKAKO_E2E_EMAIL: ${{ secrets.RIKAKO_E2E_EMAIL }}
+          RIKAKO_E2E_PASSWORD: ${{ secrets.RIKAKO_E2E_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon :app:testChemistryDevDebugUnitTest \
+            --tests '*AccountLinkE2ETest*' --rerun-tasks
+
+      # 認証情報が渡っていないと assumeTrue で skip され、全部 green に見えてしまう。
+      # 実行されたことを結果 XML で確かめる。
+      - name: Verify the E2E actually ran
+        working-directory: ./android
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+
+          files = glob.glob(
+              "app/build/test-results/testChemistryDevDebugUnitTest/*AccountLinkE2ETest.xml"
+          )
+          if not files:
+              sys.exit("E2E のテスト結果が見つかりません")
+
+          root = ET.parse(files[0]).getroot()
+          skipped = int(root.get("skipped", "0"))
+          tests = int(root.get("tests", "0"))
+          print(f"tests={tests} skipped={skipped}")
+          if tests == 0 or skipped:
+              sys.exit("E2E が skip されました（Secrets が渡っていない可能性があります）")
+          PY
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-e2e-report
+          path: android/app/build/reports/tests/
+          retention-days: 7
