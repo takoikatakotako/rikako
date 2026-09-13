@@ -1,5 +1,6 @@
 package org.rikako.quiz.data.repository
 
+import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.model.AnswerItem
 import org.rikako.quiz.data.model.AnswerLogsResponse
@@ -18,6 +19,7 @@ class LearningRepository(
     private val answerApi: AnswerApi,
     private val userApi: UserApi,
     private val identityProvider: DeviceIdentityProvider,
+    private val session: AccountSession,
     private val slug: String,
 ) {
     /** 全問題集のうち、このフレーバーが扱うカテゴリのものだけを返す。 */
@@ -30,18 +32,22 @@ class LearningRepository(
     suspend fun fetchWorkbookDetail(id: Long): WorkbookDetail = api.fetchWorkbookDetail(id)
 
     suspend fun fetchSummary(): UserSummary =
-        userApi.fetchSummary(identityProvider.identityId())
+        userApi.fetchSummary(identityProvider.identityId(), session.validIdToken())
 
     suspend fun fetchAnswerLogs(limit: Int = PAGE_SIZE, offset: Int = 0): AnswerLogsResponse =
-        userApi.fetchAnswerLogs(identityProvider.identityId(), limit, offset)
+        userApi.fetchAnswerLogs(identityProvider.identityId(), session.validIdToken(), limit, offset)
 
     suspend fun fetchWrongAnswers(limit: Int = PAGE_SIZE, offset: Int = 0): WrongAnswersResponse =
-        userApi.fetchWrongAnswers(identityProvider.identityId(), limit, offset)
+        userApi.fetchWrongAnswers(identityProvider.identityId(), session.validIdToken(), limit, offset)
 
     /** 回答を送信する。匿名 identity は未払い出しならここで取得される。 */
     suspend fun submitAnswers(workbookId: Long, answers: List<AnswerItem>): SubmitAnswersResponse {
         val deviceId = identityProvider.identityId()
-        return answerApi.submitAnswers(deviceId, SubmitAnswersRequest(workbookId, answers))
+        return answerApi.submitAnswers(
+            deviceId = deviceId,
+            idToken = session.validIdToken(),
+            request = SubmitAnswersRequest(workbookId, answers),
+        )
     }
 
     companion object {

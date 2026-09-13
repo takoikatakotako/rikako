@@ -32,6 +32,7 @@ class UserApiTest {
             api = ContentApi("https://content.example/v1", "https://api.example", client),
             answerApi = AnswerApi("https://api.example", client),
             userApi = UserApi("https://api.example", client),
+            session = signedOutSession(),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
             slug = "high-school-chemistry",
         )

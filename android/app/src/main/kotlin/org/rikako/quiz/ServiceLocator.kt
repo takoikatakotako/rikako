@@ -4,13 +4,18 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.rikako.quiz.data.auth.AccountSession
+import org.rikako.quiz.data.auth.SharedPrefsAuthTokenStore
 import org.rikako.quiz.data.identity.CognitoDeviceIdentityProvider
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.identity.SharedPrefsIdentityStore
 import org.rikako.quiz.data.remote.AnswerApi
+import org.rikako.quiz.data.remote.AccountApi
 import org.rikako.quiz.data.remote.CognitoIdentityApi
+import org.rikako.quiz.data.remote.CognitoUserPoolApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
+import org.rikako.quiz.data.repository.AccountRepository
 import org.rikako.quiz.data.repository.LearningRepository
 
 /** DI ライブラリを入れるまでの最小限の依存解決。 */
@@ -41,6 +46,25 @@ object ServiceLocator {
         )
     }
 
+    val accountSession: AccountSession by lazy {
+        AccountSession(
+            api = CognitoUserPoolApi(clientId = flavor.cognitoClientId, client = httpClient),
+            store = SharedPrefsAuthTokenStore(appContext),
+        )
+    }
+
+    val accountRepository: AccountRepository by lazy {
+        AccountRepository(
+            session = accountSession,
+            accountApi = AccountApi(
+                apiBaseUrl = flavor.apiBaseUrl,
+                slug = flavor.slug,
+                client = httpClient,
+            ),
+            identityProvider = deviceIdentityProvider,
+        )
+    }
+
     val learningRepository: LearningRepository by lazy {
         LearningRepository(
             api = ContentApi(
@@ -51,6 +75,7 @@ object ServiceLocator {
             answerApi = AnswerApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             userApi = UserApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             identityProvider = deviceIdentityProvider,
+            session = accountSession,
             slug = flavor.slug,
         )
     }

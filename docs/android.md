@@ -24,10 +24,11 @@ android/
     │   ├── MainActivity.kt       # NavHost（問題集一覧 → 詳細 → 解答）
     │   ├── RikakoApplication.kt  # ServiceLocator の初期化
     │   ├── data/model            # JSON のモデル（iOS の Domain/Entity 相当）
-    │   ├── data/remote           # ContentApi / AnswerApi / UserApi / CognitoIdentityApi
+    │   ├── data/remote           # ContentApi / AnswerApi / UserApi / Cognito 系 / AccountApi
     │   ├── data/identity         # 匿名 identity の払い出しと保存
+    │   ├── data/auth             # メールログインのセッションとトークン保存
     │   ├── data/repository       # LearningRepository
-    │   └── ui/                   # theme / workbook / quiz / record / wrong 画面
+    │   └── ui/                   # theme / workbook / quiz / record / wrong / account 画面
     ├── chemistry/res             # 化学版のリソース（アプリ名など）
     └── itPassport/res            # IT 版のリソース
 ```
@@ -79,6 +80,24 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 - `rotate()` は保存済みの ID を捨てて取り直す。`GetId` は logins 無しだと毎回新しい
   identity を払い出すため、これだけでローテーションになる
 
+## メールログイン
+
+普段は匿名のまま使い、機種変更時にログインして引き継ぐ方針。iOS の `AccountSession` と同じ作りにしてある。
+
+- `CognitoUserPoolApi` が cognito-idp を直接叩く（SignUp / ConfirmSignUp / ResendConfirmationCode /
+  InitiateAuth（USER_PASSWORD_AUTH・REFRESH_TOKEN_AUTH）/ ForgotPassword / ConfirmForgotPassword / RevokeToken）。
+  エラーコードの日本語文言は iOS の `CognitoError` と `portal/src/lib/cognito.ts` に合わせている
+- トークンはアプリ専用の SharedPreferences に保存し、再起動後もログインが続く
+- `AccountSession.validIdToken()` は期限が近ければ refresh する。refresh の失敗は
+  **terminal（refresh token 失効）と transient（オフライン等）を区別**し、どちらも throw する。
+  terminal でもローカルを消したうえで throw するのが要点で、null を返すと期限切れを検知した
+  その1回の書き込みだけが匿名側へ流れてしまう
+- ログイン中は API 呼び出しに `Authorization: Bearer <ID token>` を付ける（サーバーはアカウント側の
+  ユーザーを読み書きする）。`X-Device-ID` は常に送る
+- ログイン直後とアプリ起動時に `POST /account/link` を実行して匿名データを引き継ぐ。成功するまで
+  pending を残すので、通信エラーで失敗しても次回起動でやり直せる。409（この端末が別アカウントに
+  紐付き済み）のときは匿名 identity を取り直して再試行する
+
 ## 解答フロー
 
 問題集一覧 →（詳細）→ 解答 → 結果、の順に進む。
@@ -108,6 +127,7 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 | 問題集 | 一覧 → 詳細 → 解答 → 結果 | content CDN + `GET /apps/{slug}` |
 | 学習記録 | サマリー（総回答数・正答率・今週・学習日数）と回答履歴 | `GET /users/me/summary`、`GET /users/me/answer-logs` |
 | 間違えた問題 | 間違えた問題の一覧。タップで選択肢と解説を開く | `GET /users/me/wrong-answers` |
+| アカウント | メールログイン・新規登録・パスワード再設定 | Cognito User Pool、`POST /account/link` |
 
 回答履歴と間違えた問題は20件ずつのページング（末尾が見えたら次ページを取得）。ページ境界で
 新しい回答が入って同じ項目が二度並ぶことがあるので、id で重複を弾いてから連結している。
@@ -135,7 +155,7 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 
 一覧・詳細・解答フローまで実装済み。以下は今後追加する。
 
-- メールログイン（`COGNITO_CLIENT_ID` は BuildConfig に用意済み）
+- 引き継ぎトークン（`/transfer/*`）によるログイン無しの引き継ぎ
 - ランチャーアイコンの正式デザイン（現状は暫定のベクター画像）
 - 間違えた問題を解き直す導線（iOS の QuizSource 相当の仕組みが要る）
 - デプロイ（Play Console へのアップロード）

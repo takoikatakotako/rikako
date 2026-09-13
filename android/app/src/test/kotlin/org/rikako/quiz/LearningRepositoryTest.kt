@@ -48,6 +48,7 @@ class LearningRepositoryTest {
             api = api,
             answerApi = AnswerApi("https://api.example", ContentApi.defaultClient(engine)),
             userApi = UserApi("https://api.example", ContentApi.defaultClient(engine)),
+            session = signedOutSession(),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:test"),
             slug = "high-school-chemistry",
         )
