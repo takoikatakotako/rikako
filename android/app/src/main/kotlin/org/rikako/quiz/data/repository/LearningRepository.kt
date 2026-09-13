@@ -1,5 +1,8 @@
 package org.rikako.quiz.data.repository
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthorizedCall
 import org.rikako.quiz.data.auth.SubmissionGate
@@ -25,6 +28,14 @@ class LearningRepository(
     private val submissionGate: SubmissionGate,
     private val slug: String,
 ) {
+    private val _learningDataChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /**
+     * 回答が記録されたことの通知。学習記録・間違えた問題の画面はこれを受けて読み直す
+     * （タブを開いたまま問題を解くと、古い集計が出たままになるため）。
+     */
+    val learningDataChanged: SharedFlow<Unit> = _learningDataChanged.asSharedFlow()
+
     /** 全問題集のうち、このフレーバーが扱うカテゴリのものだけを返す。 */
     suspend fun fetchWorkbooks(): List<Workbook> {
         val all = api.fetchWorkbooks().workbooks
@@ -66,7 +77,7 @@ class LearningRepository(
                     idToken = idToken,
                     request = SubmitAnswersRequest(workbookId, answers),
                 )
-            }
+            }.also { _learningDataChanged.tryEmit(Unit) }
         }
 
     companion object {

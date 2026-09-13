@@ -189,6 +189,17 @@ private fun AnswerLogRow(log: AnswerLogItem) {
     }
 }
 
-/** answeredAt は RFC3339。端末のロケール実装に依存させたくないので、日付部分だけ取り出す。 */
-internal fun formatAnsweredAt(answeredAt: String): String =
-    answeredAt.substringBefore('T').takeIf { it.length == 10 }?.replace('-', '/') ?: answeredAt
+/**
+ * answeredAt は RFC3339 の絶対時刻で、サーバーは UTC（Z）で返す。
+ * 文字列の日付部分をそのまま使うと、JST の 0:00〜8:59 に解いた回答が前日表示になり、
+ * サーバー側で Asia/Tokyo に変換している studyDates と同じ画面内で食い違う。
+ */
+internal fun formatAnsweredAt(answeredAt: String): String = runCatching {
+    val instant = java.time.OffsetDateTime.parse(answeredAt).toInstant()
+    DATE_FORMATTER.format(instant.atZone(JST))
+}.getOrDefault(answeredAt)
+
+private val JST: java.time.ZoneId = java.time.ZoneId.of("Asia/Tokyo")
+
+private val DATE_FORMATTER: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd")
