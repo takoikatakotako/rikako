@@ -75,6 +75,7 @@ private fun QuestionCard(number: Int, question: Question) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Q$number", style = MaterialTheme.typography.labelMedium)
             Text(question.text, style = MaterialTheme.typography.bodyLarge)
+            QuestionImageSection(imageUrls = question.images)
             question.choices.forEachIndexed { index, choice ->
                 Text("${index + 1}. $choice", style = MaterialTheme.typography.bodyMedium)
             }

@@ -11,6 +11,7 @@ Content CDN（S3 + CloudFront の静的 JSON）から取得する。
 | ビルド | Gradle 8.11.1 + AGP 8.7.3 |
 | SDK | compileSdk / targetSdk 35、minSdk 26 |
 | 通信 | Ktor Client (OkHttp) + kotlinx.serialization |
+| 画像 | Coil 3（設問画像の読み込み） |
 | 画面遷移 | navigation-compose |
 
 ```
@@ -24,7 +25,7 @@ android/
     │   ├── data/model            # JSON のモデル（iOS の Domain/Entity 相当）
     │   ├── data/remote           # ContentApi（content CDN + 公開 API）
     │   ├── data/repository       # LearningRepository
-    │   └── ui/                   # theme / workbook 画面
+    │   └── ui/                   # theme / workbook 画面（設問画像は QuestionImageSection）
     ├── chemistry/res             # 化学版のリソース（アプリ名など）
     └── itPassport/res            # IT 版のリソース
 ```
