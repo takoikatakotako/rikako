@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +35,7 @@ import org.rikako.quiz.data.model.Question
 fun WorkbookDetailScreen(
     workbookId: Long,
     onBack: () -> Unit,
+    onStartQuiz: () -> Unit,
     viewModel: WorkbookDetailViewModel = viewModel(factory = WorkbookDetailViewModel.factory(workbookId)),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +62,11 @@ fun WorkbookDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    item {
+                        Button(onClick = onStartQuiz, modifier = Modifier.fillMaxWidth()) {
+                            Text("解答する（${current.detail.questions.size}問）")
+                        }
+                    }
                     itemsIndexed(current.detail.questions, key = { _, q -> q.id }) { index, question ->
                         QuestionCard(number = index + 1, question = question)
                     }

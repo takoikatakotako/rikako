@@ -55,3 +55,22 @@ data class AppDetail(
     val title: String,
     val categories: List<Category> = emptyList(),
 )
+
+/** POST /answers のリクエスト。 */
+@Serializable
+data class SubmitAnswersRequest(
+    @SerialName("workbookId") val workbookId: Long,
+    val answers: List<AnswerItem>,
+)
+
+@Serializable
+data class AnswerItem(
+    @SerialName("questionId") val questionId: Long,
+    @SerialName("selectedChoice") val selectedChoice: Int,
+)
+
+@Serializable
+data class SubmitAnswersResponse(
+    @SerialName("correctCount") val correctCount: Int,
+    @SerialName("totalCount") val totalCount: Int,
+)
