@@ -30,7 +30,14 @@ class AccountSession(
     private val api: CognitoUserPoolApi,
     private val store: AuthTokenStore,
 ) {
+    /** signIn / signOut / refresh の状態遷移を直列化する。 */
     private val mutex = Mutex()
+
+    /**
+     * セッションの世代。ログイン・ログアウトのたびに進める。ネットワーク呼び出しの
+     * 前後で変わっていたら、その結果は古いセッションのものなので捨てる。
+     */
+    private var generation = 0L
 
     @Volatile
     private var tokens: AuthTokens? = store.load()
@@ -60,19 +67,37 @@ class AccountSession(
         api.confirmForgotPassword(email, code, newPassword)
 
     suspend fun signIn(email: String, password: String) {
+        val startedAt = mutex.withLock { generation }
         val newTokens = api.signIn(email, password)
-        // 2つの保存をトランザクションにはできないので、順序で安全側に倒す。
-        // 先に pending を立てておけば、トークン保存前に落ちても未ログインのままで害がない。
-        // 逆順だと「ログイン済みだが pending=false」になり、リンク漏れが永久に残る。
-        store.linkPending = true
-        apply(newTokens)
+        mutex.withLock {
+            // 通信中にログアウト・別のログインが起きていたら、この結果は捨てる。
+            if (generation != startedAt) return
+            // 2つの保存をトランザクションにはできないので、順序で安全側に倒す。
+            // 先に pending を立てておけば、トークン保存前に落ちても未ログインのままで害がない。
+            // 逆順だと「ログイン済みだが pending=false」になり、リンク漏れが永久に残る。
+            store.linkPending = true
+            generation++
+            apply(newTokens)
+        }
     }
 
     suspend fun signOut() {
-        val refreshToken = tokens?.refreshToken
-        clear()
+        val refreshToken = mutex.withLock {
+            val token = tokens?.refreshToken
+            generation++
+            clear()
+            token
+        }
         // 失効させられなくてもローカルのログアウトは済ませる。
         if (refreshToken != null) runCatching { api.revokeToken(refreshToken) }
+    }
+
+    /** サーバーに 401 を返され続けたときなど、ローカルのセッションだけ終了する。 */
+    suspend fun endSession() {
+        mutex.withLock {
+            generation++
+            clear()
+        }
     }
 
     /**
@@ -96,8 +121,9 @@ class AccountSession(
     }
 
     private suspend fun refreshLocked(refreshToken: String): String? = mutex.withLock {
-        // ロック待ちの間に他のコルーチンが更新済みかもしれない。
-        tokens?.let { if (!it.isExpired() && it.refreshToken != refreshToken) return it.idToken }
+        // ロック待ちの間にログアウトされたか、他のコルーチンが更新済みかもしれない。
+        val current = tokens ?: return@withLock null
+        if (current.refreshToken != refreshToken) return@withLock current.idToken
 
         try {
             val refreshed = api.refresh(refreshToken)

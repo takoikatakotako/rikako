@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.SharedPrefsAuthTokenStore
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.identity.CognitoDeviceIdentityProvider
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.identity.SharedPrefsIdentityStore
@@ -46,6 +47,9 @@ object ServiceLocator {
         )
     }
 
+    /** 回答送信と /account/link の直列化に使う。両方から同じインスタンスを参照する。 */
+    private val submissionGate = SubmissionGate()
+
     val accountSession: AccountSession by lazy {
         AccountSession(
             api = CognitoUserPoolApi(clientId = flavor.cognitoClientId, client = httpClient),
@@ -62,6 +66,7 @@ object ServiceLocator {
                 client = httpClient,
             ),
             identityProvider = deviceIdentityProvider,
+            submissionGate = submissionGate,
         )
     }
 
@@ -76,6 +81,7 @@ object ServiceLocator {
             userApi = UserApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             identityProvider = deviceIdentityProvider,
             session = accountSession,
+            submissionGate = submissionGate,
             slug = flavor.slug,
         )
     }

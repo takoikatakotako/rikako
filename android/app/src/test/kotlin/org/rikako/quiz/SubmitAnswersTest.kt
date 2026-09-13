@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.rikako.quiz.data.model.AnswerItem
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
@@ -45,6 +46,7 @@ class SubmitAnswersTest {
             userApi = UserApi("https://api.example", client),
             answerApi = AnswerApi("https://api.example", client),
             session = signedOutSession(),
+            submissionGate = SubmissionGate(),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
             slug = "high-school-chemistry",
         )

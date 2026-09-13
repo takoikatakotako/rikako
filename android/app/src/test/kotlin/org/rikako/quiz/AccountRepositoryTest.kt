@@ -12,6 +12,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthTokenStore
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.auth.AuthTokens
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.remote.AccountApi
@@ -65,6 +66,7 @@ class AccountRepositoryTest {
             session = AccountSession(CognitoUserPoolApi("client-id", client), store),
             accountApi = AccountApi("https://api.example", "high-school-chemistry", client),
             identityProvider = identityProvider,
+            submissionGate = SubmissionGate(),
         )
     }
 

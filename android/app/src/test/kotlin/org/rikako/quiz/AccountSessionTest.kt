@@ -3,6 +3,8 @@ package org.rikako.quiz
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -122,6 +124,40 @@ class AccountSessionTest {
     fun `未ログインなら ID token は null`() = runTest {
         val sut = session(InMemoryStore()) { _ -> HttpStatusCode.OK to "{}" }
         assertNull(sut.validIdToken())
+    }
+
+    @Test
+    fun `refresh の最中にログアウトしてもセッションは復活しない`() = runTest {
+        val store = InMemoryStore(AuthTokens("old", "access", "refresh", expiresAt = 0))
+        val release = CompletableDeferred<Unit>()
+        val refreshStarted = CompletableDeferred<Unit>()
+        val engine = MockEngine {
+            refreshStarted.complete(Unit)
+            release.await()
+            respond(
+                content = """
+                    {"AuthenticationResult":{"IdToken":"${idToken("me@example.com")}",
+                    "AccessToken":"a","ExpiresIn":3600}}
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+            )
+        }
+        val sut = AccountSession(
+            api = CognitoUserPoolApi("client-id", ContentApi.defaultClient(engine)),
+            store = store,
+        )
+
+        val refresh = async { runCatching { sut.validIdToken() } }
+        refreshStarted.await()
+
+        // refresh が通信中にログアウトする。
+        val signOut = async { sut.signOut() }
+        release.complete(Unit)
+        refresh.await()
+        signOut.await()
+
+        assertFalse(sut.isLoggedIn)
+        assertNull(store.tokens)
     }
 
     @Test
