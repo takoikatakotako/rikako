@@ -81,7 +81,9 @@ JOIN questions q ON q.id = ua.question_id
 JOIN questions_single_choice qsc ON q.id = qsc.question_id
 JOIN workbooks w ON w.id = ua.workbook_id
 WHERE ua.user_id = $1
-ORDER BY ua.answered_at DESC
+-- 一括送信した回答は answered_at が同じ値になるため、id を tie-breaker に入れないと
+-- LIMIT/OFFSET のページングで並びが安定せず、取りこぼしや重複が起きる。
+ORDER BY ua.answered_at DESC, ua.id DESC
 LIMIT $2 OFFSET $3;
 
 -- name: CountUserAnswerLogs :one

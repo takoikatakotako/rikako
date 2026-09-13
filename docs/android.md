@@ -24,10 +24,10 @@ android/
     │   ├── MainActivity.kt       # NavHost（問題集一覧 → 詳細 → 解答）
     │   ├── RikakoApplication.kt  # ServiceLocator の初期化
     │   ├── data/model            # JSON のモデル（iOS の Domain/Entity 相当）
-    │   ├── data/remote           # ContentApi / AnswerApi / CognitoIdentityApi
+    │   ├── data/remote           # ContentApi / AnswerApi / UserApi / CognitoIdentityApi
     │   ├── data/identity         # 匿名 identity の払い出しと保存
     │   ├── data/repository       # LearningRepository
-    │   └── ui/                   # theme / workbook / quiz 画面
+    │   └── ui/                   # theme / workbook / quiz / record / wrong 画面
     ├── chemistry/res             # 化学版のリソース（アプリ名など）
     └── itPassport/res            # IT 版のリソース
 ```
@@ -99,6 +99,36 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 画面を閉じる — 送信自体は applicationScope で完走するので、送信中に画面が操作できたり
 二重送信になったりしない。
 
+## 画面構成
+
+ボトムナビゲーションで3つのタブを持つ。解答中はタブを出さない（誤操作で回答が失われるため）。
+
+| タブ | 画面 | データ |
+| --- | --- | --- |
+| 問題集 | 一覧 → 詳細 → 解答 → 結果 | content CDN + `GET /apps/{slug}` |
+| 学習記録 | サマリー（総回答数・正答率・今週・学習日数）と回答履歴 | `GET /users/me/summary`、`GET /users/me/answer-logs` |
+| 間違えた問題 | 間違えた問題の一覧。タップで選択肢と解説を開く | `GET /users/me/wrong-answers` |
+
+回答履歴と間違えた問題は20件ずつのページング（末尾が見えたら次ページを取得）。ページ境界で
+新しい回答が入って同じ項目が二度並ぶことがあるので、id で重複を弾いてから連結する。
+このとき **offset は表示件数ではなくサーバーから受け取った件数で進める**（重複除外後の件数を
+使うと毎回1件ずつ重なり、終端に到達できなくなる）。
+
+回答が送信されると `LearningRepository.learningDataChanged` が流れ、学習記録・間違えた問題の
+両画面が読み直す。タブを開いたまま問題を解いても古い集計が残らないようにするため。
+読み込みには世代番号を持たせ、**開始時と一致する応答だけ適用する**（進行中の次ページ取得が
+再読込後の状態へ連結されると、その分の offset が飛ばされて表示が欠ける）。
+
+回答日時（`answeredAt`）は RFC3339 の絶対時刻で UTC で返るので、Asia/Tokyo に変換してから
+日付にする。文字列の日付部分をそのまま使うと JST の 0:00〜8:59 の回答が前日になり、
+サーバー側で Asia/Tokyo 換算している `studyDates` と食い違う。
+
+## アイコン
+
+ランチャーアイコンはフレーバーごとに用意している（化学＝三角フラスコ、IT＝ディスプレイ）。
+いずれも正式なデザインが決まるまでの暫定で、アダプティブアイコンは前景を 1.5 倍に拡大して
+表示するため、図形は `<group>` で 0.62 倍に縮めてセーフゾーンに収めてある。
+
 ## CI
 
 `.github/workflows/android.yml` が `android/**` の変更で走る（main への push と PR）。
@@ -117,6 +147,6 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 一覧・詳細・解答フローまで実装済み。以下は今後追加する。
 
 - メールログイン（`COGNITO_CLIENT_ID` は BuildConfig に用意済み）
-- 学習記録・間違えた問題の一覧
-- ランチャーアイコン（現状はプレースホルダーのベクター画像）
+- ランチャーアイコンの正式デザイン（現状は暫定のベクター画像）
+- 間違えた問題を解き直す導線（iOS の QuizSource 相当の仕組みが要る）
 - デプロイ（Play Console へのアップロード）

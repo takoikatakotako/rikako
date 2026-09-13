@@ -233,7 +233,7 @@ JOIN questions q ON q.id = ua.question_id
 JOIN questions_single_choice qsc ON q.id = qsc.question_id
 JOIN workbooks w ON w.id = ua.workbook_id
 WHERE ua.user_id = $1
-ORDER BY ua.answered_at DESC
+ORDER BY ua.answered_at DESC, ua.id DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -254,6 +254,8 @@ type ListUserAnswerLogsRow struct {
 	AnsweredAt     sql.NullTime `json:"answered_at"`
 }
 
+// 一括送信した回答は answered_at が同じ値になるため、id を tie-breaker に入れないと
+// LIMIT/OFFSET のページングで並びが安定せず、取りこぼしや重複が起きる。
 func (q *Queries) ListUserAnswerLogs(ctx context.Context, arg ListUserAnswerLogsParams) ([]ListUserAnswerLogsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUserAnswerLogs, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {

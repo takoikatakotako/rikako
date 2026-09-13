@@ -10,6 +10,7 @@ import org.rikako.quiz.data.identity.SharedPrefsIdentityStore
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.CognitoIdentityApi
 import org.rikako.quiz.data.remote.ContentApi
+import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
 
 /** DI ライブラリを入れるまでの最小限の依存解決。 */
@@ -48,6 +49,7 @@ object ServiceLocator {
                 client = httpClient,
             ),
             answerApi = AnswerApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
+            userApi = UserApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             identityProvider = deviceIdentityProvider,
             slug = flavor.slug,
         )
