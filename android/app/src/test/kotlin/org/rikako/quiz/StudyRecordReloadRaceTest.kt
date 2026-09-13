@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
@@ -71,6 +72,8 @@ class StudyRecordReloadRaceTest {
             answerApi = AnswerApi("https://api.example", client),
             userApi = UserApi("https://api.example", client),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
+            session = signedOutSession(),
+            submissionGate = SubmissionGate(),
             slug = "high-school-chemistry",
         )
     }
