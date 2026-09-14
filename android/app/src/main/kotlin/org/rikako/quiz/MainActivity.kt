@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -28,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.rikako.quiz.ui.account.AccountScreen
 import org.rikako.quiz.ui.quiz.QuizScreen
 import org.rikako.quiz.ui.record.StudyRecordScreen
 import org.rikako.quiz.ui.theme.RikakoTheme
@@ -51,6 +53,7 @@ private object Routes {
     const val WORKBOOK_LIST = "workbooks"
     const val STUDY_RECORD = "study-record"
     const val WRONG_ANSWERS = "wrong-answers"
+    const val ACCOUNT = "account"
     const val WORKBOOK_DETAIL = "workbooks/{workbookId}"
     const val QUIZ = "quiz/{workbookId}"
 
@@ -67,6 +70,7 @@ private enum class TopLevelDestination(
     Workbooks(Routes.WORKBOOK_LIST, "問題集", Icons.AutoMirrored.Filled.List),
     StudyRecord(Routes.STUDY_RECORD, "学習記録", Icons.Filled.DateRange),
     WrongAnswers(Routes.WRONG_ANSWERS, "間違えた問題", Icons.Filled.Refresh),
+    Account(Routes.ACCOUNT, "アカウント", Icons.Filled.Person),
 }
 
 @Composable
@@ -103,6 +107,9 @@ private fun RikakoApp() {
             }
             composable(Routes.WRONG_ANSWERS) {
                 WrongAnswersScreen(modifier = Modifier.padding(padding))
+            }
+            composable(Routes.ACCOUNT) {
+                AccountScreen(modifier = Modifier.padding(padding))
             }
             composable(
                 route = Routes.WORKBOOK_DETAIL,

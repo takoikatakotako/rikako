@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 以降のバックアップ／端末間転送の設定。
+  トークンは Keystore の鍵で暗号化してあり、鍵は端末外へ出せないので、
+  復元しても復号できない。混乱を避けるため保存領域ごと除外する。
+  匿名 identity も同じ端末に紐づくものなので除外する。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="rikako_auth.xml" />
+        <exclude domain="sharedpref" path="rikako_identity.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="rikako_auth.xml" />
+        <exclude domain="sharedpref" path="rikako_identity.xml" />
+    </device-transfer>
+</data-extraction-rules>

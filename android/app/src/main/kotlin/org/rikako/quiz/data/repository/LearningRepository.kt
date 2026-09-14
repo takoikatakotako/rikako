@@ -3,6 +3,9 @@ package org.rikako.quiz.data.repository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import org.rikako.quiz.data.auth.AccountSession
+import org.rikako.quiz.data.auth.AuthorizedCall
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.model.AnswerItem
 import org.rikako.quiz.data.model.AnswerLogsResponse
@@ -21,6 +24,8 @@ class LearningRepository(
     private val answerApi: AnswerApi,
     private val userApi: UserApi,
     private val identityProvider: DeviceIdentityProvider,
+    private val session: AccountSession,
+    private val submissionGate: SubmissionGate,
     private val slug: String,
 ) {
     private val _learningDataChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -40,21 +45,40 @@ class LearningRepository(
 
     suspend fun fetchWorkbookDetail(id: Long): WorkbookDetail = api.fetchWorkbookDetail(id)
 
-    suspend fun fetchSummary(): UserSummary =
-        userApi.fetchSummary(identityProvider.identityId())
+    private val authorized = AuthorizedCall(session)
+
+    suspend fun fetchSummary(): UserSummary = authorized.execute { idToken ->
+        userApi.fetchSummary(identityProvider.identityId(), idToken)
+    }
 
     suspend fun fetchAnswerLogs(limit: Int = PAGE_SIZE, offset: Int = 0): AnswerLogsResponse =
-        userApi.fetchAnswerLogs(identityProvider.identityId(), limit, offset)
+        authorized.execute { idToken ->
+            userApi.fetchAnswerLogs(identityProvider.identityId(), idToken, limit, offset)
+        }
 
     suspend fun fetchWrongAnswers(limit: Int = PAGE_SIZE, offset: Int = 0): WrongAnswersResponse =
-        userApi.fetchWrongAnswers(identityProvider.identityId(), limit, offset)
+        authorized.execute { idToken ->
+            userApi.fetchWrongAnswers(identityProvider.identityId(), idToken, limit, offset)
+        }
 
-    /** 回答を送信する。匿名 identity は未払い出しならここで取得される。 */
-    suspend fun submitAnswers(workbookId: Long, answers: List<AnswerItem>): SubmitAnswersResponse {
-        val deviceId = identityProvider.identityId()
-        return answerApi.submitAnswers(deviceId, SubmitAnswersRequest(workbookId, answers))
-            .also { _learningDataChanged.tryEmit(Unit) }
-    }
+    /**
+     * 回答を送信する。匿名 identity は未払い出しならここで取得される。
+     *
+     * 送信は submissionGate を通す。/account/link と直列化しないと、
+     * 「未リンクの device user を解決 → link が既存回答を移動 → 旧 user へ INSERT」の順になり、
+     * 直前の回答だけアカウントに回収されないため。
+     */
+    suspend fun submitAnswers(workbookId: Long, answers: List<AnswerItem>): SubmitAnswersResponse =
+        submissionGate.submission {
+            val deviceId = identityProvider.identityId()
+            authorized.execute { idToken ->
+                answerApi.submitAnswers(
+                    deviceId = deviceId,
+                    idToken = idToken,
+                    request = SubmitAnswersRequest(workbookId, answers),
+                )
+            }.also { _learningDataChanged.tryEmit(Unit) }
+        }
 
     companion object {
         const val PAGE_SIZE = 20

@@ -23,6 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
@@ -75,6 +76,8 @@ class QuizViewModelTest {
             api = ContentApi("https://content.example/v1", "https://api.example", client),
             userApi = UserApi("https://api.example", client),
             answerApi = AnswerApi("https://api.example", client),
+            session = signedOutSession(),
+            submissionGate = SubmissionGate(),
             identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
             slug = "high-school-chemistry",
         )

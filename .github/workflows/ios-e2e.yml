@@ -14,6 +14,8 @@ on:
   workflow_dispatch:
 
 # dev の共有テストユーザーを使うため、**全 PR をまたいで直列化**する。
+# Android の E2E（android-e2e.yml）も同じユーザーを使うので、group 名を共有して
+# iOS / Android のどちらも同時には走らないようにしている。
 # このテストは「アカウントの回答数 baseline → +1」を検証するので、
 # 2つの run が同じ baseline を読んでから双方がマージすると +2 になり、
 # 実装が正しくても片方が落ちる。
@@ -22,7 +24,7 @@ on:
 # group にする。cancel-in-progress は false（cancel するとチェックが
 # cancelled になるので、待たせる方を選ぶ）。
 concurrency:
-  group: ios-account-e2e-shared-user
+  group: account-e2e-shared-user
   cancel-in-progress: false
 
 jobs:
