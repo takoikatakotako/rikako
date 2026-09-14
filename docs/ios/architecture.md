@@ -70,13 +70,8 @@ ios/Rikako/
 - `Screen/WrongAnswersView.swift`
 - `Screen/NotificationsView.swift`
 - `Screen/HelpAndSupportView.swift`
-- `Screen/WorkbookListView.swift`
-- `Screen/WorkbookDetailView.swift`
 - `Screen/LoginView.swift` / `SignUpView.swift` / `ConfirmCodeView.swift` / `ForgotPasswordView.swift`
 - `Screen/MaintenanceView.swift` / `UpdateRequiredView.swift`
-
-> `WorkbookListView` は現在どこからも参照されていない。問題集の選択は `StudyHomeView` の
-> ピッカーに移っているため、整理の候補。
 
 ## 各レイヤの責務
 

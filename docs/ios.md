@@ -82,10 +82,6 @@ flowchart TD
 | `LoginView` / `SignUpView` / `ConfirmCodeView` / `ForgotPasswordView` | 設定 | メールログイン（#283） |
 | `DebugView` / `DebugWorkbooksView` / `DebugLearningLogView` | 設定 | DEBUG ビルドのみ |
 
-> `WorkbookListView` は現在どこからも参照されていない（`WorkbookDetailView` も
-> `WorkbookListView` と `DebugWorkbooksView` からのみ）。問題集の選択は `StudyHomeView` の
-> ピッカー sheet に移っているため、整理の候補。
-
 ## 認証の考え方
 
 普段は Cognito Identity Pool の**匿名認証**のまま使い、機種変更などでデータを引き継ぎたい
