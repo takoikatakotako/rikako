@@ -123,6 +123,17 @@ class AccountSession(
     }
 
     /**
+     * 指定した世代のセッションがまだ続いているときだけ [block] を実行する。
+     * セッション遷移（signIn / signOut / endSession）と同じロックで直列化されるので、
+     * 「世代を確認してから更新する」までの間に切り替わることがない。
+     *
+     * 世代が変わっていたら null を返す。
+     */
+    suspend fun <T> ifSameSession(expectedGeneration: Long, block: () -> T): T? = mutex.withLock {
+        if (generation != expectedGeneration) null else block()
+    }
+
+    /**
      * 世代と ID token を**同じロックの中で**取り出す。別々に読むと、その間にセッションが
      * 変わって「世代は A、token は B」のような組を作ってしまう。
      */

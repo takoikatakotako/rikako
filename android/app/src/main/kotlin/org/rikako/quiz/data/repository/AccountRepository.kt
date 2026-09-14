@@ -64,14 +64,19 @@ class AccountRepository(
             submissionGate.link { linkWithRotationOnConflict() }
         } catch (e: Throwable) {
             // pending は落とさない。次回起動または明示的な再試行でやり直す。
-            if (session.sessionGeneration == startedAt) _linkState.value = LinkState.Failed
+            // 別のセッションに切り替わっていたら、そのセッションの表示を汚さない。
+            val applied = session.ifSameSession(startedAt) { _linkState.value = LinkState.Failed }
+            if (applied == null) _linkState.value = LinkState.Idle
             throw e
         }
 
-        if (session.sessionGeneration != startedAt) return@withLock null
-        session.linkPending = false
+        // 「世代の確認」と「pending を下げる」をセッションのロック内でまとめて行う。
+        // 分けると、確認の直後にログアウト → 別アカウントでログインした場合に、
+        // 新しいセッションの pending を下げてしまう。
+        val cleared = session.ifSameSession(startedAt) { session.linkPending = false }
+        // 世代が変わっていても Linking のままにはしない。
         _linkState.value = LinkState.Idle
-        link
+        if (cleared == null) null else link
     }
 
     private suspend fun linkWithRotationOnConflict(): AccountLink = authorized.execute { idToken ->
