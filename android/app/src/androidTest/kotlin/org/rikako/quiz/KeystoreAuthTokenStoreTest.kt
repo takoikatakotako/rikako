@@ -68,6 +68,17 @@ class KeystoreAuthTokenStoreTest {
     }
 
     @Test
+    fun 壊れた値は未ログインとして扱う() {
+        store.save(tokens)
+        // 何らかの理由で復号できなくなった状態を作る。
+        context.getSharedPreferences("rikako_auth", Context.MODE_PRIVATE).edit()
+            .putString("refresh_token", "broken")
+            .commit()
+
+        assertNull(store.load())
+    }
+
+    @Test
     fun linkPendingは別の保存領域に置く() {
         store.linkPending = false
         store.save(tokens)

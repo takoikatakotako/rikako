@@ -13,11 +13,13 @@ import io.ktor.http.HttpStatusCode
 class AuthorizedCall(private val session: AccountSession) {
 
     suspend fun <T> execute(block: suspend (idToken: String?) -> T): T {
-        // 再試行は開始時のセッションに束縛する。通信中にログアウト → 別アカウントでログイン
+        // 再試行は開始時のセッションに束縛する。世代と token は同じスナップショットから取る
+        // （別々に読むと、その間にセッションが変わって食い違った組を渡してしまう）。通信中にログアウト → 別アカウントでログイン
         // されていた場合、古いリクエストの 401 で新しいアカウントのトークンを refresh したり、
         // 同じ操作を別アカウントとして再送したりしてはいけない。
-        val startedAt = session.sessionGeneration
-        val idToken = session.validIdToken()
+        val snapshot = session.currentToken()
+        val startedAt = snapshot.generation
+        val idToken = snapshot.idToken
         return try {
             block(idToken)
         } catch (e: ClientRequestException) {

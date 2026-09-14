@@ -4,6 +4,8 @@ import io.ktor.client.plugins.ClientRequestException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import io.ktor.http.HttpStatusCode
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthorizedCall
@@ -27,6 +29,13 @@ class AccountRepository(
 ) {
     private val authorized = AuthorizedCall(session)
 
+    /**
+     * ensureLinked を1本ずつ実行する。起動時とログイン直後の2呼び出しが並行すると、
+     * 先に成功した方が pending を下げた後で、待っていた方の失敗で Failed が残り、
+     * 再試行も pending=false で素通りして解除できなくなる。
+     */
+    private val linkMutex = Mutex()
+
     private val _linkState = MutableStateFlow(LinkState.Idle)
 
     /** 起動時・ログイン直後・明示的な再試行のいずれから呼ばれても、ここに結果が出る。 */
@@ -42,20 +51,27 @@ class AccountRepository(
      * 進行中の回答送信があると、移動後の旧ユーザーへ INSERT が入って取り残されるため、
      * submissionGate で送信の完了を待ってから実行する。
      */
-    suspend fun ensureLinked(): AccountLink? {
-        if (!session.isLoggedIn || !session.linkPending) return null
+    suspend fun ensureLinked(): AccountLink? = linkMutex.withLock {
+        // ロック待ちの間に、他の呼び出しが済ませているかもしれない。
+        if (!session.isLoggedIn || !session.linkPending) return@withLock null
+
+        // 通信中にログアウト → 別アカウントでログインした場合、古いリクエストの結果で
+        // 新しいセッションの pending を下げてはいけない。
+        val startedAt = session.sessionGeneration
 
         _linkState.value = LinkState.Linking
         val link = try {
             submissionGate.link { linkWithRotationOnConflict() }
         } catch (e: Throwable) {
             // pending は落とさない。次回起動または明示的な再試行でやり直す。
-            _linkState.value = LinkState.Failed
+            if (session.sessionGeneration == startedAt) _linkState.value = LinkState.Failed
             throw e
         }
+
+        if (session.sessionGeneration != startedAt) return@withLock null
         session.linkPending = false
         _linkState.value = LinkState.Idle
-        return link
+        link
     }
 
     private suspend fun linkWithRotationOnConflict(): AccountLink = authorized.execute { idToken ->

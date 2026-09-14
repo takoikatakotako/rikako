@@ -15,6 +15,7 @@ import org.junit.Test
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthTokens
 import org.rikako.quiz.data.auth.AuthTokenStore
+import org.rikako.quiz.data.auth.TokenPersistenceException
 import org.rikako.quiz.data.remote.CognitoException
 import org.rikako.quiz.data.remote.CognitoUserPoolApi
 import org.rikako.quiz.data.remote.ContentApi
@@ -158,6 +159,41 @@ class AccountSessionTest {
 
         assertFalse(sut.isLoggedIn)
         assertNull(store.tokens)
+    }
+
+    @Test
+    fun `トークンを保存できなければログイン済みにしない`() = runTest {
+        // 保存に失敗する（Keystore の鍵が使えない）状況。
+        val failing = object : AuthTokenStore {
+            override fun load(): AuthTokens? = null
+            override fun save(tokens: AuthTokens) = throw IllegalStateException("暗号化できない")
+            override fun clear() = Unit
+            override var linkPending: Boolean = false
+        }
+        val sut = session(failing) { _ ->
+            HttpStatusCode.OK to """
+                {"AuthenticationResult":{"IdToken":"${idToken("me@example.com")}",
+                "AccessToken":"access","RefreshToken":"refresh","ExpiresIn":3600}}
+            """.trimIndent()
+        }
+
+        assertThrows(TokenPersistenceException::class.java) {
+            kotlinx.coroutines.runBlocking { sut.signIn("me@example.com", "password") }
+        }
+        // 保存できていないのにログイン済みにすると、再起動で突然ログアウトする。
+        assertFalse(sut.isLoggedIn)
+        assertFalse(sut.state.value.isLoggedIn)
+    }
+
+    @Test
+    fun `世代と ID token は同じスナップショットで返る`() = runTest {
+        val store = InMemoryStore(AuthTokens("current", "access", "refresh", expiresAt = Long.MAX_VALUE))
+        val sut = session(store) { _ -> HttpStatusCode.OK to "{}" }
+
+        val snapshot = sut.currentToken()
+
+        assertEquals(sut.sessionGeneration, snapshot.generation)
+        assertEquals("current", snapshot.idToken)
     }
 
     @Test

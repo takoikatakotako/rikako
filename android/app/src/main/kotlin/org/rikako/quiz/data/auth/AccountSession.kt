@@ -16,6 +16,16 @@ import org.rikako.quiz.data.remote.ContentApi
 /** ログインの有効期限が切れ、再ログインが必要な状態。 */
 class SessionExpiredException : Exception("ログインの有効期限が切れました。もう一度ログインしてください。")
 
+/** ある時点のセッションの、世代と有効な ID token の組。 */
+data class SessionToken(
+    val generation: Long,
+    val idToken: String?,
+)
+
+/** トークンを端末に保存できなかった。再ログインしても直らないことがある。 */
+class TokenPersistenceException(cause: Throwable? = null) :
+    Exception("ログイン情報を保存できませんでした。", cause)
+
 data class AccountState(
     val isLoggedIn: Boolean = false,
     /** 表示用。ID token の email クレームから取る。 */
@@ -113,6 +123,16 @@ class AccountSession(
     }
 
     /**
+     * 世代と ID token を**同じロックの中で**取り出す。別々に読むと、その間にセッションが
+     * 変わって「世代は A、token は B」のような組を作ってしまう。
+     */
+    suspend fun currentToken(): SessionToken = mutex.withLock {
+        val current = tokens ?: return@withLock SessionToken(generation, null)
+        if (!current.isExpired()) return@withLock SessionToken(generation, current.idToken)
+        SessionToken(generation, refreshUnderLock(current.refreshToken))
+    }
+
+    /**
      * API 呼び出し用の有効な ID token。期限が近ければ refresh する。
      *
      * nil 相当（null）を返すのは「呼び出し時点で未ログイン」のときだけ。refresh の失敗は
@@ -120,11 +140,7 @@ class AccountSession(
      * どちらも throw する。terminal でもローカルを消したうえで throw するのが要点で、
      * null を返すと期限切れを検知したその1回の書き込みだけが匿名側へ流れてしまう。
      */
-    suspend fun validIdToken(): String? {
-        val current = tokens ?: return null
-        if (!current.isExpired()) return current.idToken
-        return refreshLocked(current.refreshToken)
-    }
+    suspend fun validIdToken(): String? = currentToken().idToken
 
     /**
      * 期限内でもサーバーが 401 を返すことがあるので、その再試行用に期限を見ずに refresh する。
@@ -145,16 +161,22 @@ class AccountSession(
     ): String? = mutex.withLock {
         // ロック待ちの間にログアウトされたか、他のコルーチンが更新済みかもしれない。
         if (expectedGeneration != null && expectedGeneration != generation) return@withLock null
-        val current = tokens ?: return@withLock null
-        if (current.refreshToken != refreshToken) return@withLock current.idToken
+        refreshUnderLock(refreshToken)
+    }
+
+    /** mutex を保持した状態で呼ぶこと。 */
+    private suspend fun refreshUnderLock(refreshToken: String): String? {
+        val current = tokens ?: return null
+        if (current.refreshToken != refreshToken) return current.idToken
 
         try {
             val refreshed = api.refresh(refreshToken)
             apply(refreshed)
-            refreshed.idToken
+            return refreshed.idToken
         } catch (e: CognitoException) {
             if (e.code in CognitoException.TERMINAL_CODES) {
                 // ローカルのセッションは終了するが、この1回のリクエストは匿名で流さず失敗させる。
+                generation++
                 clear()
                 throw SessionExpiredException()
             }
@@ -163,9 +185,17 @@ class AccountSession(
         }
     }
 
+    /**
+     * 保存に失敗したらインメモリも更新しない。保存できていないのにログイン済みにすると、
+     * その場は動くのに再起動で突然ログアウトする状態になる。
+     */
     private fun apply(newTokens: AuthTokens) {
+        try {
+            store.save(newTokens)
+        } catch (e: Throwable) {
+            throw TokenPersistenceException(e)
+        }
         tokens = newTokens
-        store.save(newTokens)
         _state.value = AccountState(isLoggedIn = true, email = emailFrom(newTokens.idToken))
     }
 

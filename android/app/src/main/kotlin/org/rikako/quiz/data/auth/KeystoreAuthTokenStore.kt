@@ -38,15 +38,22 @@ class KeystoreAuthTokenStore(context: Context) : AuthTokenStore {
         )
     }
 
+    /**
+     * 暗号化できないときは例外を投げる。黙って保存しないと、その場はログインできたのに
+     * 再起動で突然ログアウトする状態になる（呼び出し側がログイン自体を失敗として扱う）。
+     * 鍵が壊れている場合に備えて、1度だけ作り直してからやり直す。
+     */
     override fun save(tokens: AuthTokens) {
-        val idToken = encrypt(tokens.idToken)
-        val accessToken = encrypt(tokens.accessToken)
-        val refreshToken = encrypt(tokens.refreshToken)
-        if (idToken == null || accessToken == null || refreshToken == null) {
-            // 暗号化できないなら平文で残すより持たない方がよい（再ログインで回復できる）。
-            clear()
-            return
+        var encrypted = encryptAll(tokens)
+        if (encrypted == null) {
+            deleteKey()
+            encrypted = encryptAll(tokens)
         }
+        if (encrypted == null) {
+            clear()
+            throw IllegalStateException("トークンを暗号化できませんでした")
+        }
+        val (idToken, accessToken, refreshToken) = encrypted
         prefs.edit()
             .putString(KEY_ID_TOKEN, idToken)
             .putString(KEY_ACCESS_TOKEN, accessToken)
@@ -57,6 +64,22 @@ class KeystoreAuthTokenStore(context: Context) : AuthTokenStore {
 
     override fun clear() {
         prefs.edit().clear().apply()
+    }
+
+    private fun encryptAll(tokens: AuthTokens): Triple<String, String, String>? {
+        val idToken = encrypt(tokens.idToken) ?: return null
+        val accessToken = encrypt(tokens.accessToken) ?: return null
+        val refreshToken = encrypt(tokens.refreshToken) ?: return null
+        return Triple(idToken, accessToken, refreshToken)
+    }
+
+    /** 鍵が使えなくなった場合の復旧用。消せば次の暗号化で作り直される。 */
+    private fun deleteKey() {
+        runCatching {
+            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(KEY_ALIAS)
+        }
+        // 古い鍵で暗号化された値はもう復号できないので捨てる。
+        clear()
     }
 
     override var linkPending: Boolean
