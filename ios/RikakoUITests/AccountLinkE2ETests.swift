@@ -264,12 +264,35 @@ final class AccountLinkE2ETests: XCTestCase {
         // 飲み込んでしまうので、出ていれば閉じる。
         dismissPasswordSavePromptIfNeeded()
 
-        // ログイン画面は /account/link の完了後に閉じるので、
-        // メールアドレスが出た時点でリンクまで終わっている。
-        XCTAssertTrue(
-            app.staticTexts[email].waitForExistence(timeout: 90),
-            "ログインできない（または /account/link が終わらない）"
-        )
+        XCTAssertTrue(waitForSignedIn(), "ログインできない（または /account/link が終わらない）")
+    }
+
+    /// ログイン画面は /account/link の完了後に閉じるので、メールアドレスが出た時点で
+    /// リンクまで終わっている。
+    ///
+    /// 一時的な通信失敗のときだけ、ユーザーと同じようにもう一度ログインを押してやり直す
+    /// （認証情報の誤りなど、押し直しても直らないエラーでは再試行しない）。
+    private func waitForSignedIn(attempts: Int = 3) -> Bool {
+        for attempt in 0..<attempts {
+            if app.staticTexts[email].waitForExistence(timeout: 90) { return true }
+            guard attempt < attempts - 1,
+                  app.staticTexts["通信エラーが発生しました。"].exists else { return false }
+
+            app.buttons["ログイン"].firstMatch.tap()
+            dismissPasswordSavePromptIfNeeded()
+        }
+        return false
+    }
+
+    /// 起動直後の読み込みが失敗するとアプリはエラー画面（「再試行」ボタン）を出す。
+    /// 実バックエンドに繋ぐ E2E では、ランナー側の一時的な通信失敗でここに落ちることがあるので、
+    /// ユーザーと同じようにやり直す。押せたら true。
+    @discardableResult
+    private func retryIfNetworkErrorScreen() -> Bool {
+        let retry = app.buttons["再試行"]
+        guard retry.exists, retry.isHittable else { return false }
+        retry.tap()
+        return true
     }
 
     /// iOS のパスワード保存ダイアログ（"Save Password?"）を閉じる。
@@ -334,10 +357,7 @@ final class AccountLinkE2ETests: XCTestCase {
     }
 
     private func openSettings() {
-        XCTAssertTrue(
-            app.tabBars.buttons["マイページ"].waitForExistence(timeout: 60),
-            "メイン画面に到達できない"
-        )
+        XCTAssertTrue(waitForMainScreen(), "メイン画面に到達できない")
         app.tabBars.buttons["マイページ"].tap()
 
         let settings = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "設定")).firstMatch
@@ -346,6 +366,16 @@ final class AccountLinkE2ETests: XCTestCase {
     }
 
     /// 学習ホームで問題集を選び直す。選択済みなら何もしない。
+    /// メイン画面（タブバー）が出るまで待つ。通信エラー画面が出ていたら再試行しながら待つ。
+    private func waitForMainScreen(timeout: TimeInterval = 120) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if app.tabBars.buttons["マイページ"].waitForExistence(timeout: 5) { return true }
+            retryIfNetworkErrorScreen()
+        }
+        return false
+    }
+
     private func selectWorkbook() -> Bool {
         let change = app.buttons["問題集を変更"]
         guard change.waitForExistence(timeout: 30) else { return false }
@@ -378,6 +408,12 @@ final class AccountLinkE2ETests: XCTestCase {
 
         while Date() < deadline {
             if app.tabBars.buttons["マイページ"].exists { return }
+
+            // 読み込みに失敗しているとエラー画面のままで、以降のどのボタンも出てこない。
+            if retryIfNetworkErrorScreen() {
+                usleep(500_000)
+                continue
+            }
 
             // 同意チェックを入れないと「同意して次へ」が有効にならない。
             // ラベル付きの switch はタップに反応しない（実体は無ラベル側）。
