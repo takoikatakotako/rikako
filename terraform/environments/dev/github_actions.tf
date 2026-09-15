@@ -23,10 +23,14 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # main の workflow（push / main からの workflow_dispatch）だけに限定する（Issue #370）。
+    # repo:...:* にすると pull_request コンテキストにも一致するため、PR に書いたコードが
+    # このロール（AdministratorAccess）を assume できてしまう。
+    # PR で必要なのは plan だけで、そちらは専用の読み取り専用ロールに分けてある。
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:takoikatakotako/rikako:*"]
+      values   = ["repo:takoikatakotako/rikako:ref:refs/heads/main"]
     }
   }
 }

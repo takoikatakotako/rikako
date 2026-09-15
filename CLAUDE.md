@@ -92,6 +92,7 @@ Rikako - 問題集アプリ
     ├── apply-terraform-dev.yml     # main push で dev を自動 apply
     ├── apply-terraform-prod.yml    # 手動。plan → production 承認 → apply
     ├── plan-terraform.yml          # PR時に dev の plan（tfcmt でコメント）
+    ├── terraform-plan-trusted.yml  # 上の実処理（main 固定・読み取り専用ロール）
     ├── plan-datasync.yml           # PR時に data 差分 plan
     ├── migrate-{dev,prod}.yml      # マイグレーション（手動 dispatch。prod は承認）
     ├── backup-db-prod.yml          # prod DB を毎日バックアップ
@@ -310,10 +311,15 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
    - PRでterraform/以下の変更時に自動実行
    - dev環境でplanを実行（shared は `aws-iac` リポジトリで管理）
    - tfcmtでPRにplan結果をコメント
+   - 実処理は main の `terraform-plan-trusted.yml` に委譲する（#370）。plan は PR の HCL を
+     そのまま評価するため、認証情報を渡す判定を PR 側に置かない。ロールも読み取り専用で、
+     IAM 側で `job_workflow_ref` を main のファイルに束縛している
 
 4. **apply-terraform-dev.yml** - Dev Terraform 自動 apply
    - main push で terraform/environments/dev/** または terraform/modules/** が変わったら自動 apply
    - OIDC + AdministratorAccess（dev のみ）
+   - 共有ロール `rikako-development-github-actions` の信頼は **main の workflow に限定**（#370）。
+     dev のデプロイ・migrate を手動実行するときも main から dispatch すること
 
 5. **docs.yml** - ドキュメント生成
    - スキーマドキュメント生成
