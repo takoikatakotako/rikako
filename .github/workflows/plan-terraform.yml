@@ -1,5 +1,11 @@
 name: Plan Terraform
 
+# PR で dev の terraform plan を出す。
+#
+# 実処理は main に置いた terraform-plan-trusted.yml に委譲する（Issue #370）。
+# plan は PR に書かれた HCL をそのまま評価するため、AWS 認証情報を渡してよいかの判定を
+# PR 側のファイルに置くと、PR 自身が判定を書き換えられてしまう。呼び出し先を @main に
+# 固定し、IAM 側でも job_workflow_ref で同じファイルに束縛してある。
 on:
   pull_request:
     paths:
@@ -12,43 +18,10 @@ permissions:
 
 jobs:
   plan:
-    name: Plan (${{ matrix.environment }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - environment: dev
-            working_directory: terraform/environments/dev
-            aws_account_id: "197865631794"
-            role_name: rikako-development-github-actions
-    defaults:
-      run:
-        working-directory: ${{ matrix.working_directory }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: "1.14"
-          terraform_wrapper: false
-
-      - name: Setup tfcmt
-        uses: shmokmt/actions-setup-tfcmt@v2
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::${{ matrix.aws_account_id }}:role/${{ matrix.role_name }}
-          aws-region: ap-northeast-1
-
-      - name: Terraform Init
-        run: terraform init -input=false
-
-      - name: Terraform Plan
-        run: |
-          tfcmt -var "target:${{ matrix.environment }}" plan -patch -- terraform plan -input=false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # ref は必ず @main のままにすること。別の ref に変えると job_workflow_ref が
+    # IAM の信頼ポリシーと一致せず、認証情報が発行されない。
+    uses: takoikatakotako/rikako/.github/workflows/terraform-plan-trusted.yml@main
+    with:
+      environment: dev
+      working_directory: terraform/environments/dev
+      role_arn: arn:aws:iam::197865631794:role/rikako-development-github-actions-terraform-plan
