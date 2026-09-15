@@ -7,9 +7,19 @@
 # 評価される」ことになる（provider の設定や external data source を通じて任意の
 # API 呼び出しに化けうる）。
 #
-# plan に必要なのは読み取りだけなので、prod の
-# rikako-production-github-actions-terraform-plan と同じ形で ReadOnly のロールを用意する。
-# 信頼は pull_request コンテキストだけに限定する（このロールを使うのは plan のみ）。
+# 対策は2段構えにする。
+#
+# 1. 信頼を GitHub Environment（terraform-plan-dev）に限定する。この Environment には
+#    required reviewers を設定してあるので、**承認されるまで OIDC トークンが発行されない**。
+#    つまり PR のコードに AWS 認証情報が渡る前に、人間が差分を見る。
+#    pull_request コンテキストのままでは、ブランチを push できる人が書いた HCL が
+#    無条件に dev の認証情報を受け取ってしまう。
+#
+# 2. 権限は読み取りだけにする（prod の同名ロールと同じ ReadOnlyAccess）。
+#
+# なお、権限をさらに絞っても「plan に秘密値が渡ること」自体は無くせない。dev の provider は
+# plan 時に SecureString（neon-api-key / admin-basic-auth-* / database-url）を復号して読むため、
+# plan を実行できる＝その値を扱えるということになる。だからこそ 1 の承認ゲートを主対策に置く。
 
 data "aws_iam_policy_document" "gha_terraform_plan_assume" {
   statement {
@@ -31,7 +41,9 @@ data "aws_iam_policy_document" "gha_terraform_plan_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:takoikatakotako/rikako:pull_request"]
+      # PR のワークフローでも、terraform-plan-dev Environment を要求するジョブ
+      # （＝承認ゲートを通ったジョブ）だけが assume できる。
+      values = ["repo:takoikatakotako/rikako:environment:terraform-plan-dev"]
     }
   }
 }
@@ -39,7 +51,7 @@ data "aws_iam_policy_document" "gha_terraform_plan_assume" {
 resource "aws_iam_role" "gha_terraform_plan" {
   name = "${local.project}-${local.environment}-github-actions-terraform-plan"
   # IAM の CreateRole は Description を ASCII / Latin-1 に限定しているため日本語は使えない。
-  description        = "Read-only role for plan-terraform on pull requests"
+  description        = "Read-only role for plan-terraform; requires the terraform-plan-dev environment approval"
   assume_role_policy = data.aws_iam_policy_document.gha_terraform_plan_assume.json
 
   tags = {
