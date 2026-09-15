@@ -9,5 +9,7 @@ choices:
   - "a: 2の(i − 1)乗, b: integerNum × digitNum × exponent"
   - "a: 2の(i − 1)乗, b: integerNum + digitNum × exponent"
 correct: 3
+explanation: |
+  右端の桁を第1桁とすると、その重みは2⁰で、左へ進むごとに2の指数が1ずつ増えます。各桁について「数値＋その桁の値×2^(桁位置－1)」を加算すれば、2進数を整数へ変換できます。
 images:
   - 120

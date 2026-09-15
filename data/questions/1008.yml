@@ -14,3 +14,5 @@ choices:
   - "b, d"
   - "c, d"
 correct: 0
+explanation: |
+  aの手書き文字認識とcの音声チャットボットはAIの活用例です。bは定型的なPC操作を自動化するRPA、dは電子タグを使うRFIDの活用であり、AI導入の事例とはいえません。

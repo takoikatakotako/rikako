@@ -11,3 +11,5 @@ choices:
   - "b, d"
   - "c, d"
 correct: 1
+explanation: |
+  Androidの基盤であるAOSP、FreeBSD、LinuxはOSSとしてソースコードと利用条件が公開されています。iOSはAppleのプロプライエタリなOSなので、a、b、dが該当します。
