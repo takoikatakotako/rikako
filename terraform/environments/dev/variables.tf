@@ -9,3 +9,12 @@ variable "github_actions_oidc_thumbprint" {
   type        = string
   default     = "6938fd4d98bab03faadb97b34396831e3780aea1"
 }
+
+# plan-terraform を承認なしで動かせる GitHub ユーザーの ID（Issue #370）。
+# PR のコードが AWS 認証情報を受け取れるのは、この ID が起こした PR だけ。
+# 数値 ID は `gh api users/<login> --jq .id` で確認できる。
+variable "github_actions_owner_actor_id" {
+  description = "GitHub user id allowed to run plan-terraform on pull requests"
+  type        = string
+  default     = "7970479" # takoikatakotako
+}

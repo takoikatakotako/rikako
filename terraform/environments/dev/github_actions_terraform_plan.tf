@@ -9,17 +9,21 @@
 #
 # 対策は2段構えにする。
 #
-# 1. 信頼を GitHub Environment（terraform-plan-dev）に限定する。この Environment には
-#    required reviewers を設定してあるので、**承認されるまで OIDC トークンが発行されない**。
-#    つまり PR のコードに AWS 認証情報が渡る前に、人間が差分を見る。
-#    pull_request コンテキストのままでは、ブランチを push できる人が書いた HCL が
-#    無条件に dev の認証情報を受け取ってしまう。
+# 1. 信頼を **リポジトリオーナー本人が起こした PR** に限定する（actor_id）。
+#    sub だけを見る従来の条件では「repo にブランチを push できる人が書いた HCL」が
+#    無条件に dev の認証情報を受け取ってしまう。actor_id は OIDC トークンに GitHub が
+#    入れる値で、ワークフロー側からは詐称できない。
 #
 # 2. 権限は読み取りだけにする（prod の同名ロールと同じ ReadOnlyAccess）。
 #
 # なお、権限をさらに絞っても「plan に秘密値が渡ること」自体は無くせない。dev の provider は
 # plan 時に SecureString（neon-api-key / admin-basic-auth-* / database-url）を復号して読むため、
-# plan を実行できる＝その値を扱えるということになる。だからこそ 1 の承認ゲートを主対策に置く。
+# plan を実行できる＝その値を扱えるということになる。つまり「誰の PR なら plan させるか」が
+# 実質的な境界であり、そこを 1 で絞っている。
+#
+# 将来コラボレーターが増えて本人以外の PR でも plan したくなったら、
+# GitHub Environment（required reviewers）を要求するジョブを足し、その sub を
+# ここに追加する。承認を通ったジョブだけがトークンを受け取る形になる。
 
 data "aws_iam_policy_document" "gha_terraform_plan_assume" {
   statement {
@@ -51,7 +55,7 @@ data "aws_iam_policy_document" "gha_terraform_plan_assume" {
 resource "aws_iam_role" "gha_terraform_plan" {
   name = "${local.project}-${local.environment}-github-actions-terraform-plan"
   # IAM の CreateRole は Description を ASCII / Latin-1 に限定しているため日本語は使えない。
-  description        = "Read-only role for plan-terraform; requires the terraform-plan-dev environment approval"
+  description        = "Read-only role for plan-terraform; trusted only for pull requests opened by the repository owner"
   assume_role_policy = data.aws_iam_policy_document.gha_terraform_plan_assume.json
 
   tags = {
