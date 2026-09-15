@@ -9,5 +9,12 @@ choices:
   - "a: 2の(i − 1)乗, b: integerNum × digitNum × exponent"
   - "a: 2の(i − 1)乗, b: integerNum + digitNum × exponent"
 correct: 3
+explanation: |
+  右端の桁を第1桁とすると、その重みは2⁰で、左へ進むごとに2の指数が1ずつ増えます。各桁について「数値＋その桁の値×2^(桁位置－1)」を加算すれば、2進数を整数へ変換できます。
+
+  「a: (2のi乗) − 1, b: integerNum × digitNum × exponent」は、重みの式に加え、既存の値へ加算せず乗算しているため整数値を求められません。
+  「a: (2のi乗) − 1, b: integerNum + digitNum × exponent」は、加算式は適切ですが、各桁の重みは「2のi乗－1」ではありません。
+  「a: 2の(i − 1)乗, b: integerNum × digitNum × exponent」は、重みは適切ですが、各桁の値は既存の合計へ加算する必要があります。
+  「a: 2の(i − 1)乗, b: integerNum + digitNum × exponent」が正しいです。重み2^(i－1)を各桁に掛け、integerNumへ加算します。
 images:
   - 120
