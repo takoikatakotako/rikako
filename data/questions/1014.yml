@@ -9,3 +9,5 @@ choices:
   - "SCMシステム"
   - "SFAシステム"
 correct: 3
+explanation: |
+  SFA（Sales Force Automation）は、顧客属性、商談履歴、営業活動などを蓄積・共有して営業を支援するシステムです。これらの情報を活用することで、顧客ごとの継続的な関係づくりに役立ちます。

@@ -9,3 +9,5 @@ choices:
   - "SoE (Systems of Engagement)"
   - "SoR (Systems of Record)"
 correct: 3
+explanation: |
+  SoR（Systems of Record）は、会計や人事などの記録を正確かつ安定的に管理するシステムです。顧客とのつながりや頻繁な情報更新を重視するシステムはSoEと呼ばれます。

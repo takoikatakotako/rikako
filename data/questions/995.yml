@@ -8,4 +8,6 @@ choices:
   - "CIM"
   - "JIT"
   - "OEM"
-correct: 3
+correct: 2
+explanation: |
+  JIT（Just In Time）は、必要な物を必要な時に必要な量だけ調達・生産し、工程間の在庫を最小限にする生産方式です。OEMは他社ブランド製品を受託製造する形態です。
