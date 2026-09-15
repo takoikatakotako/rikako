@@ -22,6 +22,17 @@
 #
 # 2. 権限は読み取りだけにする（prod の同名ロールと同じ ReadOnlyAccess）。
 #
+# 残るリスク: write 権限を持つ collaborator が、オーナーが作成した PR の head branch へ
+# 悪意あるコミットを push する経路。この場合 pull_request.user はオーナーのままなので
+# 上の判定を通ってしまう。塞ぐには ruleset（オーナー以外が push できないようにする）か
+# GitHub Environment の承認が要るが、現時点の direct collaborator はオーナー本人だけであり、
+# その人が信頼できなくなった時点で main への push で共有ロール（AdministratorAccess）も
+# 使えるため、ここだけ塞いでも境界にならない。よって受容する。
+# **write 権限の collaborator を追加するときは、同時に上記いずれかを入れること。**
+#
+# fork からの PR は対象外。GitHub は fork の pull_request に id-token を発行しないため、
+# そもそも OIDC トークンを取得できない（pull_request_target はリポジトリ内で未使用）。
+#
 # なお、権限をさらに絞っても「plan に秘密値が渡ること」自体は無くせない。dev の provider は
 # plan 時に SecureString（neon-api-key / admin-basic-auth-* / database-url）を復号して読むため、
 # plan を実行できる＝その値を扱えるということになる。だからこそ 1 の「誰の PR を、どの定義で
