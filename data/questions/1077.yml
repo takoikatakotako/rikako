@@ -14,7 +14,7 @@ correct: 1
 explanation: |
   Androidの基盤であるAOSP、FreeBSD、LinuxはOSSとしてソースコードと利用条件が公開されています。iOSはAppleのプロプライエタリなOSなので、a、b、dが該当します。
 
-  ア：aとbはOSSですが、dのLinuxもOSSなので不足しています。
-  イ：正しいです。Androidの基盤、FreeBSD、LinuxはOSSとして提供されます。
-  ウ：bとdはOSSですが、aのAndroidの基盤もOSSです。
-  エ：dはOSSですが、cのiOSはプロプライエタリであり、aとbも漏れています。
+  「a, b」は、aとbはOSSですが、dのLinuxもOSSなので不足しています。
+  「a, b, d」が正しいです。Androidの基盤、FreeBSD、LinuxはOSSとして提供されます。
+  「b, d」は、bとdはOSSですが、aのAndroidの基盤もOSSです。
+  「c, d」は、dはOSSですが、cのiOSはプロプライエタリであり、aとbも漏れています。
