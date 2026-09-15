@@ -83,7 +83,10 @@ resource "aws_iam_role_policy" "ecr_access" {
 }
 
 # Terraform apply (dev のみ自動適用するため Administrator)。
-# OIDC により repo:takoikatakotako/rikako:* と dev アカウントに限定済み。
+# OIDC の信頼は dev アカウント かつ **main の workflow**（main への push / main からの
+# workflow_dispatch）に限定してある（Issue #370。上の assume role policy を参照）。
+# PR や他ブランチからは assume できない。PR で必要な plan は、読み取り専用の
+# rikako-development-github-actions-terraform-plan に分離してある。
 resource "aws_iam_role_policy_attachment" "github_actions_admin" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
