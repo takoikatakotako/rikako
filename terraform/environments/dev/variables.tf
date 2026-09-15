@@ -10,11 +10,11 @@ variable "github_actions_oidc_thumbprint" {
   default     = "6938fd4d98bab03faadb97b34396831e3780aea1"
 }
 
-# plan-terraform を承認なしで動かせる GitHub ユーザーの ID（Issue #370）。
-# PR のコードが AWS 認証情報を受け取れるのは、この ID が起こした PR だけ。
-# 数値 ID は `gh api users/<login> --jq .id` で確認できる。
-variable "github_actions_owner_actor_id" {
-  description = "GitHub user id allowed to run plan-terraform on pull requests"
+# plan 用ロールを assume できる唯一のワークフロー定義（Issue #370）。
+# OIDC トークンの job_workflow_ref と突き合わせる。main のファイルを指すので、
+# PR 側でワークフローを書き換えても一致しない。
+variable "github_actions_terraform_plan_workflow_ref" {
+  description = "job_workflow_ref allowed to assume the terraform plan role"
   type        = string
-  default     = "7970479" # takoikatakotako
+  default     = "takoikatakotako/rikako/.github/workflows/terraform-plan-trusted.yml@refs/heads/main"
 }

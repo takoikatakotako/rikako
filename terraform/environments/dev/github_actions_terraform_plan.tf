@@ -7,23 +7,25 @@
 # 評価される」ことになる（provider の設定や external data source を通じて任意の
 # API 呼び出しに化けうる）。
 #
-# 対策は2段構えにする。
+# 境界の作り方:
 #
-# 1. 信頼を **リポジトリオーナー本人が起こした PR** に限定する（actor_id）。
-#    sub だけを見る従来の条件では「repo にブランチを push できる人が書いた HCL」が
-#    無条件に dev の認証情報を受け取ってしまう。actor_id は OIDC トークンに GitHub が
-#    入れる値で、ワークフロー側からは詐称できない。
+# 1. **main に置いた信頼済みワークフローからしか assume できないようにする**。
+#    OIDC トークンの job_workflow_ref は「実際に走っている workflow の定義がどの ref の
+#    どのファイルか」を指し、PR 側からは書き換えられない（PR の caller が別ファイルに
+#    差し替えても、そのファイルは main のものではないので一致しない）。
+#    信頼済みワークフロー側で「PR の作成者がオーナー本人か」を検証してから plan する。
+#
+#    sub だけを見る条件（repo:...:pull_request）では、ブランチを push できる人が書いた
+#    HCL が無条件に dev の認証情報を受け取ってしまう。actor_id の条件も不十分で、
+#    actor は「run を開始したアカウント」であって PR の作成者ではない（他人の PR を
+#    オーナーが reopen すると、オーナーの actor_id でその PR のコードが動く）。
 #
 # 2. 権限は読み取りだけにする（prod の同名ロールと同じ ReadOnlyAccess）。
 #
 # なお、権限をさらに絞っても「plan に秘密値が渡ること」自体は無くせない。dev の provider は
 # plan 時に SecureString（neon-api-key / admin-basic-auth-* / database-url）を復号して読むため、
-# plan を実行できる＝その値を扱えるということになる。つまり「誰の PR なら plan させるか」が
-# 実質的な境界であり、そこを 1 で絞っている。
-#
-# 将来コラボレーターが増えて本人以外の PR でも plan したくなったら、
-# GitHub Environment（required reviewers）を要求するジョブを足し、その sub を
-# ここに追加する。承認を通ったジョブだけがトークンを受け取る形になる。
+# plan を実行できる＝その値を扱えるということになる。だからこそ 1 の「誰の PR を、どの定義で
+# 走らせるか」を PR 側から動かせない形にしている。
 
 data "aws_iam_policy_document" "gha_terraform_plan_assume" {
   statement {
@@ -42,12 +44,20 @@ data "aws_iam_policy_document" "gha_terraform_plan_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # 使い道は PR 上の plan だけ。
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      # PR のワークフローでも、terraform-plan-dev Environment を要求するジョブ
-      # （＝承認ゲートを通ったジョブ）だけが assume できる。
-      values = ["repo:takoikatakotako/rikako:environment:terraform-plan-dev"]
+      values   = ["repo:takoikatakotako/rikako:pull_request"]
+    }
+
+    # main に置いた信頼済み reusable workflow の定義で走っている job だけに限定する。
+    # PR 側で caller ワークフローを書き換えても、この値は main のファイルを指さない限り
+    # 一致しないため、認証情報は発行されない。
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:job_workflow_ref"
+      values   = [var.github_actions_terraform_plan_workflow_ref]
     }
   }
 }
@@ -55,7 +65,7 @@ data "aws_iam_policy_document" "gha_terraform_plan_assume" {
 resource "aws_iam_role" "gha_terraform_plan" {
   name = "${local.project}-${local.environment}-github-actions-terraform-plan"
   # IAM の CreateRole は Description を ASCII / Latin-1 に限定しているため日本語は使えない。
-  description        = "Read-only role for plan-terraform; trusted only for pull requests opened by the repository owner"
+  description        = "Read-only role for plan-terraform; assumable only from the trusted reusable workflow on main"
   assume_role_policy = data.aws_iam_policy_document.gha_terraform_plan_assume.json
 
   tags = {
