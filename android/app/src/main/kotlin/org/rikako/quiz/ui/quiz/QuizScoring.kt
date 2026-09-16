@@ -17,4 +17,8 @@ object QuizScoring {
         questions.indices.mapNotNull { index ->
             answers.getOrNull(index)?.let { AnswerItem(questions[index].id, it) }
         }
+
+    /** 間違えた（未回答を含む）問題だけを取り出す。解き直しに使う。 */
+    fun wrongQuestions(questions: List<Question>, answers: List<Int?>): List<Question> =
+        questions.filterIndexed { index, question -> !isCorrect(question, answers.getOrNull(index)) }
 }

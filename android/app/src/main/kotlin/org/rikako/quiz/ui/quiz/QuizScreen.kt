@@ -1,5 +1,13 @@
 package org.rikako.quiz.ui.quiz
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,14 +15,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,8 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -37,21 +42,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.rikako.quiz.data.model.Question
+import org.rikako.quiz.ui.chat.AIChatSheet
 import org.rikako.quiz.ui.workbook.QuestionImageSection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuizScreen(
-    workbookId: Long,
+    mode: QuizMode,
     onFinish: () -> Unit,
-    viewModel: QuizViewModel = viewModel(factory = QuizViewModel.factory(workbookId)),
+    viewModel: QuizViewModel = viewModel(
+        // 出題モードごとに別の ViewModel を持つ（問題集と解き直しで状態を共有しない）。
+        key = mode.toString(),
+        factory = QuizViewModel.factory(mode),
+    ),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showExitConfirmation by remember { mutableStateOf(false) }
+    var chatPrompt by remember { mutableStateOf<Pair<Question, Int>?>(null) }
 
     // 回答済みの問題があるまま抜けると記録が消えるので、システム Back も確認を挟む。
     val needsExitConfirmation = (state as? QuizUiState.Playing)?.hasAnswers == true
@@ -73,6 +86,9 @@ fun QuizScreen(
                 viewModel.submitAnswersAndExit(onFinish)
             },
         )
+    }
+    chatPrompt?.let { (question, choice) ->
+        AIChatSheet(question = question, selectedChoice = choice, onClose = { chatPrompt = null })
     }
 
     Scaffold(
@@ -105,11 +121,15 @@ fun QuizScreen(
                     state = current,
                     onSelectChoice = viewModel::selectChoice,
                     onNext = viewModel::goToNext,
+                    onAskAI = { chatPrompt = current.currentQuestion to
+                        (current.selectedChoice ?: current.currentQuestion.correctIndex) },
                 )
 
                 is QuizUiState.Finished -> ResultContent(
                     state = current,
                     onRestart = viewModel::restart,
+                    onRetryWrongAnswers = viewModel::retryWrongAnswers,
+                    onNextChapter = viewModel::startNextChapter,
                     onBack = onFinish,
                 )
             }
@@ -133,6 +153,7 @@ private fun PlayingContent(
     state: QuizUiState.Playing,
     onSelectChoice: (Int) -> Unit,
     onNext: () -> Unit,
+    onAskAI: () -> Unit,
 ) {
     val question = state.currentQuestion
     val scrollState = rememberScrollState()
@@ -144,16 +165,30 @@ private fun PlayingContent(
         modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        LinearProgressIndicator(
-            progress = { (state.currentIndex + 1).toFloat() / state.questions.size },
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
             modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            text = "${state.currentIndex + 1} / ${state.questions.size}",
-            style = MaterialTheme.typography.labelMedium,
-        )
-        Text(question.text, style = MaterialTheme.typography.bodyLarge)
-        QuestionImageSection(imageUrls = question.images)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Q${state.currentIndex + 1}", color = MaterialTheme.colorScheme.primary)
+                    Text("${state.currentIndex + 1} / ${state.questions.size}")
+                }
+                LinearProgressIndicator(
+                    progress = { (state.currentIndex + 1).toFloat() / state.questions.size },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(question.text, style = MaterialTheme.typography.titleMedium)
+                QuestionImageSection(imageUrls = question.images)
+            }
+        }
 
         question.choices.forEachIndexed { index, choice ->
             ChoiceButton(
@@ -176,6 +211,14 @@ private fun PlayingContent(
                         MaterialTheme.colorScheme.errorContainer
                     },
                 ),
+                border = BorderStroke(
+                    1.dp,
+                    if (isCorrect) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
@@ -185,11 +228,21 @@ private fun PlayingContent(
                     Text(
                         text = if (isCorrect) "正解" else "不正解",
                         style = MaterialTheme.typography.titleMedium,
+                        color = if (isCorrect) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                        fontWeight = FontWeight.Bold,
                     )
                     question.explanation?.takeIf { it.isNotBlank() }?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+            }
+
+            androidx.compose.material3.OutlinedButton(onClick = onAskAI, modifier = Modifier.fillMaxWidth()) {
+                Text("AIに質問する")
             }
 
             Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
@@ -208,48 +261,45 @@ private fun ChoiceButton(
     revealed: Boolean,
     onClick: () -> Unit,
 ) {
-    val label = "${index + 1}. $text"
-
-    if (!revealed) {
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text(label) }
-        return
+    val correct = revealed && index == correctIndex
+    val wrongSelection = revealed && index == selectedChoice && !correct
+    val accent = when {
+        correct -> MaterialTheme.colorScheme.primary
+        wrongSelection -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outlineVariant
     }
-
-    // 正誤を出した後は押せなくするが、無効化しただけだと Material の disabled 色に
-    // 引きずられて正解が見分けられなくなるので、色は明示する。
-    when {
-        index == correctIndex -> DisabledChoiceButton(
-            label = label,
-            container = MaterialTheme.colorScheme.primaryContainer,
-            content = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
-
-        index == selectedChoice -> DisabledChoiceButton(
-            label = label,
-            container = MaterialTheme.colorScheme.errorContainer,
-            content = MaterialTheme.colorScheme.onErrorContainer,
-        )
-
-        else -> OutlinedButton(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(label) }
+    val background = when {
+        correct -> MaterialTheme.colorScheme.primaryContainer
+        wrongSelection -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surface
     }
-}
+    val badge = if (correct || wrongSelection) accent else MaterialTheme.colorScheme.surfaceVariant
+    val badgeText = if (correct || wrongSelection) Color.White else MaterialTheme.colorScheme.onSurface
 
-@Composable
-private fun DisabledChoiceButton(label: String, container: Color, content: Color) {
-    Button(
-        onClick = {},
-        enabled = false,
-        colors = ButtonDefaults.buttonColors(
-            disabledContainerColor = container,
-            disabledContentColor = content,
-        ),
-        modifier = Modifier.fillMaxWidth(),
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(2.dp, accent),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = !revealed, onClick = onClick),
     ) {
-        Text(label)
+        Row(
+            modifier = Modifier.padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.size(34.dp).background(badge, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (index < 4) "${'A' + index}" else "${index + 1}", color = badgeText, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                text,
+                modifier = Modifier.weight(1f),
+                color = if (correct || wrongSelection) accent else MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 

@@ -21,14 +21,14 @@ android/
     ├── main/kotlin/org/rikako/quiz/
     │   ├── AppFlavor.kt          # BuildConfig 経由でフレーバー設定を読む
     │   ├── ServiceLocator.kt     # DI ライブラリ導入までの簡易依存解決
-    │   ├── MainActivity.kt       # NavHost（問題集一覧 → 詳細 → 解答）
+    │   ├── MainActivity.kt       # 初期設定と3タブの NavHost
     │   ├── RikakoApplication.kt  # ServiceLocator の初期化
     │   ├── data/model            # JSON のモデル（iOS の Domain/Entity 相当）
     │   ├── data/remote           # ContentApi / AnswerApi / UserApi / Cognito 系 / AccountApi
     │   ├── data/identity         # 匿名 identity の払い出しと保存
     │   ├── data/auth             # メールログインのセッションとトークン保存
     │   ├── data/repository       # LearningRepository
-    │   └── ui/                   # theme / workbook / quiz / record / wrong / account 画面
+    │   └── ui/                   # onboarding / workbook / quiz / chat / record / mypage など
     ├── chemistry/res             # 化学版のリソース（アプリ名など）
     └── itPassport/res            # IT 版のリソース
 ```
@@ -127,13 +127,29 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 - 回答送信と link は `SubmissionGate` で直列化する。link は匿名ユーザーの回答をアカウントへ
   移す操作なので、送信と重なると移動後の旧ユーザーへ INSERT が入り、その回答だけ取り残される
 
+## 間違えた問題の解き直し
+
+「学習記録」から開く「間違えた問題」の「まとめて解き直す」と、結果画面の「間違えた問題を解き直す」から、
+間違えた問題だけを出題する。一度の復習は iOS と同じく最大50問。
+
+出題元は `QuizSource` で表す（iOS と同じ考え方）。
+
+- `Workbook`: 通常プレイ。全問が同じ問題集
+- `Review`: 解き直し。問題ごとに出身の問題集が違うため、問題ID → 問題集ID の対応を持つ
+
+回答の送信は `QuizSource.groupedAnswers` で**問題集ごとにまとめてから** `POST /answers` を
+呼ぶ。解き直しでも、回答は元の問題集の記録として残る。
+
 ## 解答フロー
 
-問題集一覧 →（詳細）→ 解答 → 結果、の順に進む。
+学習ホーム（問題集選択とチャプター一覧）→ 解答 → 結果、の順に進む。
 
-1. `QuizScreen` が `workbooks/{id}.json` を読み、1問ずつ出題する
+学習ホームは選択中の問題集を端末に保持し、`GET /users/me/workbook-progress?workbook_id=...`
+で各チャプターの正解数を表示する。回答が送信されると進捗を再取得する。
+
+1. 問題集は iOS と同じく10問ずつのチャプターに分け、`QuizScreen` が指定チャプターを1問ずつ出題する
 2. 選択肢を選んだ時点で正誤と解説を表示し、変更はできない（iOS の `QuizViewModel` と同じ）
-3. 最後の問題を終えると結果を表示し、`POST /answers` を送信する
+3. 最後の問題を終えると結果を表示し、`POST /answers` を送信する。結果から次のチャプターへ進める
 4. 送信は `ServiceLocator.applicationScope` で実行するため、結果画面を閉じても最後まで走る
 5. 送信に失敗しても結果は表示したままにするが、**再送ボタンは出さない** —
    `POST /answers` に冪等化が無く、レスポンスだけ失われたケースで再送すると
@@ -149,14 +165,18 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 
 ## 画面構成
 
-ボトムナビゲーションで3つのタブを持つ。解答中はタブを出さない（誤操作で回答が失われるため）。
+ボトムナビゲーションは iOS と同じ3タブ。解答中はタブを出さない（誤操作で回答が失われるため）。
 
 | タブ | 画面 | データ |
 | --- | --- | --- |
-| 問題集 | 一覧 → 詳細 → 解答 → 結果 | content CDN + `GET /apps/{slug}` |
-| 学習記録 | サマリー（総回答数・正答率・今週・学習日数）と回答履歴 | `GET /users/me/summary`、`GET /users/me/answer-logs` |
-| 間違えた問題 | 間違えた問題の一覧。タップで選択肢と解説を開く | `GET /users/me/wrong-answers` |
-| アカウント | メールログイン・新規登録・パスワード再設定 | Cognito User Pool、`POST /account/link` |
+| 学習 | 問題集選択 → チャプター → 解答 → 結果 | content CDN + `GET /apps/{slug}` + 問題集進捗 API |
+| 学習記録 | サマリーと回答履歴。間違えた問題の復習へ進める | `GET /users/me/summary`、`GET /users/me/answer-logs`、`GET /users/me/wrong-answers` |
+| マイページ | プロフィール・設定・お知らせ・FAQ/お問い合わせ。設定からアカウントへ進める | `GET/PUT /users/me`、content CDN の `announcements.json`、`POST /contact` |
+
+初回は6ページのオンボーディングで教材選択と利用規約への同意を行い、匿名IDを払い出す。
+「初期設定をやり直す」では教材選択だけを消し、匿名ID・学習記録・ログイン状態は残す。
+AI質問は解答後と結果詳細から開ける。問題ID・選択した回答・会話履歴を `POST /questions/{id}/chat`
+へ送り、1問につき最大5往復までに制限する。
 
 回答履歴と間違えた問題は20件ずつのページング（末尾が見えたら次ページを取得）。ページ境界で
 新しい回答が入って同じ項目が二度並ぶことがあるので、id で重複を弾いてから連結する。
@@ -196,9 +216,13 @@ Keystore は実機／エミュレータでしか動かないため、トーク�
 
 ## 未実装
 
-一覧・詳細・解答フローまで実装済み。以下は今後追加する。
+主要な学習フロー、初期設定、マイページ、AI質問は実装済み。完全な機能・画面の一致には、
+以下がまだ必要。
+
+- 起動時のアプリ状態判定（メンテナンス・必須アップデート）
+- 効果音・触覚フィードバック、イラストなどの演出
+- 学習記録の週カレンダー・連続学習日数表示
+- お知らせ本文の Markdown 表示、通知の詳細な既読表示
 
 - 引き継ぎトークン（`/transfer/*`）によるログイン無しの引き継ぎ
-- ランチャーアイコンの正式デザイン（現状は暫定のベクター画像）
-- 間違えた問題を解き直す導線（iOS の QuizSource 相当の仕組みが要る）
 - デプロイ（Play Console へのアップロード）

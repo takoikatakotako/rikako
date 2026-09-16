@@ -39,6 +39,7 @@ import org.rikako.quiz.data.model.UserSummary
 @Composable
 fun StudyRecordScreen(
     modifier: Modifier = Modifier,
+    onWrongAnswers: () -> Unit = {},
     viewModel: StudyRecordViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -70,6 +71,7 @@ fun StudyRecordScreen(
                 is StudyRecordUiState.Success -> RecordList(
                     state = current,
                     onLoadMore = viewModel::loadMore,
+                    onWrongAnswers = onWrongAnswers,
                 )
             }
         }
@@ -77,7 +79,7 @@ fun StudyRecordScreen(
 }
 
 @Composable
-private fun RecordList(state: StudyRecordUiState.Success, onLoadMore: () -> Unit) {
+private fun RecordList(state: StudyRecordUiState.Success, onLoadMore: () -> Unit, onWrongAnswers: () -> Unit) {
     val listState = rememberLazyListState()
 
     // 末尾が見えたら次のページを取りに行く。
@@ -98,6 +100,12 @@ private fun RecordList(state: StudyRecordUiState.Success, onLoadMore: () -> Unit
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { SummaryCard(state.summary) }
+
+        item {
+            Button(onClick = onWrongAnswers, modifier = Modifier.fillMaxWidth()) {
+                Text("間違えた問題を復習する")
+            }
+        }
 
         item {
             Text(

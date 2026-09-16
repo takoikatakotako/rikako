@@ -2,6 +2,7 @@ package org.rikako.quiz
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -29,7 +29,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.rikako.quiz.ui.account.AccountScreen
+import org.rikako.quiz.ui.onboarding.OnboardingScreen
+import org.rikako.quiz.ui.mypage.MyPageScreen
+import org.rikako.quiz.ui.mypage.MyPageViewModel
+import org.rikako.quiz.ui.mypage.ProfileScreen
+import org.rikako.quiz.ui.mypage.SettingsScreen
+import org.rikako.quiz.ui.mypage.NotificationsScreen
+import org.rikako.quiz.ui.mypage.HelpScreen
+import org.rikako.quiz.ui.quiz.QuizMode
 import org.rikako.quiz.ui.quiz.QuizScreen
 import org.rikako.quiz.ui.record.StudyRecordScreen
 import org.rikako.quiz.ui.theme.RikakoTheme
@@ -39,27 +49,42 @@ import org.rikako.quiz.ui.wrong.WrongAnswersScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // ライトテーマ固定なので、システムバーのアイコンも明るい背景向けに固定する。
+        // 端末がダークのときに enableEdgeToEdge() の既定へ任せると、白背景に白アイコンになる。
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(TRANSPARENT_BAR, TRANSPARENT_BAR),
+            navigationBarStyle = SystemBarStyle.light(TRANSPARENT_BAR, TRANSPARENT_BAR),
+        )
         super.onCreate(savedInstanceState)
         setContent {
             RikakoTheme {
-                RikakoApp()
+                val hasCompletedOnboarding by ServiceLocator.onboardingStore.completed.collectAsStateWithLifecycle()
+                if (hasCompletedOnboarding) RikakoApp() else OnboardingScreen()
             }
         }
     }
 }
+
+/** システムバーは背景を透過させ、コンテンツ側の色を見せる。 */
+private const val TRANSPARENT_BAR = 0x00FFFFFF
 
 private object Routes {
     const val WORKBOOK_LIST = "workbooks"
     const val STUDY_RECORD = "study-record"
     const val WRONG_ANSWERS = "wrong-answers"
     const val ACCOUNT = "account"
+    const val MY_PAGE = "my-page"
+    const val PROFILE = "profile"
+    const val SETTINGS = "settings"
+    const val NOTIFICATIONS = "notifications"
+    const val HELP = "help"
     const val WORKBOOK_DETAIL = "workbooks/{workbookId}"
-    const val QUIZ = "quiz/{workbookId}"
+    const val QUIZ = "quiz/{workbookId}/{sectionIndex}"
+    const val REVIEW_QUIZ = "quiz/review"
 
     fun workbookDetail(id: Long) = "workbooks/$id"
 
-    fun quiz(id: Long) = "quiz/$id"
+    fun quiz(id: Long, sectionIndex: Int) = "quiz/$id/$sectionIndex"
 }
 
 private enum class TopLevelDestination(
@@ -67,15 +92,15 @@ private enum class TopLevelDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    Workbooks(Routes.WORKBOOK_LIST, "問題集", Icons.AutoMirrored.Filled.List),
+    Workbooks(Routes.WORKBOOK_LIST, "学習", Icons.AutoMirrored.Filled.List),
     StudyRecord(Routes.STUDY_RECORD, "学習記録", Icons.Filled.DateRange),
-    WrongAnswers(Routes.WRONG_ANSWERS, "間違えた問題", Icons.Filled.Refresh),
-    Account(Routes.ACCOUNT, "アカウント", Icons.Filled.Person),
+    MyPage(Routes.MY_PAGE, "マイページ", Icons.Filled.Person),
 }
 
 @Composable
 private fun RikakoApp() {
     val navController = rememberNavController()
+    val myPageViewModel: MyPageViewModel = viewModel(factory = MyPageViewModel.factory())
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
@@ -99,17 +124,59 @@ private fun RikakoApp() {
             composable(Routes.WORKBOOK_LIST) {
                 WorkbookListScreen(
                     modifier = Modifier.padding(padding),
-                    onWorkbookClick = { id -> navController.navigate(Routes.workbookDetail(id)) },
+                    onChapterClick = { id, sectionIndex ->
+                        navController.navigate(Routes.quiz(id, sectionIndex))
+                    },
                 )
             }
             composable(Routes.STUDY_RECORD) {
-                StudyRecordScreen(modifier = Modifier.padding(padding))
+                StudyRecordScreen(
+                    modifier = Modifier.padding(padding),
+                    onWrongAnswers = { navController.navigate(Routes.WRONG_ANSWERS) },
+                )
             }
             composable(Routes.WRONG_ANSWERS) {
-                WrongAnswersScreen(modifier = Modifier.padding(padding))
+                WrongAnswersScreen(
+                    modifier = Modifier.padding(padding),
+                    onStartReview = { navController.navigate(Routes.REVIEW_QUIZ) },
+                    onBack = navController::popBackStack,
+                )
+            }
+            composable(Routes.REVIEW_QUIZ) {
+                QuizScreen(mode = QuizMode.Review, onFinish = navController::popBackStack)
             }
             composable(Routes.ACCOUNT) {
-                AccountScreen(modifier = Modifier.padding(padding))
+                AccountScreen(onBack = navController::popBackStack)
+            }
+            composable(Routes.MY_PAGE) {
+                MyPageScreen(
+                    modifier = Modifier.padding(padding),
+                    viewModel = myPageViewModel,
+                    onProfile = { navController.navigate(Routes.PROFILE) },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                    onHelp = { navController.navigate(Routes.HELP) },
+                )
+            }
+            composable(Routes.PROFILE) {
+                ProfileScreen(
+                    onBack = navController::popBackStack,
+                    onAccount = { navController.navigate(Routes.ACCOUNT) },
+                    viewModel = myPageViewModel,
+                )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    onBack = navController::popBackStack,
+                    onAccount = { navController.navigate(Routes.ACCOUNT) },
+                    onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                )
+            }
+            composable(Routes.NOTIFICATIONS) {
+                NotificationsScreen(onBack = navController::popBackStack, viewModel = myPageViewModel)
+            }
+            composable(Routes.HELP) {
+                HelpScreen(onBack = navController::popBackStack)
             }
             composable(
                 route = Routes.WORKBOOK_DETAIL,
@@ -119,15 +186,24 @@ private fun RikakoApp() {
                 WorkbookDetailScreen(
                     workbookId = workbookId,
                     onBack = navController::popBackStack,
-                    onStartQuiz = { navController.navigate(Routes.quiz(workbookId)) },
+                    onStartQuiz = { sectionIndex ->
+                        navController.navigate(Routes.quiz(workbookId, sectionIndex))
+                    },
                 )
             }
             composable(
                 route = Routes.QUIZ,
-                arguments = listOf(navArgument("workbookId") { type = NavType.LongType }),
+                arguments = listOf(
+                    navArgument("workbookId") { type = NavType.LongType },
+                    navArgument("sectionIndex") { type = NavType.IntType },
+                ),
             ) { entry ->
                 val workbookId = entry.arguments?.getLong("workbookId") ?: return@composable
-                QuizScreen(workbookId = workbookId, onFinish = navController::popBackStack)
+                val sectionIndex = entry.arguments?.getInt("sectionIndex") ?: return@composable
+                QuizScreen(
+                    mode = QuizMode.Workbook(workbookId, sectionIndex),
+                    onFinish = navController::popBackStack,
+                )
             }
         }
     }

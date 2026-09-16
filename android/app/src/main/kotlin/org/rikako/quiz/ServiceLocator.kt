@@ -10,10 +10,14 @@ import org.rikako.quiz.data.auth.SubmissionGate
 import org.rikako.quiz.data.identity.CognitoDeviceIdentityProvider
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.identity.SharedPrefsIdentityStore
+import org.rikako.quiz.data.identity.SelectedWorkbookStore
+import org.rikako.quiz.data.identity.OnboardingStore
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.AccountApi
 import org.rikako.quiz.data.remote.CognitoIdentityApi
 import org.rikako.quiz.data.remote.CognitoUserPoolApi
+import org.rikako.quiz.data.remote.ChatApi
+import org.rikako.quiz.data.remote.ContactApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.AccountRepository
@@ -29,6 +33,8 @@ object ServiceLocator {
         appContext = context.applicationContext
     }
 
+    fun context(): Context = appContext
+
     private val httpClient by lazy { ContentApi.defaultClient() }
 
     /**
@@ -36,6 +42,9 @@ object ServiceLocator {
      * アプリのライフサイクルに紐づけたスコープで実行する。
      */
     val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    val selectedWorkbookStore: SelectedWorkbookStore by lazy { SelectedWorkbookStore(appContext) }
+    val onboardingStore: OnboardingStore by lazy { OnboardingStore(appContext) }
 
     val deviceIdentityProvider: DeviceIdentityProvider by lazy {
         CognitoDeviceIdentityProvider(
@@ -78,6 +87,8 @@ object ServiceLocator {
                 client = httpClient,
             ),
             answerApi = AnswerApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
+            chatApi = ChatApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
+            contactApi = ContactApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             userApi = UserApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             identityProvider = deviceIdentityProvider,
             session = accountSession,

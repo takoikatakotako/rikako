@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.rikako.quiz.ServiceLocator
 import org.rikako.quiz.data.model.WorkbookDetail
@@ -15,7 +16,10 @@ import org.rikako.quiz.data.repository.LearningRepository
 
 sealed interface WorkbookDetailUiState {
     data object Loading : WorkbookDetailUiState
-    data class Success(val detail: WorkbookDetail) : WorkbookDetailUiState
+    data class Success(
+        val detail: WorkbookDetail,
+        val progress: Map<Long, Boolean> = emptyMap(),
+    ) : WorkbookDetailUiState
     data class Error(val message: String) : WorkbookDetailUiState
 }
 
@@ -29,6 +33,9 @@ class WorkbookDetailViewModel(
 
     init {
         load()
+        viewModelScope.launch {
+            repository.learningDataChanged.collect { refreshProgress() }
+        }
     }
 
     fun load() {
@@ -36,10 +43,21 @@ class WorkbookDetailViewModel(
         viewModelScope.launch {
             _uiState.value = runCatching { repository.fetchWorkbookDetail(workbookId) }
                 .fold(
-                    onSuccess = { WorkbookDetailUiState.Success(it) },
+                    onSuccess = { detail ->
+                        val progress = runCatching { repository.fetchWorkbookProgress(workbookId) }
+                            .getOrNull()?.results?.associate { it.questionId to it.isCorrect }.orEmpty()
+                        WorkbookDetailUiState.Success(detail, progress)
+                    },
                     onFailure = { WorkbookDetailUiState.Error(it.message ?: "読み込みに失敗しました") },
                 )
         }
+    }
+
+    private suspend fun refreshProgress() {
+        val current = _uiState.value as? WorkbookDetailUiState.Success ?: return
+        val progress = runCatching { repository.fetchWorkbookProgress(workbookId) }
+            .getOrNull()?.results?.associate { it.questionId to it.isCorrect } ?: return
+        _uiState.value = current.copy(progress = progress)
     }
 
     companion object {

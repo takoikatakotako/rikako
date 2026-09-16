@@ -28,6 +28,7 @@ import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
+import org.rikako.quiz.ui.quiz.QuizMode
 import org.rikako.quiz.ui.quiz.QuizUiState
 import org.rikako.quiz.ui.quiz.QuizViewModel
 
@@ -49,7 +50,7 @@ class QuizViewModelTest {
 
     private val submitted = mutableListOf<String>()
 
-    private fun repository(): LearningRepository {
+    private fun repository(detail: String = detailJson): LearningRepository {
         val engine = MockEngine { request ->
             if (request.url.encodedPath == "/answers") {
                 val body = (request.body as io.ktor.http.content.OutgoingContent.ByteArrayContent)
@@ -65,7 +66,7 @@ class QuizViewModelTest {
                 )
             } else {
                 respond(
-                    content = detailJson,
+                    content = detail,
                     status = HttpStatusCode.OK,
                     headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
                 )
@@ -94,7 +95,7 @@ class QuizViewModelTest {
             CoroutineExceptionHandler { _, e -> submissionErrors += e },
     )
 
-    private fun viewModel() = QuizViewModel(4, repository(), submissionScope)
+    private fun viewModel() = QuizViewModel(QuizMode.Workbook(4), repository(), submissionScope)
 
     @Before
     fun setUp() {
@@ -164,5 +165,36 @@ class QuizViewModelTest {
             listOf("""{"workbookId":4,"answers":[{"questionId":101,"selectedChoice":1},{"questionId":102,"selectedChoice":0}]}"""),
             submitted,
         )
+    }
+
+    @Test
+    fun `指定チャプターだけ出題し結果から次へ進む`() = runBlocking {
+        releaseResponse.complete(Unit)
+        val questions = (1..12).joinToString(",") { index ->
+            """{"id":$index,"text":"問$index","choices":["ア","イ"],"correct":0}"""
+        }
+        val detail = """{"id":4,"title":"12問の問題集","questions":[$questions]}"""
+        val viewModel = QuizViewModel(
+            QuizMode.Workbook(workbookId = 4, sectionIndex = 1),
+            repository(detail),
+            submissionScope,
+        )
+
+        val chapterTwo = withTimeout(5_000) {
+            viewModel.uiState.first { it is QuizUiState.Playing } as QuizUiState.Playing
+        }
+        assertEquals(listOf(11L, 12L), chapterTwo.questions.map { it.id })
+
+        repeat(2) {
+            viewModel.selectChoice(0)
+            viewModel.goToNext()
+        }
+        val result = viewModel.uiState.value as QuizUiState.Finished
+        assertEquals(1, result.nextChapterNumber)
+
+        viewModel.startNextChapter()
+        val chapterOne = viewModel.uiState.value as QuizUiState.Playing
+        assertEquals((1L..10L).toList(), chapterOne.questions.map { it.id })
+        assertEquals(List(10) { null }, chapterOne.answers)
     }
 }

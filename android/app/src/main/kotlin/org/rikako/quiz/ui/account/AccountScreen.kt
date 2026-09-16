@@ -18,6 +18,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,13 +40,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun AccountScreen(
     modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
     viewModel: AccountViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("アカウント") }) },
+        topBar = { TopAppBar(
+            title = { Text("アカウント") },
+            navigationIcon = { IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+            } },
+        ) },
     ) { padding ->
         Column(
             modifier = Modifier
