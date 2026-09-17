@@ -19,23 +19,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,9 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -63,7 +60,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.rikako.quiz.ServiceLocator
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransferScreen(
     onBack: () -> Unit,
@@ -116,28 +112,34 @@ fun TransferScreen(
         )
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("データ引き継ぎ") },
-            navigationIcon = { IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
-            } },
-        )
-    }) { padding ->
+    val accent = MaterialTheme.colorScheme.primary
+    Scaffold(
+        containerColor = groupedBackground,
+        topBar = { ManagementTopBar("データ引き継ぎ", onBack) },
+    ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            Surface(
+                color = accent.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary)
+                Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Filled.Info, null, tint = accent)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("アカウントでの引き継ぎがおすすめ", fontWeight = FontWeight.SemiBold)
-                        Text("ログインすると、QRコードなしで複数端末に学習記録を同期できます。", style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = onAccount) { Text("ログイン・アカウント管理") }
+                        Text(
+                            "アカウントでのログインをおすすめします",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "ログインすると、QRコードなしで複数端末に学習記録を引き継げます。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = managementSecondary,
+                        )
+                        TextButton(onClick = onAccount) { Text("アカウントを開く") }
                     }
                 }
             }
@@ -147,16 +149,16 @@ fun TransferScreen(
                 return@Column
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (receiving) OutlinedButton(onClick = { receiving = false }, modifier = Modifier.weight(1f)) {
+                if (receiving) OutlinedButton(onClick = { receiving = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                     Text("この端末から")
-                } else Button(onClick = { receiving = false }, modifier = Modifier.weight(1f)) { Text("この端末から") }
-                if (receiving) Button(onClick = { receiving = true }, modifier = Modifier.weight(1f)) {
+                } else Button(onClick = { receiving = false }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("この端末から") }
+                if (receiving) Button(onClick = { receiving = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                     Text("この端末へ")
-                } else OutlinedButton(onClick = { receiving = true }, modifier = Modifier.weight(1f)) { Text("この端末へ") }
+                } else OutlinedButton(onClick = { receiving = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) { Text("この端末へ") }
             }
             if (receiving) {
                 Text("引き継ぎ元のQRコードを読み取る", style = MaterialTheme.typography.titleMedium)
-                Text("カメラでスキャンするか、保存済みのQR画像を選んでください。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("カメラでスキャンするか、保存済みのQR画像を選んでください。", color = managementSecondary)
                 Button(
                     onClick = {
                         val options = GmsBarcodeScannerOptions.Builder()
@@ -204,7 +206,7 @@ fun TransferScreen(
                     }
                 } else state.token?.let { token ->
                     val bitmap = remember(token.token) { transferQrBitmap(token.token) }
-                    Card(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    ManagementCard(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = "データ引き継ぎ用QRコード",
@@ -216,12 +218,15 @@ fun TransferScreen(
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall,
+                        color = managementSecondary,
                     )
                     Text(
                         token.token,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = managementSecondary,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
@@ -242,7 +247,11 @@ fun TransferScreen(
                     enabled = !state.loadingToken,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("コードを更新する") }
-                Text("コードを更新すると、以前のQRコードは使えなくなります。", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "コードを更新すると、以前のQRコードは使えなくなります。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = managementSecondary,
+                )
             }
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }

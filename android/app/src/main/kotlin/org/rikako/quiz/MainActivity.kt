@@ -15,11 +15,13 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -229,7 +231,7 @@ private fun BottomBar(
     navController: NavHostController,
     currentDestination: androidx.navigation.NavDestination?,
 ) {
-    NavigationBar {
+    NavigationBar(containerColor = Color.White) {
         TopLevelDestination.entries.forEach { destination ->
             val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
             NavigationBarItem(
@@ -244,6 +246,13 @@ private fun BottomBar(
                 },
                 icon = { Icon(destination.icon, contentDescription = destination.label) },
                 label = { Text(destination.label) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color(0xFF48AC01),
+                    selectedTextColor = Color(0xFF368600),
+                    indicatorColor = Color(0xFFEDF7E6),
+                    unselectedIconColor = Color(0xFF777B76),
+                    unselectedTextColor = Color(0xFF777B76),
+                ),
             )
         }
     }
