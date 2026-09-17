@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.rikako.quiz.BuildConfig
@@ -36,6 +39,8 @@ import org.rikako.quiz.ServiceLocator
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onAccount: () -> Unit, onNotifications: () -> Unit) {
     val account by ServiceLocator.accountSession.state.collectAsStateWithLifecycle()
+    val soundEnabled by ServiceLocator.feedbackPreferences.soundEnabled.collectAsStateWithLifecycle()
+    val hapticEnabled by ServiceLocator.feedbackPreferences.hapticEnabled.collectAsStateWithLifecycle()
     var confirmReset by remember { mutableStateOf(false) }
 
     if (confirmReset) {
@@ -69,6 +74,19 @@ fun SettingsScreen(onBack: () -> Unit, onAccount: () -> Unit, onNotifications: (
                     Text("アカウント", style = MaterialTheme.typography.titleMedium)
                     Text(account.email ?: "ログインしていません")
                     Button(onClick = onAccount) { Text(if (account.isLoggedIn) "アカウントを管理" else "ログイン / アカウント作成") }
+                }
+            }
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("サウンド・フィードバック", style = MaterialTheme.typography.titleMedium)
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("効果音")
+                        Switch(checked = soundEnabled, onCheckedChange = ServiceLocator.feedbackPreferences::setSoundEnabled)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("触覚フィードバック")
+                        Switch(checked = hapticEnabled, onCheckedChange = ServiceLocator.feedbackPreferences::setHapticEnabled)
+                    }
                 }
             }
             Card(modifier = Modifier.fillMaxWidth()) {

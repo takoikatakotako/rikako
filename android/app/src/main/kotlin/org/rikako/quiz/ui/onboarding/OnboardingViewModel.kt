@@ -92,6 +92,13 @@ class OnboardingViewModel(
         viewModelScope.launch {
             try {
                 identityProvider.identityId()
+                try {
+                    repository.updateSelectedWorkbook(state.selectedWorkbookId)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // オフラインでも初回設定は完了できる。
+                }
                 onboardingStore.complete()
             } catch (error: CancellationException) {
                 throw error

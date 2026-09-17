@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- IT版: ディスプレイとチェックマーク。正式なデザインが決まるまでの暫定アイコン。 -->
+<!--
+  IT版のランチャーアイコン。ディスプレイと、正解を表すチェック。
+  アダプティブアイコンの 1.5 倍拡大を見込み、図形は中央 66dp 内に収める。
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.62"
-        android:scaleY="0.62">
+    <!-- ディスプレイの筐体とスタンド -->
     <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M28,30h52a4,4 0 0 1 4,4v34a4,4 0 0 1 -4,4h-20v6h10v4h-32v-4h10v-6h-20a4,4 0 0 1 -4,-4v-34a4,4 0 0 1 4,-4z" />
-        <path
-            android:fillColor="#8FB8F0"
-            android:pathData="M33,36h42v30h-42z" />
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M43,51l6,6l16,-16l4,4l-20,20l-10,-10z" />
-    </group>
+        android:fillColor="#FFFFFF"
+        android:pathData="M27,28h54a5,5 0 0 1 5,5v33a5,5 0 0 1 -5,5h-20v6h9a3,3 0 0 1 0,6h-32a3,3 0 0 1 0,-6h9v-6h-20a5,5 0 0 1 -5,-5v-33a5,5 0 0 1 5,-5z" />
+
+    <!-- 画面 -->
+    <path
+        android:fillColor="#8FB8F0"
+        android:pathData="M33,34h42v31h-42z" />
+
+    <!-- チェック -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,49.5l4.5,-4.5l6.5,6.5l12,-12l4.5,4.5l-16.5,16.5z" />
 </vector>

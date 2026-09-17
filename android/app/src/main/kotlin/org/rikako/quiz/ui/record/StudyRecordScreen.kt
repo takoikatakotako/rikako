@@ -99,7 +99,9 @@ private fun RecordList(state: StudyRecordUiState.Success, onLoadMore: () -> Unit
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item { StreakCard(state.summary) }
         item { SummaryCard(state.summary) }
+        item { StudyHistoryHeatmap(state.summary) }
 
         item {
             Button(onClick = onWrongAnswers, modifier = Modifier.fillMaxWidth()) {

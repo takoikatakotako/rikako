@@ -1,0 +1,119 @@
+name: Deploy Android Prod
+
+# Play Console へ AAB を上げる。手動起動＋ environment: production の承認を通す
+# （Deploy Web Prod / Apply Terraform Prod と同じ方式）。
+#
+# 必要な Secrets:
+#   ANDROID_KEYSTORE_BASE64    … アップロード鍵の JKS を base64 にしたもの
+#   ANDROID_KEYSTORE_PASSWORD  … キーストアのパスワード
+#   ANDROID_KEY_ALIAS          … 鍵のエイリアス
+#   ANDROID_KEY_PASSWORD       … 鍵のパスワード
+#   PLAY_SERVICE_ACCOUNT_JSON  … Play Console に紐づけたサービスアカウントの JSON
+#
+# 新規アプリは Play Console の仕様上、最初の1本だけ手動アップロードが要る。
+# 詳細は docs/android.md の「Play Console へのデプロイ」を参照。
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: どのアプリを上げるか
+        required: true
+        type: choice
+        options:
+          - chemistry
+          - itPassport
+      track:
+        description: 配信トラック
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      status:
+        description: リリース状態（draft にすると Play Console で手動公開）
+        required: true
+        default: draft
+        type: choice
+        options:
+          - draft
+          - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-android-prod-${{ inputs.flavor }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.flavor }} (${{ inputs.track }})
+    # main の内容だけを上げる。ブランチから起動しても job ごと skip する。
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Decode upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 が設定されていません" >&2
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      # Play は同じ versionCode を二度受け付けないので、実行番号を使う。
+      # 手元のビルド（未設定）は 1 のままで、CI から上げたものだけが増えていく。
+      - name: Build AAB
+        working-directory: ./android
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          FLAVOR="${{ inputs.flavor }}"
+          VARIANT="$(echo "${FLAVOR:0:1}" | tr '[:lower:]' '[:upper:]')${FLAVOR:1}ProdRelease"
+          ./gradlew --no-daemon ":app:bundle${VARIANT}"
+
+      - name: Upload to Play Console
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ inputs.flavor == 'chemistry' && 'org.rikako.chemistry' || 'org.rikako.itpassport' }}
+          releaseFiles: android/app/build/outputs/bundle/${{ inputs.flavor }}ProdRelease/*.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}
+
+      # 何を上げたか後から辿れるようにしておく（Play Console 側の版番号と突き合わせる用）。
+      - name: Summary
+        run: |
+          {
+            echo "### Android アップロード"
+            echo ""
+            echo "- flavor: ${{ inputs.flavor }}"
+            echo "- track: ${{ inputs.track }} (${{ inputs.status }})"
+            echo "- versionCode: ${{ github.run_number }}"
+            echo "- commit: ${{ github.sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,8 @@
 package org.rikako.quiz.ui.quiz
 
+import android.media.AudioManager
+import android.os.Build
+import android.view.HapticFeedbackConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -34,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,12 +46,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.rikako.quiz.data.model.Question
+import org.rikako.quiz.ServiceLocator
 import org.rikako.quiz.ui.chat.AIChatSheet
 import org.rikako.quiz.ui.workbook.QuestionImageSection
 
@@ -63,6 +70,13 @@ fun QuizScreen(
     ),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val soundEnabled by ServiceLocator.feedbackPreferences.soundEnabled.collectAsStateWithLifecycle()
+    val hapticEnabled by ServiceLocator.feedbackPreferences.hapticEnabled.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val androidView = LocalView.current
+    val audioManager = remember(context) { context.getSystemService(AudioManager::class.java) }
+    val feedbackPlayer = remember(context) { runCatching { QuizFeedbackPlayer(context) }.getOrNull() }
+    DisposableEffect(feedbackPlayer) { onDispose { feedbackPlayer?.release() } }
     var showExitConfirmation by remember { mutableStateOf(false) }
     var chatPrompt by remember { mutableStateOf<Pair<Question, Int>?>(null) }
 
@@ -119,7 +133,23 @@ fun QuizScreen(
 
                 is QuizUiState.Playing -> PlayingContent(
                     state = current,
-                    onSelectChoice = viewModel::selectChoice,
+                    onSelectChoice = { index ->
+                        if (current.selectedChoice == null) {
+                            val correct = index == current.currentQuestion.correctIndex
+                            viewModel.selectChoice(index)
+                            if (hapticEnabled) {
+                                val feedback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                    if (correct) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.REJECT
+                                } else {
+                                    if (correct) HapticFeedbackConstants.VIRTUAL_KEY else HapticFeedbackConstants.LONG_PRESS
+                                }
+                                androidView.performHapticFeedback(feedback)
+                            }
+                            if (soundEnabled && audioManager?.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+                                feedbackPlayer?.play(correct)
+                            }
+                        }
+                    },
                     onNext = viewModel::goToNext,
                     onAskAI = { chatPrompt = current.currentQuestion to
                         (current.selectedChoice ?: current.currentQuestion.correctIndex) },

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 13 以降のテーマアイコン用。システムが単色で塗るので、形だけを描く。
+  フレーバーごとに差し替えられるよう、各 flavor の res にも同名で置く。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,26h20a3,3 0 0 1 0,6h-3v12.6l15.8,26.6c3.2,5.4 -0.7,12.2 -7,12.2h-31.6c-6.3,0 -10.2,-6.8 -7,-12.2l15.8,-26.6v-12.6h-3a3,3 0 0 1 0,-6z" />
+</vector>

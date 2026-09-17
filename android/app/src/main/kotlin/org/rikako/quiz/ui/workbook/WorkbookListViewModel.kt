@@ -86,6 +86,15 @@ class WorkbookListViewModel(
             detailError = null,
         )
         viewModelScope.launch { loadDetail(id) }
+        viewModelScope.launch {
+            try {
+                repository.updateSelectedWorkbook(id)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // 端末内の選択は保ち、次回の選択時に再同期する。
+            }
+        }
     }
 
     private suspend fun loadDetail(id: Long) {

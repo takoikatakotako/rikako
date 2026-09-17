@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
@@ -39,9 +40,11 @@ import org.rikako.quiz.ui.mypage.ProfileScreen
 import org.rikako.quiz.ui.mypage.SettingsScreen
 import org.rikako.quiz.ui.mypage.NotificationsScreen
 import org.rikako.quiz.ui.mypage.HelpScreen
+import org.rikako.quiz.ui.mypage.TransferScreen
 import org.rikako.quiz.ui.quiz.QuizMode
 import org.rikako.quiz.ui.quiz.QuizScreen
 import org.rikako.quiz.ui.record.StudyRecordScreen
+import org.rikako.quiz.ui.root.RootScreen
 import org.rikako.quiz.ui.theme.RikakoTheme
 import org.rikako.quiz.ui.workbook.WorkbookDetailScreen
 import org.rikako.quiz.ui.workbook.WorkbookListScreen
@@ -58,8 +61,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             RikakoTheme {
-                val hasCompletedOnboarding by ServiceLocator.onboardingStore.completed.collectAsStateWithLifecycle()
-                if (hasCompletedOnboarding) RikakoApp() else OnboardingScreen()
+                RootScreen {
+                    val hasCompletedOnboarding by ServiceLocator.onboardingStore.completed.collectAsStateWithLifecycle()
+                    if (hasCompletedOnboarding) RikakoApp(onTransferred = ::recreate) else OnboardingScreen()
+                }
             }
         }
     }
@@ -78,6 +83,7 @@ private object Routes {
     const val SETTINGS = "settings"
     const val NOTIFICATIONS = "notifications"
     const val HELP = "help"
+    const val TRANSFER = "transfer"
     const val WORKBOOK_DETAIL = "workbooks/{workbookId}"
     const val QUIZ = "quiz/{workbookId}/{sectionIndex}"
     const val REVIEW_QUIZ = "quiz/review"
@@ -98,7 +104,7 @@ private enum class TopLevelDestination(
 }
 
 @Composable
-private fun RikakoApp() {
+private fun RikakoApp(onTransferred: () -> Unit) {
     val navController = rememberNavController()
     val myPageViewModel: MyPageViewModel = viewModel(factory = MyPageViewModel.factory())
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -110,6 +116,7 @@ private fun RikakoApp() {
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 BottomBar(navController = navController, currentDestination = currentDestination)
@@ -162,6 +169,7 @@ private fun RikakoApp() {
                 ProfileScreen(
                     onBack = navController::popBackStack,
                     onAccount = { navController.navigate(Routes.ACCOUNT) },
+                    onTransfer = { navController.navigate(Routes.TRANSFER) },
                     viewModel = myPageViewModel,
                 )
             }
@@ -177,6 +185,13 @@ private fun RikakoApp() {
             }
             composable(Routes.HELP) {
                 HelpScreen(onBack = navController::popBackStack)
+            }
+            composable(Routes.TRANSFER) {
+                TransferScreen(
+                    onBack = navController::popBackStack,
+                    onAccount = { navController.navigate(Routes.ACCOUNT) },
+                    onTransferred = onTransferred,
+                )
             }
             composable(
                 route = Routes.WORKBOOK_DETAIL,

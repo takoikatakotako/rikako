@@ -6,9 +6,11 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.rikako.quiz.data.model.AppDetail
+import org.rikako.quiz.data.model.AppStatusResponse
 import org.rikako.quiz.data.model.AnnouncementsResponse
 import org.rikako.quiz.data.model.WorkbookDetail
 import org.rikako.quiz.data.model.WorkbookListResponse
@@ -30,6 +32,11 @@ class ContentApi(
 
     suspend fun fetchAppDetail(slug: String): AppDetail =
         client.get("$apiBaseUrl/apps/$slug").body()
+
+    suspend fun fetchAppStatus(slug: String): AppStatusResponse =
+        client.get("$apiBaseUrl/status") {
+            header("X-App-Slug", slug)
+        }.body()
 
     suspend fun fetchAnnouncements(): AnnouncementsResponse =
         client.get("$contentBaseUrl/announcements.json").body()

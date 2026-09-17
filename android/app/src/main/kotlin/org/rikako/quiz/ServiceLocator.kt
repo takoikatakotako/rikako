@@ -12,6 +12,7 @@ import org.rikako.quiz.data.identity.DeviceIdentityProvider
 import org.rikako.quiz.data.identity.SharedPrefsIdentityStore
 import org.rikako.quiz.data.identity.SelectedWorkbookStore
 import org.rikako.quiz.data.identity.OnboardingStore
+import org.rikako.quiz.data.identity.FeedbackPreferences
 import org.rikako.quiz.data.remote.AnswerApi
 import org.rikako.quiz.data.remote.AccountApi
 import org.rikako.quiz.data.remote.CognitoIdentityApi
@@ -45,6 +46,7 @@ object ServiceLocator {
 
     val selectedWorkbookStore: SelectedWorkbookStore by lazy { SelectedWorkbookStore(appContext) }
     val onboardingStore: OnboardingStore by lazy { OnboardingStore(appContext) }
+    val feedbackPreferences: FeedbackPreferences by lazy { FeedbackPreferences(appContext) }
 
     val deviceIdentityProvider: DeviceIdentityProvider by lazy {
         CognitoDeviceIdentityProvider(
@@ -90,6 +92,7 @@ object ServiceLocator {
             chatApi = ChatApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             contactApi = ContactApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             userApi = UserApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
+            transferApi = org.rikako.quiz.data.remote.TransferApi(apiBaseUrl = flavor.apiBaseUrl, client = httpClient),
             identityProvider = deviceIdentityProvider,
             session = accountSession,
             submissionGate = submissionGate,

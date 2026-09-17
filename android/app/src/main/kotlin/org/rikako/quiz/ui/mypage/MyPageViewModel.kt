@@ -91,6 +91,8 @@ class MyPageViewModel(
         _uiState.update { it.copy(unreadCount = readStore.unreadCount(it.announcements)) }
     }
 
+    fun isUnread(announcement: Announcement): Boolean = readStore.isUnread(announcement)
+
     companion object {
         fun factory(): ViewModelProvider.Factory = viewModelFactory {
             initializer { MyPageViewModel() }
@@ -111,11 +113,11 @@ class AnnouncementReadStore(context: Context) {
 
     fun markRead(id: Long) { preferences.edit().putBoolean(id.toString(), true).apply() }
 
-    fun unreadCount(items: List<Announcement>): Int {
+    fun isUnread(item: Announcement): Boolean {
         val cutoff = Instant.now().minus(7, ChronoUnit.DAYS)
-        return items.count { item ->
-            !preferences.getBoolean(item.id.toString(), false) &&
-                runCatching { OffsetDateTime.parse(item.publishedAt).toInstant().isAfter(cutoff) }.getOrDefault(false)
-        }
+        return !preferences.getBoolean(item.id.toString(), false) &&
+            runCatching { OffsetDateTime.parse(item.publishedAt).toInstant().isAfter(cutoff) }.getOrDefault(false)
     }
+
+    fun unreadCount(items: List<Announcement>): Int = items.count(::isUnread)
 }

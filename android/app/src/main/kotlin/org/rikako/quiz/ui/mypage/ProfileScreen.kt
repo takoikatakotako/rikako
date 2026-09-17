@@ -32,7 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onAccount: () -> Unit, viewModel: MyPageViewModel) {
+fun ProfileScreen(onBack: () -> Unit, onAccount: () -> Unit, onTransfer: () -> Unit, viewModel: MyPageViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var displayName by remember { mutableStateOf("") }
     LaunchedEffect(state.profile?.displayName) { displayName = state.profile?.displayName.orEmpty() }
@@ -70,7 +70,8 @@ fun ProfileScreen(onBack: () -> Unit, onAccount: () -> Unit, viewModel: MyPageVi
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("データ管理", style = MaterialTheme.typography.titleMedium)
                     Text("メールアドレスでログインすると、機種変更後も学習記録を引き継げます。")
-                    Button(onClick = onAccount) { Text("データ引き継ぎ・アカウント") }
+                    Button(onClick = onAccount) { Text("ログイン・アカウント管理") }
+                    Button(onClick = onTransfer) { Text("QRコードで引き継ぐ") }
                 }
             }
             Card(modifier = Modifier.fillMaxWidth()) {

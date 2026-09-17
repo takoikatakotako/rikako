@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -18,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,6 +63,11 @@ fun NotificationsScreen(onBack: () -> Unit, viewModel: MyPageViewModel) {
                             selected = announcement
                         }) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (viewModel.isUnread(announcement)) {
+                                    Surface(color = MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small) {
+                                        Text("NEW", modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
                                 Text(announcement.title, style = MaterialTheme.typography.titleSmall)
                                 Text(announcement.publishedAt.take(10), style = MaterialTheme.typography.labelSmall)
                                 Text(announcement.body.take(100), maxLines = 2)
@@ -71,12 +79,12 @@ fun NotificationsScreen(onBack: () -> Unit, viewModel: MyPageViewModel) {
         } else {
             val announcement = selected ?: return@Scaffold
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(announcement.title, style = MaterialTheme.typography.titleLarge)
                 Text(announcement.publishedAt.take(10), style = MaterialTheme.typography.labelSmall)
-                Text(announcement.body, style = MaterialTheme.typography.bodyLarge)
+                MarkdownText(announcement.body)
             }
         }
     }

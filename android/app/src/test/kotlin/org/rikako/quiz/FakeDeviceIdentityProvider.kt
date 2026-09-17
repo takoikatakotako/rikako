@@ -2,7 +2,9 @@ package org.rikako.quiz
 
 import org.rikako.quiz.data.identity.DeviceIdentityProvider
 
-class FakeDeviceIdentityProvider(private val id: String) : DeviceIdentityProvider {
-    override suspend fun identityId(): String = id
-    override suspend fun rotate(): String = id
+class FakeDeviceIdentityProvider(id: String) : DeviceIdentityProvider {
+    private var current = id
+    override suspend fun identityId(): String = current
+    override suspend fun rotate(): String = current
+    override suspend fun adopt(identityId: String) { current = identityId }
 }

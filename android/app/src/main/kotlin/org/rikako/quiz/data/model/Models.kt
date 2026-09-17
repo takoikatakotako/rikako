@@ -56,6 +56,26 @@ data class AppDetail(
     val categories: List<Category> = emptyList(),
 )
 
+@Serializable
+data class AppStatusResponse(
+    val minimumVersion: String,
+    val latestVersion: String,
+    val isMaintenance: Boolean,
+    val maintenanceMessage: String = "",
+)
+
+@Serializable
+data class TransferToken(
+    val token: String,
+    @SerialName("expires_at") val expiresAt: String,
+)
+
+@Serializable
+data class ApplyTransferRequest(val token: String)
+
+@Serializable
+data class ApplyTransferResponse(@SerialName("identity_id") val identityId: String)
+
 /** POST /answers のリクエスト。 */
 @Serializable
 data class SubmitAnswersRequest(
@@ -174,6 +194,9 @@ data class UserProfile(
 
 @Serializable
 data class UpdateUserProfileRequest(val displayName: String?)
+
+@Serializable
+data class UpdateSelectedWorkbookRequest(val selectedWorkbookId: Long)
 
 @Serializable
 data class Announcement(

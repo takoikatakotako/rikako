@@ -11,7 +11,8 @@ Content CDN（S3 + CloudFront の静的 JSON）から取得する。
 | ビルド | Gradle 8.11.1 + AGP 8.7.3 |
 | SDK | compileSdk / targetSdk 35、minSdk 26 |
 | 通信 | Ktor Client (OkHttp) + kotlinx.serialization |
-| 画像 | Coil 3（設問画像の読み込み） |
+| 画像 | Coil 3（設問画像の読み込み）、iOS と共通のマスコット・結果イラスト |
+| QR | ZXing（生成・保存画像の読取）、Google Code Scanner（カメラスキャン） |
 | 画面遷移 | navigation-compose |
 
 ```
@@ -144,7 +145,7 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 
 学習ホーム（問題集選択とチャプター一覧）→ 解答 → 結果、の順に進む。
 
-学習ホームは選択中の問題集を端末に保持し、`GET /users/me/workbook-progress?workbook_id=...`
+学習ホームは選択中の問題集を端末に保持し、`PUT /users/me` でサーバーとも同期する。`GET /users/me/workbook-progress?workbook_id=...`
 で各チャプターの正解数を表示する。回答が送信されると進捗を再取得する。
 
 1. 問題集は iOS と同じく10問ずつのチャプターに分け、`QuizScreen` が指定チャプターを1問ずつ出題する
@@ -195,8 +196,49 @@ AI質問は解答後と結果詳細から開ける。問題ID・選択した回�
 ## アイコン
 
 ランチャーアイコンはフレーバーごとに用意している（化学＝三角フラスコ、IT＝ディスプレイ）。
-いずれも正式なデザインが決まるまでの暫定で、アダプティブアイコンは前景を 1.5 倍に拡大して
-表示するため、図形は `<group>` で 0.62 倍に縮めてセーフゾーンに収めてある。
+
+- アダプティブアイコンは前景を 1.5 倍に拡大して表示するため、図形は viewport 108 のうち
+  中央 66dp（21〜87）に収める
+- Android 13 以降のテーマアイコン用に `<monochrome>` レイヤーも持たせている
+  （`ic_launcher_monochrome.xml`。フレーバーごとに差し替え）
+
+## Play Console へのデプロイ
+
+`.github/workflows/deploy-android-prod.yml` を手動起動する（flavor / track / draft を選ぶ）。
+main からの起動に限定し、`environment: production` の承認を通してからアップロードする。
+
+`versionCode` は CI の実行番号（`github.run_number`）を渡す。Play は同じ `versionCode` を
+二度受け付けないため、手元のビルド（未設定なら 1）とは分けている。
+
+### 事前に用意するもの
+
+1. **アップロード鍵**（1度だけ作る。紛失すると再作成に Google の対応が要るので保管する）
+
+   ```bash
+   keytool -genkeypair -v -keystore upload.jks -keyalg RSA -keysize 2048 \
+     -validity 10000 -alias rikako
+   base64 -i upload.jks | pbcopy   # ← Secrets に貼る
+   ```
+
+2. **Play Console にアプリを登録**（`org.rikako.chemistry` / `org.rikako.itpassport` の2本）
+
+3. **サービスアカウント**: Google Cloud で作成 → Play Console の「ユーザーとアクセス権」に招待し、
+   対象アプリのリリース権限を付ける。発行した JSON を Secrets に入れる
+
+4. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
+   アップロードの前に AAB を1度手動で上げる必要がある
+
+### 必要な Secrets
+
+| 名前 | 中身 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | アップロード鍵の JKS を base64 にしたもの |
+| `ANDROID_KEYSTORE_PASSWORD` | キーストアのパスワード |
+| `ANDROID_KEY_ALIAS` | 鍵のエイリアス |
+| `ANDROID_KEY_PASSWORD` | 鍵のパスワード |
+| `PLAY_SERVICE_ACCOUNT_JSON` | サービスアカウントの JSON（そのまま貼る） |
+
+鍵が未設定のときは release ビルドが**署名なし**になる（手元でビルドしても Play へは上げられない）。
 
 ## CI
 
@@ -214,15 +256,13 @@ AI質問は解答後と結果詳細から開ける。問題ID・選択した回�
 Keystore は実機／エミュレータでしか動かないため、トークン保存まわりだけ計装テストにしてある
 （`./gradlew :app:connectedChemistryDevDebugAndroidTest`。CI では動かさない）。
 
-## 未実装
+## iOS と共通の追加機能
 
-主要な学習フロー、初期設定、マイページ、AI質問は実装済み。完全な機能・画面の一致には、
-以下がまだ必要。
-
-- 起動時のアプリ状態判定（メンテナンス・必須アップデート）
-- 効果音・触覚フィードバック、イラストなどの演出
-- 学習記録の週カレンダー・連続学習日数表示
-- お知らせ本文の Markdown 表示、通知の詳細な既読表示
-
-- 引き継ぎトークン（`/transfer/*`）によるログイン無しの引き継ぎ
-- デプロイ（Play Console へのアップロード）
+- 起動時に `GET /status` を確認し、メンテナンス・必須アップデートを案内する
+- 解答時の効果音（iOS と同じ `correct.mp3` / `incorrect.mp3`）・触覚フィードバックを設定で切り替える
+- 学習記録の週カレンダー・連続学習日数・53週の学習ヒートマップを表示する
+- お知らせ本文の Markdown と未読表示に対応する
+- `GET/POST /transfer/token` と `POST /transfer/apply` で匿名データを引き継ぐ。
+  QR の表示・スキャン・画像読取・コード貼り付けを用意し、適用前に確認を挟む。
+  カメラスキャンは Google Play services に委譲するためアプリの CAMERA 権限は不要。
+  ログイン中はアカウント同期と混同しないよう QR 引き継ぎを使えない

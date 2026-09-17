@@ -1,6 +1,6 @@
 package org.rikako.quiz.ui.workbook
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Button
@@ -20,6 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -141,35 +147,45 @@ private fun StudyHomeContent(
             }
         } else if (detail != null) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("チャプター", style = MaterialTheme.typography.titleLarge)
-                    if (sections.isNotEmpty()) {
-                        Button(
-                            onClick = { onChapterClick(detail.id, 0) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("はじめる  ·  Section 1") }
-                    }
-                }
-            }
-            itemsIndexed(sections) { index, questions ->
-                val correct = WorkbookSections.correctCount(questions, state.progress)
                 Card(
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.fillMaxWidth().clickable { onChapterClick(detail.id, index) },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "${index + 1}",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text("Section ${index + 1}", modifier = Modifier.weight(1f))
-                        Text("$correct / ${questions.size}", color = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text("チャプター", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        if (sections.isNotEmpty()) {
+                            Button(
+                                onClick = { onChapterClick(detail.id, 0) },
+                                modifier = Modifier.fillMaxWidth().height(54.dp),
+                            ) { Text("はじめる  ·  Section 1") }
+                        }
+                        sections.forEachIndexed { index, questions ->
+                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            val correct = WorkbookSections.correctCount(questions, state.progress)
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { onChapterClick(detail.id, index) }
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(38.dp).background(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape,
+                                    ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("${index + 1}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                Text("Section ${index + 1}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "$correct / ${questions.size}",
+                                    color = if (correct > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -179,21 +195,46 @@ private fun StudyHomeContent(
 
 @Composable
 private fun WorkbookHero(workbook: Workbook) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-        modifier = Modifier.fillMaxWidth(),
+    Box(
+        modifier = Modifier.fillMaxWidth().height(222.dp)
+            .background(
+                Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFF3696A5))),
+                RoundedCornerShape(26.dp),
+            ),
     ) {
-        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                workbook.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Bold,
-            )
-            if (workbook.description.isNotBlank()) {
-                Text(workbook.description, color = MaterialTheme.colorScheme.onPrimary)
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.Top) {
+                Box(
+                    modifier = Modifier.size(width = 66.dp, height = 88.dp)
+                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.List, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        workbook.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                    )
+                    Text(
+                        "おすすめ  ·  ${workbook.questionCount}問",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
             }
-            Text("${workbook.questionCount}問", color = MaterialTheme.colorScheme.onPrimary)
+            if (workbook.description.isNotBlank()) {
+                Text(
+                    workbook.description,
+                    color = Color.White.copy(alpha = 0.92f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                )
+            }
         }
     }
 }

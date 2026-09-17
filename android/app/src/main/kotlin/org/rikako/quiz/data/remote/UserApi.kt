@@ -14,6 +14,7 @@ import org.rikako.quiz.data.model.AnswerLogsResponse
 import org.rikako.quiz.data.model.UserSummary
 import org.rikako.quiz.data.model.UserProfile
 import org.rikako.quiz.data.model.UpdateUserProfileRequest
+import org.rikako.quiz.data.model.UpdateSelectedWorkbookRequest
 import org.rikako.quiz.data.model.WorkbookProgressResponse
 import org.rikako.quiz.data.model.WrongAnswersResponse
 
@@ -41,6 +42,18 @@ class UserApi(
         header("X-App-Slug", slug)
         contentType(ContentType.Application.Json)
         setBody(UpdateUserProfileRequest(displayName))
+    }.body()
+
+    suspend fun updateSelectedWorkbook(
+        deviceId: String,
+        idToken: String?,
+        slug: String,
+        workbookId: Long,
+    ): UserProfile = client.put("$apiBaseUrl/users/me") {
+        authHeaders(deviceId, idToken)
+        header("X-App-Slug", slug)
+        contentType(ContentType.Application.Json)
+        setBody(UpdateSelectedWorkbookRequest(workbookId))
     }.body()
 
     suspend fun fetchSummary(deviceId: String, idToken: String?): UserSummary =

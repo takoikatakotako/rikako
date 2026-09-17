@@ -3,6 +3,8 @@ package org.rikako.quiz.data.repository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.rikako.quiz.data.auth.AccountSession
 import org.rikako.quiz.data.auth.AuthorizedCall
 import org.rikako.quiz.data.auth.SubmissionGate
@@ -17,6 +19,8 @@ import org.rikako.quiz.data.model.SubmitAnswersResponse
 import org.rikako.quiz.data.model.UserSummary
 import org.rikako.quiz.data.model.UserProfile
 import org.rikako.quiz.data.model.Announcement
+import org.rikako.quiz.data.model.AppStatusResponse
+import org.rikako.quiz.data.model.TransferToken
 import org.rikako.quiz.data.model.ContactRequest
 import org.rikako.quiz.data.model.Workbook
 import org.rikako.quiz.data.model.WorkbookDetail
@@ -27,6 +31,7 @@ import org.rikako.quiz.data.remote.ChatApi
 import org.rikako.quiz.data.remote.ContentApi
 import org.rikako.quiz.data.remote.ContactApi
 import org.rikako.quiz.data.remote.UserApi
+import org.rikako.quiz.data.remote.TransferApi
 
 class LearningRepository(
     private val api: ContentApi,
@@ -38,8 +43,10 @@ class LearningRepository(
     private val session: AccountSession,
     private val submissionGate: SubmissionGate,
     private val slug: String,
+    private val transferApi: TransferApi? = null,
 ) {
     private val _learningDataChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val selectedWorkbookUpdateMutex = Mutex()
 
     /**
      * 回答が記録されたことの通知。学習記録・間違えた問題の画面はこれを受けて読み直す
@@ -56,6 +63,31 @@ class LearningRepository(
 
     suspend fun fetchWorkbookDetail(id: Long): WorkbookDetail = api.fetchWorkbookDetail(id)
 
+    suspend fun fetchAppStatus(): AppStatusResponse = api.fetchAppStatus(slug)
+
+    suspend fun fetchTransferToken(): TransferToken {
+        check(!session.isLoggedIn) { "ログアウトしてから引き継いでください" }
+        return checkNotNull(transferApi) { "引き継ぎAPIが設定されていません" }
+            .fetchToken(identityProvider.identityId())
+    }
+
+    suspend fun refreshTransferToken(): TransferToken {
+        check(!session.isLoggedIn) { "ログアウトしてから引き継いでください" }
+        return checkNotNull(transferApi) { "引き継ぎAPIが設定されていません" }
+            .refreshToken(identityProvider.identityId())
+    }
+
+    suspend fun applyTransferToken(token: String) {
+        val api = checkNotNull(transferApi) { "引き継ぎAPIが設定されていません" }
+        submissionGate.link {
+            check(!session.isLoggedIn) { "ログアウトしてから引き継いでください" }
+            val currentId = identityProvider.identityId()
+            val sourceId = api.applyToken(currentId, token).identityId
+            identityProvider.adopt(sourceId)
+        }
+        _learningDataChanged.tryEmit(Unit)
+    }
+
     suspend fun fetchAnnouncements(): List<Announcement> = api.fetchAnnouncements().announcements
 
     suspend fun fetchProfile(): UserProfile = authorized.execute { idToken ->
@@ -64,6 +96,12 @@ class LearningRepository(
 
     suspend fun updateDisplayName(displayName: String?): UserProfile = authorized.execute { idToken ->
         userApi.updateProfile(identityProvider.identityId(), idToken, slug, displayName)
+    }
+
+    suspend fun updateSelectedWorkbook(workbookId: Long): UserProfile = selectedWorkbookUpdateMutex.withLock {
+        authorized.execute { idToken ->
+            userApi.updateSelectedWorkbook(identityProvider.identityId(), idToken, slug, workbookId)
+        }
     }
 
     suspend fun submitContact(request: ContactRequest) {
