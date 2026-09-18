@@ -72,6 +72,8 @@ module "lambda" {
     COGNITO_CLIENT_ID                = module.cognito.client_id
     MINIMUM_VERSION                  = "1.0.0"
     LATEST_VERSION                   = "1.0.0"
+    MINIMUM_VERSION_ANDROID          = "1.0.0"
+    LATEST_VERSION_ANDROID           = "1.0.0"
     OPENAI_API_KEY                   = "ssm:/${local.project}/${local.environment}/openai-api-key"
     SLACK_WEBHOOK_URL                = "ssm:/${local.project}/${local.environment}/slack-contact-webhook-url"
     # pgx(stdlib) + simple protocol へ移行済み（#292）で PgBouncer 互換。Neon pooled endpoint を有効化（#288）。

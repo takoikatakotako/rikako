@@ -31,6 +31,7 @@ class AccountRepositoryTest {
             current = "ap-northeast-1:rotated"
             return current
         }
+        override suspend fun adopt(identityId: String) { current = identityId }
     }
 
     private class Store(var tokens: AuthTokens?, override var linkPending: Boolean) : AuthTokenStore {

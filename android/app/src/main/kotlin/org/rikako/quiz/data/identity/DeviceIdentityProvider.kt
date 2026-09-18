@@ -2,6 +2,8 @@ package org.rikako.quiz.data.identity
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.rikako.quiz.data.remote.CognitoIdentityApi
 
 /**
@@ -16,6 +18,9 @@ interface DeviceIdentityProvider {
      * 払い出すので、保存済みの値を捨てて取り直すだけでローテーションになる。
      */
     suspend fun rotate(): String
+
+    /** 別の端末から引き継いだ identity を、以後の全リクエストに使用する。 */
+    suspend fun adopt(identityId: String)
 }
 
 class CognitoDeviceIdentityProvider(
@@ -32,15 +37,23 @@ class CognitoDeviceIdentityProvider(
         cached?.let { return it }
         return mutex.withLock {
             // ロック待ちの間に別のコルーチンが取得済みかもしれないので、もう一度見る。
-            cached ?: (store.load() ?: api.getId().also { store.save(it) }).also { cached = it }
+            cached ?: (store.load() ?: api.getId().also { id ->
+                withContext(Dispatchers.IO) { store.save(id) }
+            }).also { cached = it }
         }
     }
 
     override suspend fun rotate(): String = mutex.withLock {
         api.getId().also {
-            store.save(it)
+            withContext(Dispatchers.IO) { store.save(it) }
             cached = it
         }
+    }
+
+    override suspend fun adopt(identityId: String) = mutex.withLock {
+        require(identityId.isNotBlank())
+        withContext(Dispatchers.IO) { store.save(identityId) }
+        cached = identityId
     }
 }
 

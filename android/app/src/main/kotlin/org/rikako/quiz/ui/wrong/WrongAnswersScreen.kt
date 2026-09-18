@@ -19,6 +19,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -37,6 +41,8 @@ import org.rikako.quiz.ui.workbook.QuestionImageSection
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WrongAnswersScreen(
+    onStartReview: () -> Unit,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: WrongAnswersViewModel = viewModel(),
 ) {
@@ -44,7 +50,12 @@ fun WrongAnswersScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("間違えた問題") }) },
+        topBar = { TopAppBar(
+            title = { Text("間違えた問題") },
+            navigationIcon = { IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+            } },
+        ) },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val current = state) {
@@ -72,6 +83,7 @@ fun WrongAnswersScreen(
                         state = current,
                         onToggle = viewModel::toggleExpanded,
                         onLoadMore = viewModel::loadMore,
+                        onStartReview = onStartReview,
                     )
                 }
             }
@@ -89,6 +101,7 @@ private fun WrongAnswerList(
     state: WrongAnswersUiState.Success,
     onToggle: (Long) -> Unit,
     onLoadMore: () -> Unit,
+    onStartReview: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     val shouldLoadMore by remember(state) {
@@ -109,6 +122,12 @@ private fun WrongAnswerList(
     ) {
         item {
             Text("${state.total}問", style = MaterialTheme.typography.titleSmall)
+        }
+
+        item {
+            Button(onClick = onStartReview, modifier = Modifier.fillMaxWidth()) {
+                Text("まとめて解き直す")
+            }
         }
 
         items(state.questions, key = { it.id }) { question ->

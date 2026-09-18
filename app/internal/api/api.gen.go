@@ -69,6 +69,24 @@ func (e WrongAnswerQuestionType) Valid() bool {
 	}
 }
 
+// Defines values for GetAppStatusParamsXAppPlatform.
+const (
+	Android GetAppStatusParamsXAppPlatform = "android"
+	Ios     GetAppStatusParamsXAppPlatform = "ios"
+)
+
+// Valid indicates whether the value is a known member of the GetAppStatusParamsXAppPlatform enum.
+func (e GetAppStatusParamsXAppPlatform) Valid() bool {
+	switch e {
+	case Android:
+		return true
+	case Ios:
+		return true
+	default:
+		return false
+	}
+}
+
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {
 	// AccountId アカウントID
@@ -461,6 +479,18 @@ type ChatWithQuestionParams struct {
 	XDeviceID DeviceID `json:"X-Device-ID"`
 }
 
+// GetAppStatusParams defines parameters for GetAppStatus.
+type GetAppStatusParams struct {
+	// XAppSlug アプリ別のバージョン設定に使う識別子
+	XAppSlug *string `json:"X-App-Slug,omitempty"`
+
+	// XAppPlatform Android は独立したバージョン設定を使う。未指定は従来の iOS 設定。
+	XAppPlatform *GetAppStatusParamsXAppPlatform `json:"X-App-Platform,omitempty"`
+}
+
+// GetAppStatusParamsXAppPlatform defines parameters for GetAppStatus.
+type GetAppStatusParamsXAppPlatform string
+
 // ApplyTransferTokenParams defines parameters for ApplyTransferToken.
 type ApplyTransferTokenParams struct {
 	// XDeviceID Cognito Identity ID（匿名ユーザー識別子）
@@ -601,7 +631,7 @@ type ServerInterface interface {
 	ChatWithQuestion(ctx echo.Context, questionId int64, params ChatWithQuestionParams) error
 	// アプリステータス取得
 	// (GET /status)
-	GetAppStatus(ctx echo.Context) error
+	GetAppStatus(ctx echo.Context, params GetAppStatusParams) error
 	// 引き継ぎトークン適用
 	// (POST /transfer/apply)
 	ApplyTransferToken(ctx echo.Context, params ApplyTransferTokenParams) error
@@ -973,8 +1003,43 @@ func (w *ServerInterfaceWrapper) ChatWithQuestion(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetAppStatus(ctx echo.Context) error {
 	var err error
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAppStatusParams
+
+	headers := ctx.Request().Header
+	// ------------- Optional header parameter "X-App-Slug" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Slug")]; found {
+		var XAppSlug string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-App-Slug, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Slug", valueList[0], &XAppSlug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-App-Slug: %s", err))
+		}
+
+		params.XAppSlug = &XAppSlug
+	}
+	// ------------- Optional header parameter "X-App-Platform" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Platform")]; found {
+		var XAppPlatform GetAppStatusParamsXAppPlatform
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-App-Platform, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Platform", valueList[0], &XAppPlatform, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-App-Platform: %s", err))
+		}
+
+		params.XAppPlatform = &XAppPlatform
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetAppStatus(ctx)
+	err = w.Handler.GetAppStatus(ctx, params)
 	return err
 }
 
@@ -1874,6 +1939,7 @@ func (response ChatWithQuestion500JSONResponse) VisitChatWithQuestionResponse(w 
 }
 
 type GetAppStatusRequestObject struct {
+	Params GetAppStatusParams
 }
 
 type GetAppStatusResponseObject interface {
@@ -2723,8 +2789,10 @@ func (sh *strictHandler) ChatWithQuestion(ctx echo.Context, questionId int64, pa
 }
 
 // GetAppStatus operation middleware
-func (sh *strictHandler) GetAppStatus(ctx echo.Context) error {
+func (sh *strictHandler) GetAppStatus(ctx echo.Context, params GetAppStatusParams) error {
 	var request GetAppStatusRequestObject
+
+	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetAppStatus(ctx.Request().Context(), request.(GetAppStatusRequestObject))

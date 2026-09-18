@@ -16,6 +16,10 @@ type contextKey struct{}
 // Header はアプリ識別子を運ぶヘッダ名。
 const Header = "X-App-Slug"
 
+// Android は iOS と異なるバージョン体系で開始したため、未設定時にも iOS の
+// minimumVersion を流用せず、この初期バージョンを返す。
+const initialAndroidVersion = "1.0.0"
+
 // Middleware は X-App-Slug をリクエスト context に格納する。未指定なら何もしない。
 func Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -46,4 +50,18 @@ func VersionOverride(defaultVersion, envPrefix, slug string) string {
 		return v
 	}
 	return defaultVersion
+}
+
+// PlatformVersionOverride は Android だけ独立した env 系列を使う。
+// iOS やヘッダ未指定の既存クライアントには従来の slug 別設定を適用する。
+func PlatformVersionOverride(defaultVersion, envPrefix, slug, platform string) string {
+	if platform != "android" {
+		return VersionOverride(defaultVersion, envPrefix, slug)
+	}
+	androidPrefix := envPrefix + "_ANDROID"
+	androidDefault := os.Getenv(androidPrefix)
+	if androidDefault == "" {
+		androidDefault = initialAndroidVersion
+	}
+	return VersionOverride(androidDefault, androidPrefix, slug)
 }

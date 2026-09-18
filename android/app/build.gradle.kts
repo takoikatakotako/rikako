@@ -5,6 +5,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Play へ上げるビルドは CI から鍵を渡す。ローカルでは未設定のままでよく、
+// その場合 release も署名なし（= Play へは上げられない）ビルドになる。
+val keystoreFile: String? = System.getenv("ANDROID_KEYSTORE_FILE")
+val keystorePassword: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val keyAlias: String? = System.getenv("ANDROID_KEY_ALIAS")
+val keyPassword: String? = System.getenv("ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = !keystoreFile.isNullOrBlank() && file(keystoreFile).exists()
+
 android {
     namespace = "org.rikako.quiz"
     compileSdk = 35
@@ -12,9 +20,22 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        // Play は同じ versionCode を二度受け付けないため、CI では UTC 時刻由来の
+        // 一意な番号を渡す。手元では初回手動アップロード用の 1 のまま。
+        versionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreFile!!)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
     }
 
     // iOS の xcconfig（ios/Configs 配下の xcconfig）と同じ軸で変種を持つ。
@@ -66,6 +87,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -113,6 +137,9 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    implementation("com.google.zxing:core:3.5.4")
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     testImplementation(libs.junit)
     // Keystore は実機／エミュレータでしか動かないので、保存まわりは計装テストで確認する。

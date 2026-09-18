@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IT版のテーマアイコン。ディスプレイの形だけを単色で描く。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M27,28h54a5,5 0 0 1 5,5v33a5,5 0 0 1 -5,5h-20v6h9a3,3 0 0 1 0,6h-32a3,3 0 0 1 0,-6h9v-6h-20a5,5 0 0 1 -5,-5v-33a5,5 0 0 1 5,-5z" />
+</vector>

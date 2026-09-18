@@ -28,3 +28,29 @@ func TestVersionOverride(t *testing.T) {
 		}
 	})
 }
+
+func TestPlatformVersionOverride(t *testing.T) {
+	const shared = "3.1.0"
+	t.Setenv("MINIMUM_VERSION_HIGH_SCHOOL_CHEMISTRY", "3.0.0")
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "high-school-chemistry", ""); got != "3.0.0" {
+		t.Errorf("旧 iOS クライアント: want 3.0.0, got %s", got)
+	}
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "high-school-chemistry", "ios"); got != "3.0.0" {
+		t.Errorf("iOS: want 3.0.0, got %s", got)
+	}
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "high-school-chemistry", "android"); got != "1.0.0" {
+		t.Errorf("Android は iOS の最小バージョンを継承しない: want 1.0.0, got %s", got)
+	}
+
+	t.Setenv("MINIMUM_VERSION_ANDROID", "1.1.0")
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "high-school-chemistry", "android"); got != "1.1.0" {
+		t.Errorf("Android 共通設定: want 1.1.0, got %s", got)
+	}
+	t.Setenv("MINIMUM_VERSION_ANDROID_HIGH_SCHOOL_CHEMISTRY", "1.2.0")
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "high-school-chemistry", "android"); got != "1.2.0" {
+		t.Errorf("Android アプリ別設定: want 1.2.0, got %s", got)
+	}
+	if got := PlatformVersionOverride(shared, "MINIMUM_VERSION", "it-passport", "android"); got != "1.1.0" {
+		t.Errorf("別アプリは Android 共通設定: want 1.1.0, got %s", got)
+	}
+}

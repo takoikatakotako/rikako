@@ -11,7 +11,8 @@ Content CDN（S3 + CloudFront の静的 JSON）から取得する。
 | ビルド | Gradle 8.11.1 + AGP 8.7.3 |
 | SDK | compileSdk / targetSdk 35、minSdk 26 |
 | 通信 | Ktor Client (OkHttp) + kotlinx.serialization |
-| 画像 | Coil 3（設問画像の読み込み） |
+| 画像 | Coil 3（設問画像の読み込み）、iOS と共通のマスコット・結果イラスト |
+| QR | ZXing（生成・保存画像の読取）、Google Code Scanner（カメラスキャン） |
 | 画面遷移 | navigation-compose |
 
 ```
@@ -21,14 +22,14 @@ android/
     ├── main/kotlin/org/rikako/quiz/
     │   ├── AppFlavor.kt          # BuildConfig 経由でフレーバー設定を読む
     │   ├── ServiceLocator.kt     # DI ライブラリ導入までの簡易依存解決
-    │   ├── MainActivity.kt       # NavHost（問題集一覧 → 詳細 → 解答）
+    │   ├── MainActivity.kt       # 初期設定と3タブの NavHost
     │   ├── RikakoApplication.kt  # ServiceLocator の初期化
     │   ├── data/model            # JSON のモデル（iOS の Domain/Entity 相当）
     │   ├── data/remote           # ContentApi / AnswerApi / UserApi / Cognito 系 / AccountApi
     │   ├── data/identity         # 匿名 identity の払い出しと保存
     │   ├── data/auth             # メールログインのセッションとトークン保存
     │   ├── data/repository       # LearningRepository
-    │   └── ui/                   # theme / workbook / quiz / record / wrong / account 画面
+    │   └── ui/                   # onboarding / workbook / quiz / chat / record / mypage など
     ├── chemistry/res             # 化学版のリソース（アプリ名など）
     └── itPassport/res            # IT 版のリソース
 ```
@@ -127,13 +128,29 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 - 回答送信と link は `SubmissionGate` で直列化する。link は匿名ユーザーの回答をアカウントへ
   移す操作なので、送信と重なると移動後の旧ユーザーへ INSERT が入り、その回答だけ取り残される
 
+## 間違えた問題の解き直し
+
+「学習記録」から開く「間違えた問題」の「まとめて解き直す」と、結果画面の「間違えた問題を解き直す」から、
+間違えた問題だけを出題する。一度の復習は iOS と同じく最大50問。
+
+出題元は `QuizSource` で表す（iOS と同じ考え方）。
+
+- `Workbook`: 通常プレイ。全問が同じ問題集
+- `Review`: 解き直し。問題ごとに出身の問題集が違うため、問題ID → 問題集ID の対応を持つ
+
+回答の送信は `QuizSource.groupedAnswers` で**問題集ごとにまとめてから** `POST /answers` を
+呼ぶ。解き直しでも、回答は元の問題集の記録として残る。
+
 ## 解答フロー
 
-問題集一覧 →（詳細）→ 解答 → 結果、の順に進む。
+学習ホーム（問題集選択とチャプター一覧）→ 解答 → 結果、の順に進む。
 
-1. `QuizScreen` が `workbooks/{id}.json` を読み、1問ずつ出題する
+学習ホームは選択中の問題集を端末に保持し、`PUT /users/me` でサーバーとも同期する。`GET /users/me/workbook-progress?workbook_id=...`
+で各チャプターの正解数を表示する。回答が送信されると進捗を再取得する。
+
+1. 問題集は iOS と同じく10問ずつのチャプターに分け、`QuizScreen` が指定チャプターを1問ずつ出題する
 2. 選択肢を選んだ時点で正誤と解説を表示し、変更はできない（iOS の `QuizViewModel` と同じ）
-3. 最後の問題を終えると結果を表示し、`POST /answers` を送信する
+3. 最後の問題を終えると結果を表示し、`POST /answers` を送信する。結果から次のチャプターへ進める
 4. 送信は `ServiceLocator.applicationScope` で実行するため、結果画面を閉じても最後まで走る
 5. 送信に失敗しても結果は表示したままにするが、**再送ボタンは出さない** —
    `POST /answers` に冪等化が無く、レスポンスだけ失われたケースで再送すると
@@ -149,14 +166,18 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 
 ## 画面構成
 
-ボトムナビゲーションで3つのタブを持つ。解答中はタブを出さない（誤操作で回答が失われるため）。
+ボトムナビゲーションは iOS と同じ3タブ。解答中はタブを出さない（誤操作で回答が失われるため）。
 
 | タブ | 画面 | データ |
 | --- | --- | --- |
-| 問題集 | 一覧 → 詳細 → 解答 → 結果 | content CDN + `GET /apps/{slug}` |
-| 学習記録 | サマリー（総回答数・正答率・今週・学習日数）と回答履歴 | `GET /users/me/summary`、`GET /users/me/answer-logs` |
-| 間違えた問題 | 間違えた問題の一覧。タップで選択肢と解説を開く | `GET /users/me/wrong-answers` |
-| アカウント | メールログイン・新規登録・パスワード再設定 | Cognito User Pool、`POST /account/link` |
+| 学習 | 問題集選択 → チャプター → 解答 → 結果 | content CDN + `GET /apps/{slug}` + 問題集進捗 API |
+| 学習記録 | サマリーと回答履歴。間違えた問題の復習へ進める | `GET /users/me/summary`、`GET /users/me/answer-logs`、`GET /users/me/wrong-answers` |
+| マイページ | プロフィール・設定・お知らせ・FAQ/お問い合わせ。設定からアカウントへ進める | `GET/PUT /users/me`、content CDN の `announcements.json`、`POST /contact` |
+
+初回は6ページのオンボーディングで教材選択と利用規約への同意を行い、匿名IDを払い出す。
+「初期設定をやり直す」では教材選択だけを消し、匿名ID・学習記録・ログイン状態は残す。
+AI質問は解答後と結果詳細から開ける。問題ID・選択した回答・会話履歴を `POST /questions/{id}/chat`
+へ送り、1問につき最大5往復までに制限する。
 
 回答履歴と間違えた問題は20件ずつのページング（末尾が見えたら次ページを取得）。ページ境界で
 新しい回答が入って同じ項目が二度並ぶことがあるので、id で重複を弾いてから連結する。
@@ -174,9 +195,61 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 
 ## アイコン
 
-ランチャーアイコンはフレーバーごとに用意している（化学＝三角フラスコ、IT＝ディスプレイ）。
-いずれも正式なデザインが決まるまでの暫定で、アダプティブアイコンは前景を 1.5 倍に拡大して
-表示するため、図形は `<group>` で 0.62 倍に縮めてセーフゾーンに収めてある。
+ランチャーアイコンは iOS と同じ絵柄の 512px PNG をアプリ・環境ごとに用意する。
+開発版は Dev バッジ付き、本番版はバッジ無し。アダプティブアイコンの前景は
+`ic_launcher_art_inset.xml` で表示領域に収め、Android 13 以降のテーマアイコンには
+共通の `ic_launcher_monochrome.xml` を使う。
+
+## アプリの最低バージョン
+
+Android の `GET /status` は `X-App-Slug` に加えて `X-App-Platform: android` を送る。
+API は `MINIMUM_VERSION_ANDROID` / `LATEST_VERSION_ANDROID` を返し、
+`MINIMUM_VERSION_ANDROID_HIGH_SCHOOL_CHEMISTRY` のようなアプリ別 env で上書きできる。
+プラットフォームヘッダのない既存 iOS クライアントには従来の設定を返す。
+Android を公開する前に API と Terraform の変更を適用し、iOS の最低バージョン変更が
+Android へ波及しないことを確認する。
+
+## Play Console へのデプロイ
+
+`.github/workflows/deploy-android-prod.yml` を手動起動する（flavor / track / draft を選ぶ）。
+main からの起動に限定し、`environment: production` の承認を通してからアップロードする。
+
+手動の初回 AAB は `ANDROID_VERSION_CODE=1` でビルドする。以後 CI は
+2020-01-01 UTC からの経過秒数を `versionCode` に使う。同じアプリのデプロイは
+ワークフローで直列化するため、手動初回アップロードとワークフロー再実行で番号が衝突せず、
+古い実行を後からやり直しても番号が逆戻りしない。
+
+### 事前に用意するもの
+
+1. **アップロード鍵**（1度だけ作る。紛失すると再作成に Google の対応が要るので保管する）
+
+   ```bash
+   keytool -genkeypair -v -keystore upload.jks -keyalg RSA -keysize 2048 \
+     -validity 10000 -alias rikako
+   base64 -i upload.jks | pbcopy   # ← Secrets に貼る
+   ```
+
+2. **Play Console にアプリを登録**（`org.rikako.chemistry` / `org.rikako.itpassport` の2本）
+
+3. **サービスアカウント**: Google Cloud で作成 → Play Console の「ユーザーとアクセス権」に招待し、
+   対象アプリのリリース権限を付ける。発行した JSON を Secrets に入れる
+
+4. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
+   アップロードの前に AAB を1度手動で上げる必要がある。署名用の環境変数を設定し、
+   `ANDROID_VERSION_CODE=1 ./gradlew :app:bundleChemistryProdRelease`（IT版は
+   `:app:bundleItPassportProdRelease`）で作成する
+
+### 必要な Secrets
+
+| 名前 | 中身 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | アップロード鍵の JKS を base64 にしたもの |
+| `ANDROID_KEYSTORE_PASSWORD` | キーストアのパスワード |
+| `ANDROID_KEY_ALIAS` | 鍵のエイリアス |
+| `ANDROID_KEY_PASSWORD` | 鍵のパスワード |
+| `PLAY_SERVICE_ACCOUNT_JSON` | サービスアカウントの JSON（そのまま貼る） |
+
+鍵が未設定のときは release ビルドが**署名なし**になる（手元でビルドしても Play へは上げられない）。
 
 ## CI
 
@@ -194,11 +267,13 @@ Cognito Identity Pool の `GetId` を直接叩いて identity ID を払い出す
 Keystore は実機／エミュレータでしか動かないため、トークン保存まわりだけ計装テストにしてある
 （`./gradlew :app:connectedChemistryDevDebugAndroidTest`。CI では動かさない）。
 
-## 未実装
+## iOS と共通の追加機能
 
-一覧・詳細・解答フローまで実装済み。以下は今後追加する。
-
-- 引き継ぎトークン（`/transfer/*`）によるログイン無しの引き継ぎ
-- ランチャーアイコンの正式デザイン（現状は暫定のベクター画像）
-- 間違えた問題を解き直す導線（iOS の QuizSource 相当の仕組みが要る）
-- デプロイ（Play Console へのアップロード）
+- 起動時に `GET /status` を確認し、メンテナンス・必須アップデートを案内する
+- 解答時の効果音（iOS と同じ `correct.mp3` / `incorrect.mp3`）・触覚フィードバックを設定で切り替える
+- 学習記録の週カレンダー・連続学習日数・53週の学習ヒートマップを表示する
+- お知らせ本文の Markdown と未読表示に対応する
+- `GET/POST /transfer/token` と `POST /transfer/apply` で匿名データを引き継ぐ。
+  QR の表示・スキャン・画像読取・コード貼り付けを用意し、適用前に確認を挟む。
+  カメラスキャンは Google Play services に委譲するためアプリの CAMERA 権限は不要。
+  ログイン中はアカウント同期と混同しないよう QR 引き継ぎを使えない

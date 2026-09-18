@@ -1,9 +1,12 @@
 package org.rikako.quiz.ui.workbook
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,17 +29,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import org.rikako.quiz.data.model.Question
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkbookDetailScreen(
     workbookId: Long,
     onBack: () -> Unit,
-    onStartQuiz: () -> Unit,
+    onStartQuiz: (Int) -> Unit,
     viewModel: WorkbookDetailViewModel = viewModel(factory = WorkbookDetailViewModel.factory(workbookId)),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -56,19 +60,57 @@ fun WorkbookDetailScreen(
         Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when (val current = state) {
                 is WorkbookDetailUiState.Loading -> CircularProgressIndicator()
-                is WorkbookDetailUiState.Error -> Text(current.message)
-                is WorkbookDetailUiState.Success -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
+                is WorkbookDetailUiState.Error -> Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    item {
-                        Button(onClick = onStartQuiz, modifier = Modifier.fillMaxWidth()) {
-                            Text("解答する（${current.detail.questions.size}問）")
+                    Text(current.message)
+                    Button(onClick = viewModel::load) { Text("再読み込み") }
+                }
+                is WorkbookDetailUiState.Success -> {
+                    val sections = WorkbookSections.split(current.detail.questions)
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(current.detail.title, style = MaterialTheme.typography.titleLarge)
+                                    if (current.detail.description.isNotBlank()) {
+                                        Text(current.detail.description, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    Text("${current.detail.questions.size}問・${sections.size}チャプター")
+                                }
+                            }
                         }
-                    }
-                    itemsIndexed(current.detail.questions, key = { _, q -> q.id }) { index, question ->
-                        QuestionCard(number = index + 1, question = question)
+                        if (sections.isNotEmpty()) {
+                            item {
+                                Button(onClick = { onStartQuiz(0) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("はじめる  ·  Chapter 1")
+                                }
+                            }
+                        }
+                        item {
+                            Text("チャプター", style = MaterialTheme.typography.titleMedium)
+                        }
+                        itemsIndexed(sections) { index, questions ->
+                            ChapterRow(
+                                number = index + 1,
+                                questionCount = questions.size,
+                                correctCount = WorkbookSections.correctCount(questions, current.progress),
+                                onClick = { onStartQuiz(index) },
+                            )
+                        }
                     }
                 }
             }
@@ -77,15 +119,29 @@ fun WorkbookDetailScreen(
 }
 
 @Composable
-private fun QuestionCard(number: Int, question: Question) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Q$number", style = MaterialTheme.typography.labelMedium)
-            Text(question.text, style = MaterialTheme.typography.bodyLarge)
-            QuestionImageSection(imageUrls = question.images)
-            question.choices.forEachIndexed { index, choice ->
-                Text("${index + 1}. $choice", style = MaterialTheme.typography.bodyMedium)
-            }
+private fun ChapterRow(
+    number: Int,
+    questionCount: Int,
+    correctCount: Int,
+    onClick: () -> Unit,
+) {
+    Card(
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                "$number",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            Text("Section $number", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Text("$correctCount / $questionCount", color = MaterialTheme.colorScheme.primary)
         }
     }
 }

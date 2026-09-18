@@ -14,11 +14,15 @@ class SharedPrefsIdentityStore(context: Context) : IdentityStore {
     override fun load(): String? = prefs.getString(KEY_IDENTITY_ID, null)
 
     override fun save(value: String) {
-        prefs.edit().putString(KEY_IDENTITY_ID, value).apply()
+        check(prefs.edit().putString(KEY_IDENTITY_ID, value).commit()) {
+            "端末の引き継ぎ情報を保存できませんでした"
+        }
     }
 
     override fun clear() {
-        prefs.edit().remove(KEY_IDENTITY_ID).apply()
+        check(prefs.edit().remove(KEY_IDENTITY_ID).commit()) {
+            "端末の引き継ぎ情報を削除できませんでした"
+        }
     }
 
     private companion object {

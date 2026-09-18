@@ -1,23 +1,28 @@
 package org.rikako.quiz.ui.account
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,31 +30,41 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.rikako.quiz.ui.mypage.ManagementCard
+import org.rikako.quiz.ui.mypage.ManagementTopBar
+import org.rikako.quiz.ui.mypage.groupedBackground
+import org.rikako.quiz.ui.mypage.managementSecondary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
     modifier: Modifier = Modifier,
+    onBack: () -> Unit = {},
     viewModel: AccountViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("アカウント") }) },
+        containerColor = groupedBackground,
+        topBar = { ManagementTopBar("アカウント", onBack) },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             state.errorMessage?.let {
@@ -70,22 +85,23 @@ fun AccountScreen(
 
 @Composable
 private fun SignedIn(state: AccountUiState, viewModel: AccountViewModel) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    ManagementCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("ログイン中", style = MaterialTheme.typography.titleMedium)
-            Text(state.email ?: "", style = MaterialTheme.typography.bodyMedium)
+            Text("ログイン中", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(state.email ?: "", style = MaterialTheme.typography.bodyLarge)
             Text(
                 text = "機種変更のときは、新しい端末で同じメールアドレスでログインすると学習記録を引き継げます。",
                 style = MaterialTheme.typography.bodySmall,
+                color = managementSecondary,
             )
         }
     }
 
     if (state.linkFailed) {
-        Card(modifier = Modifier.fillMaxWidth()) {
+        ManagementCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -106,6 +122,7 @@ private fun SignedIn(state: AccountUiState, viewModel: AccountViewModel) {
         onClick = viewModel::signOut,
         enabled = !state.isBusy,
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
     ) { Text("ログアウト") }
 }
 
@@ -115,9 +132,28 @@ private fun SignedOut(state: AccountUiState, viewModel: AccountViewModel) {
     var password by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
 
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier.size(96.dp).background(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), CircleShape,
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.Person, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp),
+            )
+        }
+    }
     Text(
-        text = "普段はログインなしで使えます。機種変更で学習記録を引き継ぐときにログインしてください。",
-        style = MaterialTheme.typography.bodySmall,
+        text = "ログインすると、機種変更しても学習記録を引き継げます。",
+        style = MaterialTheme.typography.bodyMedium,
+        color = managementSecondary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
     )
 
     EmailField(email) { email = it }
@@ -128,11 +164,14 @@ private fun SignedOut(state: AccountUiState, viewModel: AccountViewModel) {
             Button(
                 onClick = { viewModel.signIn(email.trim(), password) },
                 enabled = !state.isBusy && email.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
             ) { Text("ログイン") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.SignUp) }) { Text("新規登録") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.ForgotPassword) }) {
-                Text("パスワードを忘れた場合")
+            TextButton(onClick = { viewModel.showForm(AccountForm.ForgotPassword) }, modifier = Modifier.fillMaxWidth()) {
+                Text("パスワードをお忘れですか？")
+            }
+            TextButton(onClick = { viewModel.showForm(AccountForm.SignUp) }, modifier = Modifier.fillMaxWidth()) {
+                Text("アカウントをお持ちでない方はこちら")
             }
         }
 
@@ -141,9 +180,10 @@ private fun SignedOut(state: AccountUiState, viewModel: AccountViewModel) {
             Button(
                 onClick = { viewModel.signUp(email.trim(), password) },
                 enabled = !state.isBusy && email.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
             ) { Text("新規登録") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }) { Text("ログインに戻る") }
+            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }, modifier = Modifier.fillMaxWidth()) { Text("ログインに戻る") }
         }
 
         AccountForm.ConfirmSignUp -> {
@@ -151,22 +191,25 @@ private fun SignedOut(state: AccountUiState, viewModel: AccountViewModel) {
             Button(
                 onClick = { viewModel.confirmSignUp(email.trim(), code.trim()) },
                 enabled = !state.isBusy && code.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
             ) { Text("確認コードを送信") }
             TextButton(
                 onClick = { viewModel.resendConfirmationCode(email.trim()) },
                 enabled = !state.isBusy,
+                modifier = Modifier.fillMaxWidth(),
             ) { Text("確認コードを再送") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }) { Text("ログインに戻る") }
+            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }, modifier = Modifier.fillMaxWidth()) { Text("ログインに戻る") }
         }
 
         AccountForm.ForgotPassword -> {
             Button(
                 onClick = { viewModel.forgotPassword(email.trim()) },
                 enabled = !state.isBusy && email.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
             ) { Text("確認コードを送る") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }) { Text("ログインに戻る") }
+            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }, modifier = Modifier.fillMaxWidth()) { Text("ログインに戻る") }
         }
 
         AccountForm.ConfirmForgotPassword -> {
@@ -175,9 +218,10 @@ private fun SignedOut(state: AccountUiState, viewModel: AccountViewModel) {
             Button(
                 onClick = { viewModel.confirmForgotPassword(email.trim(), code.trim(), password) },
                 enabled = !state.isBusy && code.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(12.dp),
             ) { Text("パスワードを変更") }
-            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }) { Text("ログインに戻る") }
+            TextButton(onClick = { viewModel.showForm(AccountForm.SignIn) }, modifier = Modifier.fillMaxWidth()) { Text("ログインに戻る") }
         }
     }
 }
@@ -194,6 +238,11 @@ private fun EmailField(value: String, onValueChange: (String) -> Unit) {
             imeAction = ImeAction.Next,
         ),
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+        ),
     )
 }
 
@@ -220,6 +269,11 @@ private fun PasswordField(value: String, label: String, onValueChange: (String) 
             }
         },
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+        ),
     )
 }
 
@@ -235,5 +289,10 @@ private fun CodeField(value: String, onValueChange: (String) -> Unit) {
             imeAction = ImeAction.Done,
         ),
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+        ),
     )
 }

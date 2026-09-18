@@ -56,6 +56,26 @@ data class AppDetail(
     val categories: List<Category> = emptyList(),
 )
 
+@Serializable
+data class AppStatusResponse(
+    val minimumVersion: String,
+    val latestVersion: String,
+    val isMaintenance: Boolean,
+    val maintenanceMessage: String = "",
+)
+
+@Serializable
+data class TransferToken(
+    val token: String,
+    @SerialName("expires_at") val expiresAt: String,
+)
+
+@Serializable
+data class ApplyTransferRequest(val token: String)
+
+@Serializable
+data class ApplyTransferResponse(@SerialName("identity_id") val identityId: String)
+
 /** POST /answers のリクエスト。 */
 @Serializable
 data class SubmitAnswersRequest(
@@ -85,6 +105,18 @@ data class UserSummary(
     /** yyyy-MM-dd 形式の学習日。 */
     @SerialName("studyDates") val studyDates: List<String> = emptyList(),
     @SerialName("weeklyWorkbookIds") val weeklyWorkbookIds: List<Long> = emptyList(),
+)
+
+/** GET /users/me/workbook-progress */
+@Serializable
+data class WorkbookProgressResponse(
+    val results: List<QuestionProgressItem> = emptyList(),
+)
+
+@Serializable
+data class QuestionProgressItem(
+    @SerialName("questionId") val questionId: Long,
+    @SerialName("isCorrect") val isCorrect: Boolean,
 )
 
 /** GET /users/me/answer-logs */
@@ -123,4 +155,68 @@ data class WrongAnswerQuestion(
     val explanation: String? = null,
     val images: List<String> = emptyList(),
     @SerialName("workbookId") val workbookId: Long,
+)
+
+/** 解き直しで通常の出題と同じ扱いにするための変換。 */
+fun WrongAnswerQuestion.toQuestion(): Question = Question(
+    id = id,
+    type = type,
+    text = text,
+    choices = choices,
+    correct = correct,
+    explanation = explanation,
+    images = images,
+)
+
+@Serializable
+data class ChatMessageRequest(val role: String, val content: String)
+
+@Serializable
+data class ChatRequest(
+    val messages: List<ChatMessageRequest>,
+    @SerialName("selectedChoice") val selectedChoice: Int,
+)
+
+@Serializable
+data class ChatResponse(
+    val reply: String,
+    @SerialName("turnCount") val turnCount: Int,
+    @SerialName("remainingTurns") val remainingTurns: Int,
+)
+
+@Serializable
+data class UserProfile(
+    val userId: Long? = null,
+    val identityId: String,
+    val displayName: String? = null,
+    val selectedWorkbookId: Long? = null,
+)
+
+@Serializable
+data class UpdateUserProfileRequest(val displayName: String?)
+
+@Serializable
+data class UpdateSelectedWorkbookRequest(val selectedWorkbookId: Long)
+
+@Serializable
+data class Announcement(
+    val id: Long,
+    val title: String,
+    val body: String,
+    val category: String,
+    val publishedAt: String,
+)
+
+@Serializable
+data class AnnouncementsResponse(val announcements: List<Announcement> = emptyList())
+
+@Serializable
+data class ContactRequest(
+    val body: String,
+    val subject: String? = null,
+    val email: String? = null,
+    val userId: String? = null,
+    val deviceModel: String? = null,
+    val osVersion: String? = null,
+    val appVersion: String? = null,
 )

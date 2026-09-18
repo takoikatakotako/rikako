@@ -6,6 +6,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.http.content.OutgoingContent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.rikako.quiz.data.auth.SubmissionGate
@@ -83,5 +84,34 @@ class UserApiTest {
             "/users/me/wrong-answers?limit=20&offset=0" to "ap-northeast-1:device",
             requests.single(),
         )
+    }
+
+    @Test
+    fun `選択した問題集だけをプロフィールへ送る`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("PUT", request.method.value)
+            assertEquals("/users/me", request.url.encodedPath)
+            assertEquals("high-school-chemistry", request.headers["X-App-Slug"])
+            assertEquals("ap-northeast-1:device", request.headers["X-Device-ID"])
+            val body = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+            assertEquals("""{"selectedWorkbookId":7}""", body)
+            respond(
+                """{"identityId":"ap-northeast-1:device","selectedWorkbookId":7}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+            )
+        }
+        val client = ContentApi.defaultClient(engine)
+        val repository = LearningRepository(
+            api = ContentApi("https://content.example/v1", "https://api.example", client),
+            answerApi = AnswerApi("https://api.example", client),
+            userApi = UserApi("https://api.example", client),
+            session = signedOutSession(),
+            submissionGate = SubmissionGate(),
+            identityProvider = FakeDeviceIdentityProvider("ap-northeast-1:device"),
+            slug = "high-school-chemistry",
+        )
+
+        assertEquals(7L, repository.updateSelectedWorkbook(7).selectedWorkbookId)
     }
 }
