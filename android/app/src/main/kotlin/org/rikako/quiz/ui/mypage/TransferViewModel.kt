@@ -76,6 +76,9 @@ class TransferViewModel(
 
     fun showError(message: String) { _uiState.update { it.copy(error = message) } }
 
+    /** 完了表示は一度だけ。画面が再構成されてもダイアログを再表示しない。 */
+    fun consumeCompleted() { _uiState.update { it.copy(completed = false) } }
+
     companion object {
         fun factory(): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")

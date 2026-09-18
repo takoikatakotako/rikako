@@ -36,6 +36,7 @@ class ContentApi(
     suspend fun fetchAppStatus(slug: String): AppStatusResponse =
         client.get("$apiBaseUrl/status") {
             header("X-App-Slug", slug)
+            header("X-App-Platform", "android")
         }.body()
 
     suspend fun fetchAnnouncements(): AnnouncementsResponse =

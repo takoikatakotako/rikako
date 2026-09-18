@@ -82,8 +82,18 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
 
-      # Play は同じ versionCode を二度受け付けないので、実行番号を使う。
-      # 手元のビルド（未設定）は 1 のままで、CI から上げたものだけが増えていく。
+      # 手動初回（versionCode 1）と分ける。同じ flavor は concurrency で直列化し、
+      # 過去の run を後から再実行しても新しい番号になるよう UTC 時刻を使う。
+      - name: Set unique version code
+        run: |
+          # 2020-01-01 UTC からの秒数。2026年時点で約2億なので Play の上限内。
+          VERSION_CODE=$(($(date -u +%s) - 1577836800))
+          if [ "$VERSION_CODE" -le 1 ] || [ "$VERSION_CODE" -gt 2100000000 ]; then
+            echo "versionCode が Play Console の有効範囲外です" >&2
+            exit 1
+          fi
+          echo "ANDROID_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+
       - name: Build AAB
         working-directory: ./android
         env:
@@ -91,7 +101,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           FLAVOR="${{ inputs.flavor }}"
           VARIANT="$(echo "${FLAVOR:0:1}" | tr '[:lower:]' '[:upper:]')${FLAVOR:1}ProdRelease"
@@ -114,6 +123,6 @@ jobs:
             echo ""
             echo "- flavor: ${{ inputs.flavor }}"
             echo "- track: ${{ inputs.track }} (${{ inputs.status }})"
-            echo "- versionCode: ${{ github.run_number }}"
+            echo "- versionCode: $ANDROID_VERSION_CODE"
             echo "- commit: ${{ github.sha }}"
           } >> "$GITHUB_STEP_SUMMARY"

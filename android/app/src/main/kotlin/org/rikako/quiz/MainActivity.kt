@@ -20,6 +20,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,10 +66,19 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         setContent {
+            var transferRevision by rememberSaveable { mutableIntStateOf(0) }
             RikakoTheme {
-                RootScreen {
+                RootScreen { refreshRoot ->
                     val hasCompletedOnboarding by ServiceLocator.onboardingStore.completed.collectAsStateWithLifecycle()
-                    if (hasCompletedOnboarding) RikakoApp(onTransferred = ::recreate) else OnboardingScreen()
+                    if (hasCompletedOnboarding) {
+                        // 引き継ぎ後は nav entry と教材 ViewModel を作り直して、旧端末の選択を残さない。
+                        key(transferRevision) {
+                            RikakoApp(onTransferred = {
+                                transferRevision++
+                                refreshRoot()
+                            })
+                        }
+                    } else OnboardingScreen()
                 }
             }
         }
@@ -192,7 +205,11 @@ private fun RikakoApp(onTransferred: () -> Unit) {
                 TransferScreen(
                     onBack = navController::popBackStack,
                     onAccount = { navController.navigate(Routes.ACCOUNT) },
-                    onTransferred = onTransferred,
+                    onTransferred = {
+                        // この ViewModel は Activity スコープなので、nav を作り直すだけでは残る。
+                        myPageViewModel.refresh()
+                        onTransferred()
+                    },
                 )
             }
             composable(

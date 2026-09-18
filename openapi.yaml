@@ -49,6 +49,20 @@ paths:
       tags:
         - System
       security: []
+      parameters:
+        - name: X-App-Slug
+          in: header
+          required: false
+          description: アプリ別のバージョン設定に使う識別子
+          schema:
+            type: string
+        - name: X-App-Platform
+          in: header
+          required: false
+          description: Android は独立したバージョン設定を使う。未指定は従来の iOS 設定。
+          schema:
+            type: string
+            enum: [ios, android]
       responses:
         '200':
           description: アプリステータス

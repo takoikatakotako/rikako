@@ -36,12 +36,12 @@ import org.rikako.quiz.R
 @Composable
 fun RootScreen(
     viewModel: RootViewModel = viewModel(),
-    content: @Composable () -> Unit,
+    content: @Composable (refresh: () -> Unit) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     when (val current = state) {
-        RootUiState.Ready -> content()
+        RootUiState.Ready -> content(viewModel::refresh)
         else -> Box(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center,

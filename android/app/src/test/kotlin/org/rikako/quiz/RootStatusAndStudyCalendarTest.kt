@@ -27,6 +27,7 @@ class RootStatusAndStudyCalendarTest {
             ContentApi.defaultClient(MockEngine { request ->
                 assertEquals("/status", request.url.encodedPath)
                 assertEquals("high-school-chemistry", request.headers["X-App-Slug"])
+                assertEquals("android", request.headers["X-App-Platform"])
                 respond(
                     """{"minimumVersion":"1.2.0","latestVersion":"1.3.0","isMaintenance":true,"maintenanceMessage":"点検中"}""",
                     HttpStatusCode.OK,

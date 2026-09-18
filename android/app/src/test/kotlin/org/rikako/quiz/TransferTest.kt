@@ -7,8 +7,16 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +31,7 @@ import org.rikako.quiz.data.remote.UserApi
 import org.rikako.quiz.data.repository.LearningRepository
 import org.rikako.quiz.ui.mypage.normalizedTransferToken
 import org.rikako.quiz.ui.mypage.formatTransferExpiry
+import org.rikako.quiz.ui.mypage.TransferViewModel
 
 class TransferTest {
     @Test fun `引き継ぎトークンの取得と更新は端末IDを送る`() = runTest {
@@ -93,5 +102,46 @@ class TransferTest {
 
     @Test fun `引き継ぎ期限は日本時間で表示する`() {
         assertEquals("2029年9月16日 08:35", formatTransferExpiry("2029-09-15T23:35:00Z"))
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test fun `引き継ぎ完了は一度だけ表示する`() = runBlocking {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        try {
+            val store = object : IdentityStore {
+                var value: String? = "old-device"
+                override fun load(): String? = value
+                override fun save(value: String) { this.value = value }
+                override fun clear() { value = null }
+            }
+            val client = ContentApi.defaultClient(MockEngine { request ->
+                val body = when (request.url.encodedPath) {
+                    "/transfer/token" -> """{"token":"${"a".repeat(64)}","expires_at":"2029-09-17T00:00:00Z"}"""
+                    "/transfer/apply" -> """{"identity_id":"source-device"}"""
+                    else -> error("unexpected request: ${request.url}")
+                }
+                respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
+            })
+            val repository = LearningRepository(
+                api = ContentApi("https://content.example", "https://api.example", client),
+                answerApi = AnswerApi("https://api.example", client),
+                userApi = UserApi("https://api.example", client),
+                identityProvider = CognitoDeviceIdentityProvider(CognitoIdentityApi("pool", client), store),
+                session = signedOutSession(),
+                submissionGate = SubmissionGate(),
+                slug = "high-school-chemistry",
+                transferApi = TransferApi("https://api.example", client),
+            )
+            val viewModel = TransferViewModel(repository)
+            withTimeout(5_000) { viewModel.uiState.first { !it.loadingToken } }
+            viewModel.applyToken("a".repeat(64))
+            withTimeout(5_000) { viewModel.uiState.first { it.completed || it.error != null } }
+
+            assertTrue("state=${viewModel.uiState.value}", viewModel.uiState.value.completed)
+            viewModel.consumeCompleted()
+            assertFalse(viewModel.uiState.value.completed)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 }

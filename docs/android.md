@@ -195,20 +195,29 @@ AI質問は解答後と結果詳細から開ける。問題ID・選択した回�
 
 ## アイコン
 
-ランチャーアイコンはフレーバーごとに用意している（化学＝三角フラスコ、IT＝ディスプレイ）。
+ランチャーアイコンは iOS と同じ絵柄の 512px PNG をアプリ・環境ごとに用意する。
+開発版は Dev バッジ付き、本番版はバッジ無し。アダプティブアイコンの前景は
+`ic_launcher_art_inset.xml` で表示領域に収め、Android 13 以降のテーマアイコンには
+共通の `ic_launcher_monochrome.xml` を使う。
 
-- アダプティブアイコンは前景を 1.5 倍に拡大して表示するため、図形は viewport 108 のうち
-  中央 66dp（21〜87）に収める
-- Android 13 以降のテーマアイコン用に `<monochrome>` レイヤーも持たせている
-  （`ic_launcher_monochrome.xml`。フレーバーごとに差し替え）
+## アプリの最低バージョン
+
+Android の `GET /status` は `X-App-Slug` に加えて `X-App-Platform: android` を送る。
+API は `MINIMUM_VERSION_ANDROID` / `LATEST_VERSION_ANDROID` を返し、
+`MINIMUM_VERSION_ANDROID_HIGH_SCHOOL_CHEMISTRY` のようなアプリ別 env で上書きできる。
+プラットフォームヘッダのない既存 iOS クライアントには従来の設定を返す。
+Android を公開する前に API と Terraform の変更を適用し、iOS の最低バージョン変更が
+Android へ波及しないことを確認する。
 
 ## Play Console へのデプロイ
 
 `.github/workflows/deploy-android-prod.yml` を手動起動する（flavor / track / draft を選ぶ）。
 main からの起動に限定し、`environment: production` の承認を通してからアップロードする。
 
-`versionCode` は CI の実行番号（`github.run_number`）を渡す。Play は同じ `versionCode` を
-二度受け付けないため、手元のビルド（未設定なら 1）とは分けている。
+手動の初回 AAB は `ANDROID_VERSION_CODE=1` でビルドする。以後 CI は
+2020-01-01 UTC からの経過秒数を `versionCode` に使う。同じアプリのデプロイは
+ワークフローで直列化するため、手動初回アップロードとワークフロー再実行で番号が衝突せず、
+古い実行を後からやり直しても番号が逆戻りしない。
 
 ### 事前に用意するもの
 
@@ -226,7 +235,9 @@ main からの起動に限定し、`environment: production` の承認を通し�
    対象アプリのリリース権限を付ける。発行した JSON を Secrets に入れる
 
 4. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
-   アップロードの前に AAB を1度手動で上げる必要がある
+   アップロードの前に AAB を1度手動で上げる必要がある。署名用の環境変数を設定し、
+   `ANDROID_VERSION_CODE=1 ./gradlew :app:bundleChemistryProdRelease`（IT版は
+   `:app:bundleItPassportProdRelease`）で作成する
 
 ### 必要な Secrets
 

@@ -106,6 +106,7 @@ fun TransferScreen(
             title = { Text("引き継ぎ完了") },
             text = { Text("学習データを引き継ぎました。画面を更新して反映します。") },
             confirmButton = { TextButton(onClick = {
+                viewModel.consumeCompleted()
                 ServiceLocator.selectedWorkbookStore.clear()
                 onTransferred()
             }) { Text("OK") } },

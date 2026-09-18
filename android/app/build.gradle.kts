@@ -20,8 +20,8 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 35
-        // Play は同じ versionCode を二度受け付けないため、CI では実行番号を渡す
-        // （iOS のビルド番号自動採番と同じ考え方。手元では 1 のまま）。
+        // Play は同じ versionCode を二度受け付けないため、CI では UTC 時刻由来の
+        // 一意な番号を渡す。手元では初回手動アップロード用の 1 のまま。
         versionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
