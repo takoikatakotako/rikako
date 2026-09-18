@@ -235,7 +235,9 @@ main からの起動に限定し、`environment: production` の承認を通し�
    対象アプリのリリース権限を付ける。発行した JSON を Secrets に入れる
 
 4. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
-   アップロードの前に AAB を1度手動で上げる必要がある。署名用の環境変数を設定し、
+   アップロードの前に AAB を1度手動で上げる必要がある。先に
+   `scripts/firebase-config.sh pull prod android` で `google-services.json` を置き
+   （無いと prod release はビルドが止まる。「Firebase」の節を参照）、署名用の環境変数を設定し、
    `ANDROID_VERSION_CODE=1 ./gradlew :app:bundleChemistryProdRelease`（IT版は
    `:app:bundleItPassportProdRelease`）で作成する
 
@@ -295,9 +297,11 @@ API キーを含むため `.gitignore` で `**/google-services.json` を除外�
 いずれも SecureString・手動 put で Terraform 管理外（iOS の plist は同じ階層の `firebase/ios/<app_slug>`）。
 
 ```bash
-# 配置（AWS_PROFILE 設定 + aws sso login 済みで）
+# 配置（AWS_PROFILE 設定 + aws sso login 済みで。dev と prod は別アカウントなので、
+# スクリプトが STS でアカウント ID を検証し、違っていれば止まる）
 scripts/firebase-config.sh pull dev            # dev の json（+ iOS の dev plist）
-scripts/firebase-config.sh pull all android    # dev / prod の json だけ
+# 両環境を 1 回で: 環境ごとのプロファイルを指定する
+AWS_PROFILE_DEV=<dev のプロファイル> AWS_PROFILE_PROD=<prod のプロファイル> scripts/firebase-config.sh pull all android
 
 # 初回登録・更新: Firebase コンソールで package name ごとにアプリを登録して json を DL し、
 # 下の変種ディレクトリのどれかに置いてから
@@ -314,7 +318,9 @@ android/app/src/
 
 `google-services` プラグインは `src/dev/` のような env 単独ディレクトリを探さないので、app×env の 4 変種に置く（1 プロジェクトの json は登録アプリ全部を含むため、dev 用・prod 用の中身はそれぞれ同一でよい）。
 
-**1 つも無い場合はプラグインを適用しない**（`app/build.gradle.kts` の `hasGoogleServicesJson`）。json が無いと `processGoogleServices` がビルドを止めるためで、CI（`android.yml`）や clone 直後の手元でもビルド・テストが通る。この状態ではアプリは Firebase 未初期化で動き、Crashlytics / Analytics は送信しない。一部の変種にだけ json がある場合はプラグインを適用するので、`pull dev` しかしていない手元で prod をビルドすると「google-services.json is missing」で止まる（未計測の prod ビルドを黙って作らないため。`pull prod` すれば通る）。
+**1 つも無い場合はプラグインを適用しない**（`app/build.gradle.kts` の `hasGoogleServicesJson`）。json が無いと `processGoogleServices` がビルドを止めるためで、CI（`android.yml`）や clone 直後の手元でも dev のビルド・テストが通る。この状態ではアプリは Firebase 未初期化で動き、Crashlytics / Analytics は送信しない。
+
+ただし **prod の release（`assemble*ProdRelease` / `bundle*ProdRelease`）は json 無しではビルドを止める**（`androidComponents.onVariants` で `pre*Build` に割り込む）。Crashlytics 無しの AAB を Play に上げないため。手元では `pull prod android` してから作る。CI の `android.yml` は PR から AWS ロールを assume できず json を取れないので、R8 の動作確認のためだけに `-PallowMissingFirebaseConfig=true` で明示的にこのチェックを外している（Play へ上げる `deploy-android-prod.yml` では付けない）。一部の変種にだけ json がある場合（`pull dev` だけした手元など）はプラグイン側が「google-services.json is missing」で止める。
 
 - release は R8 で難読化するので、Crashlytics プラグインが `mapping.txt` を自動アップロードする（`deploy-android-prod.yml` で json を SSM から取ってからビルド）。
 - **debug ビルドでも収集する**。dev / prod で Firebase プロジェクトが分かれているため prod のデータは汚れない。

@@ -16,8 +16,12 @@
 #   scripts/firebase-config.sh pull all            # dev / prod 両方
 #   scripts/firebase-config.sh push prod           # 手元のファイルを SSM へ登録（初回・更新時）
 #
-# 事前に AWS_PROFILE を設定して `aws sso login`（docs/aws-setup.md 参照）。
-# CI では OIDC で assume したロールでそのまま動く。
+# 事前に AWS_PROFILE を設定して `aws sso login`（docs/aws-setup.md 参照）。dev と prod は
+# 別 AWS アカウントなので、環境ごとに正しいアカウントの認証情報かを STS で検証してから
+# 読み書きする（間違ったアカウントの同名パスへ登録・取得しないため）。`all` を 1 回で
+# 通したい場合は環境別に AWS_PROFILE_DEV / AWS_PROFILE_PROD を指定する:
+#   AWS_PROFILE_DEV=<devのプロファイル> AWS_PROFILE_PROD=<prodのプロファイル> scripts/firebase-config.sh pull all
+# CI では OIDC で assume したロールでそのまま動く（対象環境 1 つだけを指定する）。
 set -euo pipefail
 
 usage() {
@@ -45,6 +49,35 @@ ssm_env() {
     dev) echo development ;;
     prod) echo production ;;
   esac
+}
+
+# env → AWS アカウント ID（CLAUDE.md の「環境」参照）
+expected_account() {
+  case "$1" in
+    dev) echo 197865631794 ;;
+    prod) echo 211125415945 ;;
+  esac
+}
+
+# env ごとの AWS_PROFILE 上書き（未指定なら現在の認証情報をそのまま使う）と、
+# 認証情報が期待するアカウントのものかの検証。
+use_env_credentials() {
+  local env="$1" profile_var override actual expected
+  profile_var="AWS_PROFILE_$(echo "$env" | tr '[:lower:]' '[:upper:]')"
+  # macOS 標準の bash 3.2 では ${!var:-} が使えないので printenv で間接参照する
+  override="$(printenv "$profile_var" || true)"
+  if [[ -n "$override" ]]; then
+    export AWS_PROFILE="$override"
+  fi
+  expected="$(expected_account "$env")"
+  actual="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)"
+  if [[ "$actual" != "$expected" ]]; then
+    local using=""
+    [[ -n "${AWS_PROFILE:-}" ]] && using=" (AWS_PROFILE=$AWS_PROFILE)"
+    echo "error: $env は AWS アカウント $expected だが、現在の認証情報は ${actual:-取得失敗}$using" >&2
+    echo "       $env 用のプロファイルで aws sso login するか、$profile_var を指定してください" >&2
+    exit 1
+  fi
 }
 
 # Android は google-services プラグインの探索パスに合わせて app×env の変種ごとに置く。
@@ -116,5 +149,6 @@ push_env() {
 envs=("$env_arg")
 [[ "$env_arg" == "all" ]] && envs=(dev prod)
 for env in "${envs[@]}"; do
+  use_env_credentials "$env"
   "${action}_env" "$env"
 done

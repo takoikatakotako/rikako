@@ -27,6 +27,9 @@ val hasReleaseSigning = !keystoreFile.isNullOrBlank() && file(keystoreFile).exis
 // （dev だけ pull した手元で prod をビルドすると失敗する。意図しない未計測ビルドを防ぐため）。
 val googleServicesVariants = listOf("chemistryDev", "itPassportDev", "chemistryProd", "itPassportProd")
 val hasGoogleServicesJson = googleServicesVariants.any { file("src/$it/google-services.json").exists() }
+// prod の release だけは json 無しで通さない（Crashlytics 無しの AAB が Play に上がるのを防ぐ）。
+// CI の R8 動作確認（android.yml）は json を取れないので -PallowMissingFirebaseConfig=true で明示的に外す。
+val allowMissingFirebaseConfig = providers.gradleProperty("allowMissingFirebaseConfig").orNull == "true"
 if (hasGoogleServicesJson) {
     apply(plugin = libs.plugins.google.services.get().pluginId)
     apply(plugin = libs.plugins.firebase.crashlytics.get().pluginId)
@@ -134,6 +137,26 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val isProdRelease = variant.buildType == "release" && variant.productFlavors.contains("env" to "prod")
+        if (isProdRelease && !hasGoogleServicesJson && !allowMissingFirebaseConfig) {
+            // onVariants の時点では変種のタスクがまだ無いので、生成されたときに割り込む。
+            val preBuildTask = "pre${variant.name.replaceFirstChar { it.uppercase() }}Build"
+            tasks.configureEach {
+                if (name != preBuildTask) return@configureEach
+                doFirst {
+                    throw GradleException(
+                        "google-services.json が無いため ${variant.name} をビルドできません。" +
+                            "`scripts/firebase-config.sh pull prod android` で配置してください" +
+                            "（Firebase 無しで試すだけなら -PallowMissingFirebaseConfig=true）"
+                    )
+                }
+            }
+        }
     }
 }
 

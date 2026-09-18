@@ -157,7 +157,7 @@ Firebase プロジェクトは **dev/prod で分離**（dev データが prod GA
 `API_KEY` がシークレットスキャナに検知され通知ノイズになるため **git 管理外**（`.gitignore` で `**/GoogleService-Info*.plist` を除外）。
 
 - **配置先**: `ios/Rikako/Firebase/GoogleService-Info-<app_slug>-<env>.plist`（`<app_slug>` = `high-school-chemistry` / `it-passport`、`<env>` = `prod` / `dev`、計4ファイル）。folder sync でアプリバンドルに含まれる。
-- **取得**: SSM Parameter Store（`/rikako/<development|production>/firebase/ios/<app_slug>`、SecureString）に置いてあり、`scripts/firebase-config.sh pull all ios` で 4 ファイルまとめて配置できる（`AWS_PROFILE` 設定 + `aws sso login` 済みであること。[AWS CLI セットアップ](aws-setup.md) 参照）。Firebase コンソールで plist を作り直したら、この名前で置いてから `scripts/firebase-config.sh push <env> ios` で SSM を更新する。パラメータは手動 put で Terraform 管理外。
+- **取得**: SSM Parameter Store（`/rikako/<development|production>/firebase/ios/<app_slug>`、SecureString）に置いてあり、`scripts/firebase-config.sh pull dev ios` / `pull prod ios` で配置できる（`AWS_PROFILE` 設定 + `aws sso login` 済みであること。[AWS CLI セットアップ](aws-setup.md) 参照。dev と prod は別アカウントなのでスクリプトが STS でアカウント ID を検証する。1 回で両方取るなら `AWS_PROFILE_DEV=... AWS_PROFILE_PROD=... scripts/firebase-config.sh pull all ios`）。Firebase コンソールで plist を作り直したら、この名前で置いてから `scripts/firebase-config.sh push <env> ios` で SSM を更新する。パラメータは手動 put で Terraform 管理外。
 - **CI**: 現状の iOS CI は dev（Debug）を build / build-for-testing するのみ。dev plist が無くても Console フォールバックでビルド・実行できる（Firebase 送信なし。Crashlytics の dSYM アップロードもスキップ）。Release ビルドを CI で行う場合は OIDC で assume したロールから同じスクリプトで pull する（Android の `deploy-android-prod.yml` と同じ方式）。
 - Firebase DebugView での PII 非送信の実機確認は未実施。
 
@@ -181,12 +181,24 @@ Firebase プロジェクトは **dev/prod で分離**（dev データが prod GA
 Build Phase のスクリプトは `CONFIGURATION` 名が `*Release` なら prod、それ以外は dev の plist を `-gsp` で渡す。plist が無い（CI 等）場合は警告を出して `exit 0` するので、plist 無しでもビルドは通る。
 
 - `DEBUG_INFORMATION_FORMAT` は Debug / Release とも `dwarf-with-dsym`。
+- アプリターゲットの `OTHER_LDFLAGS` に `-ObjC`（firebase-ios-sdk の SwiftPackageManager.md が FirebaseAnalytics に要求している。Analytics 導入時に漏れていたものを #235 で追加）。
 - アプリターゲットは `ENABLE_USER_SCRIPT_SANDBOXING = NO`（`upload-symbols` が宣言外のパスへ書き込むため）。テストターゲットは `YES` のまま。
 - App Store Connect へ上げたビルドは Xcode が dSYM を生成するので、通常の Archive → Upload でこのスクリプトが走れば十分。「Missing dSYM」が出たら Organizer から dSYM を DL して `Crashlytics/upload-symbols -gsp <plist> -p ios <dSYM のパス>` で手動アップロードできる。
 
 ### 到達確認（強制クラッシュ）
 
-DEBUG ビルドで起動引数に `-crashlytics-test-crash` を付けると起動 1 秒後に `fatalError` する。**デバッガを外して**（Xcode から一度 Run したあと停止し、ホーム画面からアプリを起動）クラッシュさせ、再度起動すると Firebase コンソール（`sandbox-492513`）の Crashlytics に数分で表示される。
+DEBUG ビルドで起動引数に `-crashlytics-test-crash` を付けると起動 1 秒後に `fatalError` する。Crashlytics はデバッガ接続中のクラッシュを拾わないので、**デバッガを付けずに起動引数を渡す**必要がある（Xcode で Run → 停止 → ホーム画面から起動、では引数が引き継がれず発火しない）。方法はどちらか:
+
+- **Xcode**: Edit Scheme → Run → Info で「Debug executable」のチェックを外し、Arguments に `-crashlytics-test-crash` を入れて Run（デバッガ無しで引数付き起動になる）
+- **CLI**: Xcode でインストールだけしてから
+  ```bash
+  # シミュレータ
+  xcrun simctl launch --terminate-running-process booted org.rikako.chemist.dev -crashlytics-test-crash
+  # 実機（UDID は xcrun devicectl list devices）
+  xcrun devicectl device process launch --device <UDID> org.rikako.chemist.dev -crashlytics-test-crash
+  ```
+
+クラッシュ後にもう一度アプリを起動する（Crashlytics は次回起動時にレポートを送る）と、Firebase コンソール（`sandbox-492513`）の Crashlytics に数分で表示される。
 
 ### プライバシー
 
