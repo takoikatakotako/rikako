@@ -251,6 +251,11 @@ main からの起動に限定し、`environment: production` の承認を通し�
 
 鍵が未設定のときは release ビルドが**署名なし**になる（手元でビルドしても Play へは上げられない）。
 
+Firebase の `google-services.json` は Secrets ではなく prod アカウントの SSM から取る
+（`permissions: id-token: write` で `rikako-production-github-actions` を assume →
+`scripts/firebase-config.sh pull prod android`）。パラメータが未登録だとここで止まる。
+詳細は「Firebase」の節を参照。
+
 ## CI
 
 `.github/workflows/android.yml` が `android/**` の変更で走る（main への push と PR）。
@@ -266,6 +271,69 @@ main からの起動に限定し、`environment: production` の承認を通し�
 
 Keystore は実機／エミュレータでしか動かないため、トークン保存まわりだけ計装テストにしてある
 （`./gradlew :app:connectedChemistryDevDebugAndroidTest`。CI では動かさない）。
+
+## Firebase（Crashlytics / Analytics）
+
+[#235](https://github.com/takoikatakotako/rikako/issues/235)。iOS と同じ Firebase プロジェクト（dev = 共有 sandbox `sandbox-492513`、prod = `rikako-prd`。2026-09-18 に「prod は `rikako-prd` を使い続ける」で確定）に Android アプリを登録し、`firebase-bom` 経由で `firebase-crashlytics` と `firebase-analytics` を入れている。
+
+| 項目 | ファイル | 役割 |
+| --- | --- | --- |
+| プラグイン | `build.gradle.kts` / `app/build.gradle.kts` | `google-services` と `firebase-crashlytics`。json が揃っている時だけ適用 |
+| 設定 | `CrashReporter.kt` | `FirebaseApp` があれば収集を有効化し `app_slug` をカスタムキーに載せる |
+| 結線 | `RikakoApplication` / `MainActivity` | 起動時に `CrashReporter.configure`、debug は `crashIfRequested` |
+
+### google-services.json の扱い（git に載せない）
+
+API キーを含むため `.gitignore` で `**/google-services.json` を除外している（iOS の `GoogleService-Info.plist` と同じ）。
+秘密度は低い（APK に同梱されて配布される値）が、CI とローカルが同じ場所から取れるように **SSM Parameter Store** に置く。
+
+| パラメータ | 中身 |
+| --- | --- |
+| `/rikako/development/firebase/android` | `sandbox-492513` の json（`org.rikako.chemistry.dev` / `org.rikako.itpassport.dev` を登録） |
+| `/rikako/production/firebase/android` | `rikako-prd` の json（`org.rikako.chemistry` / `org.rikako.itpassport` を登録） |
+
+いずれも SecureString・手動 put で Terraform 管理外（iOS の plist は同じ階層の `firebase/ios/<app_slug>`）。
+
+```bash
+# 配置（AWS_PROFILE 設定 + aws sso login 済みで）
+scripts/firebase-config.sh pull dev            # dev の json（+ iOS の dev plist）
+scripts/firebase-config.sh pull all android    # dev / prod の json だけ
+
+# 初回登録・更新: Firebase コンソールで package name ごとにアプリを登録して json を DL し、
+# 下の変種ディレクトリのどれかに置いてから
+scripts/firebase-config.sh push prod android
+```
+
+```
+android/app/src/
+├── chemistryDev/google-services.json    # sandbox-492513 の json
+├── itPassportDev/google-services.json   # 同上（同じファイル）
+├── chemistryProd/google-services.json   # rikako-prd の json
+└── itPassportProd/google-services.json  # 同上（同じファイル）
+```
+
+`google-services` プラグインは `src/dev/` のような env 単独ディレクトリを探さないので、app×env の 4 変種に置く（1 プロジェクトの json は登録アプリ全部を含むため、dev 用・prod 用の中身はそれぞれ同一でよい）。
+
+**1 つも無い場合はプラグインを適用しない**（`app/build.gradle.kts` の `hasGoogleServicesJson`）。json が無いと `processGoogleServices` がビルドを止めるためで、CI（`android.yml`）や clone 直後の手元でもビルド・テストが通る。この状態ではアプリは Firebase 未初期化で動き、Crashlytics / Analytics は送信しない。一部の変種にだけ json がある場合はプラグインを適用するので、`pull dev` しかしていない手元で prod をビルドすると「google-services.json is missing」で止まる（未計測の prod ビルドを黙って作らないため。`pull prod` すれば通る）。
+
+- release は R8 で難読化するので、Crashlytics プラグインが `mapping.txt` を自動アップロードする（`deploy-android-prod.yml` で json を SSM から取ってからビルド）。
+- **debug ビルドでも収集する**。dev / prod で Firebase プロジェクトが分かれているため prod のデータは汚れない。
+- クラッシュレポートに載せるのは非 PII のキーのみ。ユーザー入力・メールアドレス・Cognito Identity ID は載せない。
+- Analytics はライブラリを入れて初期化するところまで。iOS 側のイベント（`app_open` 等）の発火は別途対応する。
+
+### 到達確認（強制クラッシュ）
+
+debug ビルドは起動 Intent に `crashlytics_test_crash=true` を付けると `MainActivity.onCreate` で例外を投げる。
+
+```bash
+adb shell am start -n org.rikako.chemistry.dev/org.rikako.quiz.MainActivity --ez crashlytics_test_crash true
+```
+
+クラッシュ後にもう一度アプリを起動すると、Firebase コンソール（`sandbox-492513`）の Crashlytics に数分で表示される。
+
+### Play Console のデータセーフティ
+
+Crashlytics を入れた版を上げる前に、Play Console の「データ セーフティ」で**クラッシュログ・診断情報**（アプリの機能向上、共有なし）を申告する。
 
 ## iOS と共通の追加機能
 

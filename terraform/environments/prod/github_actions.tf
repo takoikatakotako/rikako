@@ -153,7 +153,7 @@ data "aws_iam_policy_document" "github_actions_terraform_state" {
   }
 }
 
-# SSM read access (for smoke tests)
+# SSM read access (smoke tests / Firebase client config for Android deploy #235)
 resource "aws_iam_role_policy" "github_actions_ssm" {
   name   = "ssm-read-access"
   role   = aws_iam_role.github_actions.id
@@ -169,6 +169,8 @@ data "aws_iam_policy_document" "github_actions_ssm" {
     resources = [
       "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/admin-basic-auth-user",
       "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/admin-basic-auth-password",
+      # Firebase の GoogleService-Info.plist / google-services.json（手動 put、Terraform 管理外）
+      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/${local.environment}/firebase/*",
     ]
   }
 }

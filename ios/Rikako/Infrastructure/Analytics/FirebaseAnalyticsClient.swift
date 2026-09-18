@@ -12,7 +12,7 @@ final class FirebaseAnalyticsClient: AnalyticsClient {
     /// plist が無い場合は nil（呼び出し側で Console/Noop にフォールバックする）。
     /// - Parameters:
     ///   - slug: `AppFlavor.slug`（`high-school-chemistry` / `it-passport`）
-    ///   - environment: `dev`（rikako-dev）または `prod`（rikako-prd）
+    ///   - environment: `dev`（sandbox-492513）または `prod`（rikako-prd）
     static func configured(slug: String, environment: String) -> FirebaseAnalyticsClient? {
         // すでに configure 済みなら再利用（多重 configure を避ける）。
         if FirebaseApp.app() != nil {

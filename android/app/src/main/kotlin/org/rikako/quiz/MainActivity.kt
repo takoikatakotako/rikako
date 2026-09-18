@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(TRANSPARENT_BAR, TRANSPARENT_BAR),
         )
         super.onCreate(savedInstanceState)
+        CrashReporter.crashIfRequested(intent?.extras)
         setContent {
             var transferRevision by rememberSaveable { mutableIntStateOf(0) }
             RikakoTheme {

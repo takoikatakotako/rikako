@@ -13,6 +13,27 @@ val keyAlias: String? = System.getenv("ANDROID_KEY_ALIAS")
 val keyPassword: String? = System.getenv("ANDROID_KEY_PASSWORD")
 val hasReleaseSigning = !keystoreFile.isNullOrBlank() && file(keystoreFile).exists()
 
+// Firebase（Analytics / Crashlytics、#235）。google-services.json は API キーを含むため
+// git 管理外（iOS の GoogleService-Info.plist と同じ扱い）。SSM に置いてあるので
+// `scripts/firebase-config.sh pull <dev|prod>` で配置する。google-services プラグインは
+// env 単独のディレクトリ（src/dev/）を探さないので、iOS の plist と同じく変種ごとに置く:
+//   app/src/chemistryDev/google-services.json   … rikako-dev（dev の json。IT 版も同じ内容）
+//   app/src/itPassportDev/google-services.json  … rikako-dev
+//   app/src/chemistryProd/google-services.json  … rikako-prd
+//   app/src/itPassportProd/google-services.json … rikako-prd
+// 1 つも無い環境（CI のテスト・lint や初めて clone した手元）ではプラグインごと外し、
+// アプリは Firebase 未初期化で動く（Crashlytics / Analytics は送信しない）。
+// 一部だけある場合はプラグインを適用し、json の無い変種のビルドはプラグインが止める
+// （dev だけ pull した手元で prod をビルドすると失敗する。意図しない未計測ビルドを防ぐため）。
+val googleServicesVariants = listOf("chemistryDev", "itPassportDev", "chemistryProd", "itPassportProd")
+val hasGoogleServicesJson = googleServicesVariants.any { file("src/$it/google-services.json").exists() }
+if (hasGoogleServicesJson) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+    apply(plugin = libs.plugins.firebase.crashlytics.get().pluginId)
+} else {
+    logger.warn("google-services.json が無いため Firebase プラグインを適用しません（Crashlytics / Analytics は無効。scripts/firebase-config.sh pull で配置）")
+}
+
 android {
     namespace = "org.rikako.quiz"
     compileSdk = 35
@@ -90,6 +111,8 @@ android {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // R8 で難読化するので、Crashlytics プラグインが release の mapping.txt を
+            // 自動アップロードする（mappingFileUploadEnabled はデフォルト true）。
         }
     }
 
@@ -137,6 +160,12 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    // Firebase は BoM でバージョンを揃える。google-services.json が無くてもライブラリ自体は
+    // 入れておき（コンパイルを通すため）、初期化の有無は実行時に FirebaseApp で判定する。
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
 
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
