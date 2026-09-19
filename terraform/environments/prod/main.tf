@@ -35,8 +35,8 @@ resource "aws_ssm_parameter" "database_url" {
 
 locals {
   api_ssm_param_names = [
-    "/${local.project}/${local.environment}/openai-api-key",
-    "/${local.project}/${local.environment}/slack-contact-webhook-url",
+    aws_ssm_parameter.openai_api_key.name,
+    aws_ssm_parameter.slack_contact_webhook_url.name,
     aws_ssm_parameter.database_url.name,
   ]
   admin_api_ssm_param_names = [
@@ -74,8 +74,8 @@ module "lambda" {
     LATEST_VERSION                   = "1.0.0"
     MINIMUM_VERSION_ANDROID          = "1.0.0"
     LATEST_VERSION_ANDROID           = "1.0.0"
-    OPENAI_API_KEY                   = "ssm:/${local.project}/${local.environment}/openai-api-key"
-    SLACK_WEBHOOK_URL                = "ssm:/${local.project}/${local.environment}/slack-contact-webhook-url"
+    OPENAI_API_KEY                   = "ssm:${aws_ssm_parameter.openai_api_key.name}"
+    SLACK_WEBHOOK_URL                = "ssm:${aws_ssm_parameter.slack_contact_webhook_url.name}"
     # pgx(stdlib) + simple protocol へ移行済み（#292）で PgBouncer 互換。Neon pooled endpoint を有効化（#288）。
     DB_USE_POOLER = "true"
   }

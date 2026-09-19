@@ -10,7 +10,7 @@
 # =============================================================================
 
 locals {
-  slack_alert_webhook_url_param_name = "/${local.project}/${local.environment}/slack-alert-webhook-url"
+  slack_alert_webhook_url_param_name = aws_ssm_parameter.slack_alert_webhook_url.name
 }
 
 resource "aws_sns_topic" "alerts" {

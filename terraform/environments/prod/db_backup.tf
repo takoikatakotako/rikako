@@ -144,8 +144,9 @@ data "aws_iam_policy_document" "db_backup" {
     effect  = "Allow"
     actions = ["ssm:GetParameter"]
     resources = [
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/${local.environment}/database-url",
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/${local.environment}/slack-alert-webhook-url",
+      # policy document（data source）から resource を参照すると plan が遅延するため、名前は locals から取る（ssm.tf 参照）
+      "${local.ssm_param_arn_prefix}${aws_ssm_parameter.database_url.name}",
+      "${local.ssm_param_arn_prefix}${local.ssm_param_names.slack_alert_webhook_url}",
     ]
   }
 
