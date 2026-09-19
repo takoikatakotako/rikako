@@ -2,8 +2,11 @@
 # 手動登録の SSM パラメータ（値は Terraform 管理外、#394）
 # =============================================================================
 # 「どのパラメータが存在すべきか」を IaC で見えるようにするため、名前・型・説明だけを
-# Terraform で持つ。値は state にも tfvars にも書かず、`lifecycle.ignore_changes = [value]`
-# で Terraform が触らないようにしている（database-url と同じ扱い）。
+# Terraform で持つ。値は構成（tfvars 含む）には書かず、`lifecycle.ignore_changes = [value]`
+# で Terraform が上書きしないようにしている（database-url と同じ扱い）。
+# ただし ignore_changes は差分を apply 対象から外すだけで、import / refresh で読んだ
+# 復号済みの値は remote state（S3、暗号化・アクセス制限済み）に入る。state の保護要件は
+# database-url と同じく「シークレットを含む」前提で扱うこと。
 #
 # - 初回は既存パラメータを import する（ssm_imports.tf）。resource を書いて apply すると
 #   "already exists" で失敗するため、import なしで作らないこと

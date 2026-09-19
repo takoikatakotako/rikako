@@ -256,7 +256,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - Dev と同じリソース構成（カスタムドメインだけ rikako.org 配下に変更）
   - スロットリング: API Gateway HTTP API で `rate_limit=100, burst_limit=200`
 - **SSM Parameter Store でのシークレット管理**:
-  - `/rikako/<env>/openai-api-key`、`/rikako/<env>/slack-contact-webhook-url`、`/rikako/<env>/slack-alert-webhook-url`、`/rikako/<env>/firebase/*`、`/rikako/admin-basic-auth-*` は **名前だけ Terraform 管理**（`terraform/environments/<env>/ssm.tf`、`ignore_changes = [value]`）。値は手動で `aws ssm put-parameter --type SecureString --overwrite`。新規追加は put → import → apply の順（[runbook](docs/runbook.md) 参照）
+  - `/rikako/<env>/openai-api-key`、`/rikako/<env>/slack-contact-webhook-url`、`/rikako/<env>/slack-alert-webhook-url`、`/rikako/<env>/firebase/*`、`/rikako/admin-basic-auth-*` は **名前だけ Terraform 管理**（`terraform/environments/<env>/ssm.tf`、`ignore_changes = [value]`。値は上書きしないが import / refresh で state には入る）。値は手動で `aws ssm put-parameter --type SecureString --overwrite`。新規追加は put → import → apply の順（[runbook](docs/runbook.md) 参照）
   - `/rikako/<env>/database-url` は Terraform が Neon の connection_uri から SecureString として登録
   - `/rikako/neon-api-key` は Terraform Provider 用、手動登録
   - `/rikako/<env>/firebase/ios/<app_slug>`・`/rikako/<env>/firebase/android` は Firebase のクライアント設定（plist / google-services.json、git 管理外）。値は `scripts/firebase-config.sh pull|push` で出し入れ

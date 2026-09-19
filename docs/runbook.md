@@ -368,7 +368,7 @@ Lambda が読むシークレット（`OPENAI_API_KEY` / `SLACK_WEBHOOK_URL` / `D
 | `/rikako/neon-api-key` | Neon API キー（Terraform Provider 用） | 手動 `put-parameter`（Provider 初期化に使うため Terraform 管理外） |
 | `/rikako/cloudflare-api-token` | Cloudflare API トークン（Terraform Provider 用） | 同上 |
 
-「名前だけ Terraform」は `terraform/environments/<env>/ssm.tf` の `aws_ssm_parameter` に `lifecycle { ignore_changes = [value] }` を付けたもの（#394）。存在すべきパラメータの一覧を IaC で持ちつつ、値は state にも tfvars にも書かない。参照側（Lambda 環境変数の `ssm:...`、IAM の resource ARN）は文字列直書きではなく `ssm.tf` の resource / locals を参照する。
+「名前だけ Terraform」は `terraform/environments/<env>/ssm.tf` の `aws_ssm_parameter` に `lifecycle { ignore_changes = [value] }` を付けたもの（#394）。存在すべきパラメータの一覧を IaC で持ちつつ、値は構成（tfvars 含む）には書かず、Terraform が上書きもしない。**ただし import / refresh で読んだ復号済みの値は remote state に入る**（`ignore_changes` は差分を apply 対象から外すだけで、state への格納は止めない）。state は S3 で暗号化・アクセス制限済みだが、`database-url` と同じく「シークレットを含む」前提で扱う。参照側（Lambda 環境変数の `ssm:...`、IAM の resource ARN）は文字列直書きではなく `ssm.tf` の resource / locals を参照する。
 
 > **新しいパラメータを足すとき**: `ssm.tf` に resource を追加 → 先に `aws ssm put-parameter` で実値を登録 → `ssm_imports.tf` に import ブロックを追加して apply、の順。resource を書いて apply だけすると placeholder（`CHANGE_ME`）で作られてしまう。逆に既存パラメータを import 無しで apply すると "already exists" で失敗する。
 
