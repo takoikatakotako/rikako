@@ -1,0 +1,90 @@
+name: Sync Content Prod
+
+# data/ の変更を prod に反映する一連の流れを 1 本にまとめる（Issue #391）。
+#
+#   datasync apply（YAML → Neon prod）→ /publish（DB → S3）→ CDN invalidate → 問題集Web のデプロイ
+#
+# 問題集Web は静的エクスポートでビルド時にコンテンツ CDN の JSON を焼き込むため、
+# この順序でないと古い内容が出る。iOS / Android は publish 直後に反映される。
+#
+# 手動起動 + environment: production の承認（DB を書き換えるため無承認にはしない）。
+# 承認は sync ジョブと、後続の web デプロイ（deploy-web-prod.yml も production を要求する）
+# の 2 回に分かれる（Deploy All Prod と同じ挙動）。手動で 3 手順を踏むより「起動し忘れ」
+# 「publish 忘れ」「web 出し忘れ」が構造的に無くなるのが目的で、承認クリックは残す。
+# アプリのコードごと出したいときは Deploy All Prod を使う（同じ順序で publish → web を含む）。
+on:
+  workflow_dispatch:
+
+# 呼び出す側の権限は、呼ばれる側の上限になる（reusable workflow は昇格できない）。
+# deploy-web-prod.yml の release-note が web-prod/* タグの push と Release 作成で
+# contents: write を使うため、web job にはここから渡す必要がある。
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sync-content-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  ADMIN_API_URL: https://admin.rikako.org/api
+  CONTENT_CF_ALIAS: content.rikako.org
+
+jobs:
+  sync:
+    name: datasync apply + publish (prod)
+    # main の内容だけを反映する。ブランチから起動しても job ごと skip する。
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production # ← required reviewers による承認ゲート
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+
+      - name: Build datasync
+        working-directory: app
+        run: go build -o datasync ./cmd/datasync
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run datasync apply
+        working-directory: app
+        run: |
+          set -o pipefail
+          ./datasync -data ../data -env prod apply 2>&1 | tee /tmp/datasync-apply.txt
+
+      - name: Publish content and invalidate CDN
+        uses: ./.github/actions/publish-content
+        with:
+          admin-api-url: ${{ env.ADMIN_API_URL }}
+          content-cf-alias: ${{ env.CONTENT_CF_ALIAS }}
+
+      - name: Summary
+        run: |
+          {
+            echo "## datasync apply (prod)"
+            echo ""
+            echo '```'
+            tail -n +2 /tmp/datasync-apply.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # web はビルド時にコンテンツ CDN の JSON を焼き込むため、必ず publish の後に走らせる。
+  web:
+    name: 問題集Web
+    needs: [sync]
+    permissions:
+      contents: write # release-note（web-prod/* タグ + Release）のため
+      id-token: write
+    uses: ./.github/workflows/deploy-web-prod.yml

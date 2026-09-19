@@ -79,7 +79,7 @@ jobs:
             ${result}
             \`\`\`
 
-            > \`data/\` の変更による DB 差分です。反映するには \`datasync apply\` を手動実行してください。
+            > \`data/\` の変更による DB 差分です。main にマージすると **Sync Content Dev** が自動で apply → publish → web デプロイまで行います。prod は **Sync Content Prod** を手動起動（承認付き）。
             `;
 
             const { data: comments } = await github.rest.issues.listComments({

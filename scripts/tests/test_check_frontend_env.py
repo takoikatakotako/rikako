@@ -113,7 +113,7 @@ class CheckFrontendEnvTest(unittest.TestCase):
 
     def test_valid_dev_workflow_passes(self):
         self.assertEqual(
-            self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch"],
+            self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch", "workflow_call"],
                                     environment=None, env_name="dev",
                                     validate=DEV_REF_CHECK),
                            DEV, "deploy-web-dev.yml"), [])
@@ -268,7 +268,7 @@ class CheckFrontendEnvTest(unittest.TestCase):
     def test_dev_does_not_require_deploy_tag(self):
         """dev は実績タグを要求しない（要求すると初回が回らない）。"""
         errors = self.run_check(
-            workflow(DEV, triggers=["push", "workflow_dispatch"], environment=None,
+            workflow(DEV, triggers=["push", "workflow_dispatch", "workflow_call"], environment=None,
                      env_name="dev", validate=DEV_REF_CHECK),
             DEV, "deploy-web-dev.yml")
         self.assertEqual(errors, [])
@@ -422,6 +422,13 @@ aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete --exclude "_next/static/*"
     def test_dev_without_push_trigger_is_detected(self):
         """dev だけ手動のまま取り残されるのを防ぐ（化学版で実際に起きた）。"""
         errors = self.run_check(workflow(DEV, triggers=["workflow_dispatch"], environment=None,
+                                         env_name="dev", validate=DEV_REF_CHECK),
+                                DEV, "deploy-web-dev.yml")
+        self.assertTrue(any("トリガー" in e for e in errors), errors)
+
+    def test_dev_without_workflow_call_is_detected(self):
+        """Sync Content Dev から呼べなくなる（data 反映で web だけ古いまま残る、#391）。"""
+        errors = self.run_check(workflow(DEV, triggers=["push", "workflow_dispatch"], environment=None,
                                          env_name="dev", validate=DEV_REF_CHECK),
                                 DEV, "deploy-web-dev.yml")
         self.assertTrue(any("トリガー" in e for e in errors), errors)

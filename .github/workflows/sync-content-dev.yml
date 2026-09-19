@@ -1,0 +1,92 @@
+name: Sync Content Dev
+
+# data/ の変更を dev に反映する一連の流れを 1 本にまとめる（Issue #391）。
+#
+#   datasync apply（YAML → Neon dev）→ /publish（DB → S3）→ CDN invalidate → 問題集Web のデプロイ
+#
+# 問題集Web は静的エクスポートでビルド時にコンテンツ CDN の JSON を焼き込むため、
+# この順序でないと古い内容が出る。iOS / Android は publish 直後に反映される。
+#
+# dev は main へマージされたら自動（Terraform dev と同じ方針）。PR 段階の差分確認は
+# plan-datasync.yml。prod は sync-content-prod.yml（承認付き）。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "data/**"
+      - ".github/workflows/sync-content-dev.yml"
+      - ".github/actions/publish-content/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# 同時に走ると datasync の apply が競合するので直列化する。
+concurrency:
+  group: sync-content-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  ADMIN_API_URL: https://admin.dev.rikako.org/api
+  CONTENT_CF_ALIAS: content.dev.rikako.org
+
+jobs:
+  sync:
+    name: datasync apply + publish (dev)
+    # 共有ロールの信頼は main の workflow に限定されている（#370）。
+    # workflow_dispatch を main 以外から起動しても AWS 認証で落ちるが、その前に止める。
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: app/go.mod
+          cache-dependency-path: app/go.sum
+
+      - name: Build datasync
+        working-directory: app
+        run: go build -o datasync ./cmd/datasync
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          # apply は DB を書き換えるため、plan 用の最小権限ロールではなく main 限定の共有ロールを使う
+          role-to-assume: arn:aws:iam::197865631794:role/rikako-development-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run datasync apply
+        working-directory: app
+        run: |
+          set -o pipefail
+          # pipefail でパイプ内の datasync の失敗を検知する。1 行目は接続先（パスワードは
+          # datasync 側で伏せ済み）なので、そのままログに出してよい。
+          ./datasync -data ../data -env dev apply 2>&1 | tee /tmp/datasync-apply.txt
+
+      - name: Publish content and invalidate CDN
+        uses: ./.github/actions/publish-content
+        with:
+          admin-api-url: ${{ env.ADMIN_API_URL }}
+          content-cf-alias: ${{ env.CONTENT_CF_ALIAS }}
+
+      - name: Summary
+        run: |
+          {
+            echo "## datasync apply (dev)"
+            echo ""
+            echo '```'
+            tail -n +2 /tmp/datasync-apply.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # web はビルド時にコンテンツ CDN の JSON を焼き込むため、必ず publish の後に走らせる。
+  web:
+    name: 問題集Web
+    needs: [sync]
+    uses: ./.github/workflows/deploy-web-dev.yml

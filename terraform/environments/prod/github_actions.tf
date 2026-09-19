@@ -174,6 +174,8 @@ data "aws_iam_policy_document" "github_actions_ssm" {
           local.ssm_param_names.admin_basic_auth_password,
           # Firebase の GoogleService-Info.plist / google-services.json（deploy-android-prod が pull する）
           local.ssm_param_names.firebase_android,
+          # Neon の接続 URL（sync-content-prod の datasync apply が読む、#391）
+          aws_ssm_parameter.database_url.name,
         ],
         values(local.firebase_ios_param_names),
       ) : "${local.ssm_param_arn_prefix}${name}"
