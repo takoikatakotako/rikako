@@ -137,10 +137,7 @@ private struct OnboardingWelcomePage: View {
     var body: some View {
         OnboardingContainer(
             title: "こんにちは、理科子です！",
-            messageLines: [
-                "このアプリは高校生向けの化学を楽しく学ぶためのアプリです！",
-                "一緒に楽しく勉強していこうね！"
-            ],
+            messageLines: AppFlavor.current.copy.onboardingWelcomeMessages,
             primaryButtonTitle: "次へ",
             artwork: { OnboardingCharacterArt() },
             action: {
@@ -156,11 +153,7 @@ private struct OnboardingWorkbookIntroPage: View {
     var body: some View {
         OnboardingContainer(
             title: "君にあった分野を選ぼう！",
-            messageLines: [
-                "高校化学とはいっても、範囲や分野はいろいろあります。",
-                "次のページで問題集を選択できるから、学びたい問題集を選んでみてね。",
-                "特になければ、おすすめの基礎の問題集を選んでみよう！"
-            ],
+            messageLines: AppFlavor.current.copy.onboardingWorkbookIntroMessages,
             primaryButtonTitle: "問題集を選ぶ",
             artwork: {
                 ZStack {
