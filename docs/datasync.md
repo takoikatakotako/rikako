@@ -154,6 +154,15 @@ workbooks:
 > Neon 側でロールパスワードが変わったときの再登録は手作業（out-of-band）になる。
 > `aws ssm put-parameter --overwrite` で更新してよく、次の `terraform apply` で巻き戻ることはない。
 
+## CI（Sync Content）
+
+apply は手元で打たず、CI に任せるのが基本（#391）。
+
+- **dev**: `data/**` が main に入ると `sync-content-dev.yml` が `datasync apply` → `/publish` → CDN invalidate → 問題集Web のデプロイまで自動で行う
+- **prod**: `sync-content-prod.yml` を手動 dispatch（`production` 承認 ×2）
+
+詳細は [runbook の「データだけ反映する」](runbook.md#データだけ反映する-sync-content-devprod391)。以下の `datasync -env ... apply` を手元で実行するのはデバッグ時や CI が使えないときだけにする。
+
 ## CI（plan-datasync）
 
 `.github/workflows/plan-datasync.yml` の plan 実行ステップは `set -o pipefail` + `tee` で、

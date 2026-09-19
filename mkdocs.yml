@@ -32,6 +32,7 @@ nav:
       - sqlc（DBクエリ生成）: sqlc.md
   - 運用:
       - 運用ランブック: runbook.md
+      - CI/CD ワークフロー全体図: ci-workflows.md
       - DBバックアップとリストア: db-backup.md
       - 負荷テスト計画: load-test.md
   - DBスキーマ: schema/README.md

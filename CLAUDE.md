@@ -77,7 +77,7 @@ Rikako - 問題集アプリ
 │       └── prod/           # Prod環境（dev と同構成、rikako.org 配下）
 ├── openapi.yaml            # 公開API仕様
 ├── openapi-admin.yaml      # 管理API仕様
-└── .github/workflows/      # CI設定（全30本）
+└── .github/workflows/      # CI設定（全35本）
     # デプロイ: dev は main push で自動（paths で領域判定）、prod は手動 dispatch + 承認
     #（例外: docs.yml だけは main push で prod へ自動デプロイ）
     ├── deploy-api-{dev,prod}.yml            # 公開API（ECRビルド&プッシュ + Lambda更新）
@@ -94,6 +94,7 @@ Rikako - 問題集アプリ
     ├── plan-terraform.yml          # PR時に dev の plan（tfcmt でコメント）
     ├── terraform-plan-trusted.yml  # 上の実処理（main 固定・読み取り専用ロール）
     ├── plan-datasync.yml           # PR時に data 差分 plan
+    ├── sync-content-{dev,prod}.yml # data 反映（datasync apply → publish → invalidate → web）。dev は main push で自動、prod は手動+承認
     ├── migrate-{dev,prod}.yml      # マイグレーション（手動 dispatch。prod は承認）
     ├── backup-db-prod.yml          # prod DB を毎日バックアップ
     # テスト
@@ -337,10 +338,15 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
 iOSアプリはLambda APIではなく、S3上の静的JSONをCloudFront経由で取得する。
 
 ### 配信フロー
-1. `data/` のYAMLを編集
-2. `cd app && go run ./cmd/datasync -data ../data -env dev apply` でNeon dev DBに同期（事前に `AWS_PROFILE` 設定 + `aws sso login` が必要。[AWS CLI セットアップ](docs/aws-setup.md) 参照。差分は `apply` を `plan` に変えて事前確認）
-3. `curl -u 'ユーザー名:パスワード' -X POST https://admin.dev.rikako.org/api/publish` でDB → S3にJSON書き出し（管理APIは `/api` 配下・Basic Auth 必須。`/publish` 直下はフロントエンドSPAに当たるので注意）
-4. CloudFrontが60秒以内に新JSONを配信
+1. `data/` のYAMLを編集して PR（`plan-datasync.yml` が dev の差分をコメント）
+2. main にマージ → **Sync Content Dev**（`sync-content-dev.yml`）が自動で `datasync apply` → `/publish` → CDN invalidate → 問題集Web（dev）のデプロイまで行う
+3. prod は **Sync Content Prod** を手動 dispatch（`production` 承認 ×2: sync と web）。同じ順序で prod に反映する。アプリのコードごと出すときは Deploy All Prod
+4. iOS / Android は publish 直後、問題集Web は再ビルド後に反映（web は静的エクスポートでビルド時に JSON を焼き込むため）
+
+手元で個別にやる場合（デバッグ用）:
+- `cd app && go run ./cmd/datasync -data ../data -env dev apply`（事前に `AWS_PROFILE` 設定 + `aws sso login`。[AWS CLI セットアップ](docs/aws-setup.md) 参照。差分は `plan` で事前確認）
+- `curl -u 'ユーザー名:パスワード' -X POST https://admin.dev.rikako.org/api/publish`（管理APIは `/api` 配下・Basic Auth 必須。`/publish` 直下はフロントエンドSPAに当たるので注意）
+- CloudFrontが60秒以内に新JSONを配信。web は `deploy-web-dev.yml` を手動起動
 
 > **dev DB接続の注意**
 > - `datasync -env dev` は SSM `/rikako/development/database-url` から接続URLを取得する（Lambda が読むものと同じ。パラメータ名は Terraform の `local.environment` に合わせてある）。DB ドライバは **pgx(stdlib) + simple protocol**（#291 / #292 で lib/pq から移行）。pgx は SCRAM channel binding に対応しているため `channel_binding=require` を付けてもよく、`dbconn.Pooled` は指定があれば保持する。SSM に入っている値は **direct ホスト**で、pooled endpoint への切替は `DB_USE_POOLER=true` を見て `dbconn.Pooled` がホスト名に `-pooler` を付ける（datasync はこの変換を行わないため direct 接続）。接続方針の詳細は [runbook の Neon 接続プーリング](docs/runbook.md#neon-pooling) を参照。
