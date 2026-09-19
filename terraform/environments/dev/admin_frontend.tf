@@ -1,15 +1,7 @@
-data "aws_ssm_parameter" "admin_basic_auth_user" {
-  name = "/rikako/admin-basic-auth-user"
-}
-
-data "aws_ssm_parameter" "admin_basic_auth_password" {
-  name = "/rikako/admin-basic-auth-password"
-}
-
 locals {
   admin_bucket_name            = "${local.project}-admin-${local.environment}"
   admin_api_origin_domain      = trimsuffix(trimprefix(module.lambda_admin.function_url, "https://"), "/")
-  admin_basic_auth_credentials = base64encode("${data.aws_ssm_parameter.admin_basic_auth_user.value}:${data.aws_ssm_parameter.admin_basic_auth_password.value}")
+  admin_basic_auth_credentials = base64encode("${aws_ssm_parameter.admin_basic_auth_user.value}:${aws_ssm_parameter.admin_basic_auth_password.value}")
 }
 
 # S3 Bucket for admin frontend

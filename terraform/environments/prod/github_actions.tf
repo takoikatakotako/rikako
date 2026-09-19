@@ -166,11 +166,17 @@ data "aws_iam_policy_document" "github_actions_ssm" {
     actions = [
       "ssm:GetParameter",
     ]
+    # policy document（data source）から resource を参照すると plan が遅延するため、名前は locals から取る（ssm.tf 参照）
     resources = [
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/admin-basic-auth-user",
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/admin-basic-auth-password",
-      # Firebase の GoogleService-Info.plist / google-services.json（手動 put、Terraform 管理外）
-      "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/rikako/${local.environment}/firebase/*",
+      for name in concat(
+        [
+          local.ssm_param_names.admin_basic_auth_user,
+          local.ssm_param_names.admin_basic_auth_password,
+          # Firebase の GoogleService-Info.plist / google-services.json（deploy-android-prod が pull する）
+          local.ssm_param_names.firebase_android,
+        ],
+        values(local.firebase_ios_param_names),
+      ) : "${local.ssm_param_arn_prefix}${name}"
     ]
   }
 }
