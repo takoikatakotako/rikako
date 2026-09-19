@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1770D0D73020D50100952A77 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1770D0D63020D50100952A77 /* FirebaseAnalytics */; };
+		1770D0D93020D50100952A77 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 1770D0D83020D50100952A77 /* FirebaseCrashlytics */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1770D0D73020D50100952A77 /* FirebaseAnalytics in Frameworks */,
+				1770D0D93020D50100952A77 /* FirebaseCrashlytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +146,7 @@
 				17B40F592F65BCE3001A7DD8 /* Sources */,
 				17B40F5A2F65BCE3001A7DD8 /* Frameworks */,
 				17B40F5B2F65BCE3001A7DD8 /* Resources */,
+				1770D0DA3020D50100952A77 /* Upload dSYMs to Crashlytics */,
 			);
 			buildRules = (
 			);
@@ -155,6 +158,7 @@
 			name = Rikako;
 			packageProductDependencies = (
 				1770D0D63020D50100952A77 /* FirebaseAnalytics */,
+				1770D0D83020D50100952A77 /* FirebaseCrashlytics */,
 			);
 			productName = Rikako;
 			productReference = 17B40F5D2F65BCE3001A7DD8 /* Rikako.app */;
@@ -276,6 +280,33 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1770D0DA3020D50100952A77 /* Upload dSYMs to Crashlytics */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}",
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+				"$(PROJECT_DIR)/Rikako/Firebase",
+			);
+			name = "Upload dSYMs to Crashlytics";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Crashlytics に dSYM をアップロードする（#235）。\n# GoogleService-Info-<slug>-<env>.plist は git 管理外なので、無ければ（CI 等）スキップして成功扱いにする。\ncase \"${CONFIGURATION}\" in\n  *Release) FIREBASE_ENV=prod ;;\n  *)        FIREBASE_ENV=dev ;;\nesac\nGSP=\"${PROJECT_DIR}/Rikako/Firebase/GoogleService-Info-${APP_SLUG}-${FIREBASE_ENV}.plist\"\nif [ ! -f \"${GSP}\" ]; then\n  echo \"warning: ${GSP} が無いため dSYM のアップロードをスキップします\"\n  exit 0\nfi\n\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\" -gsp \"${GSP}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		17B40F592F65BCE3001A7DD8 /* Sources */ = {
@@ -911,6 +942,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
@@ -933,6 +965,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -951,6 +984,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -972,6 +1006,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -990,6 +1025,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
@@ -1012,6 +1048,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 3.1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1030,6 +1067,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				DEVELOPMENT_TEAM = 5RH346BQ66;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1051,6 +1089,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 3.1.0;
+				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -1135,6 +1174,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1770D0D43020D3B500952A77 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalytics;
+		};
+		1770D0D83020D50100952A77 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1770D0D43020D3B500952A77 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -10,6 +10,10 @@ name: Deploy Android Prod
 #   ANDROID_KEY_PASSWORD       … 鍵のパスワード
 #   PLAY_SERVICE_ACCOUNT_JSON  … Play Console に紐づけたサービスアカウントの JSON
 #
+# Firebase の google-services.json（Crashlytics / Analytics 用、#235）は Secrets ではなく
+# prod アカウントの SSM `/rikako/production/firebase/android` から取る（OIDC で assume）。
+# ローカルと同じ scripts/firebase-config.sh を使う。
+#
 # 新規アプリは Play Console の仕様上、最初の1本だけ手動アップロードが要る。
 # 詳細は docs/android.md の「Play Console へのデプロイ」を参照。
 on:
@@ -43,6 +47,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # SSM から Firebase 設定を取るための OIDC
 
 concurrency:
   group: deploy-android-prod-${{ inputs.flavor }}
@@ -81,6 +86,17 @@ jobs:
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Configure AWS credentials (SSM)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
+          aws-region: ap-northeast-1
+
+      # google-services.json は git 管理外なので SSM から取る。取れなければ（パラメータ未登録・
+      # 権限不足）スクリプトが失敗して止まる。Crashlytics 無しの AAB が黙って上がるのを防ぐため。
+      - name: Fetch google-services.json from SSM
+        run: scripts/firebase-config.sh pull prod android
 
       # 手動初回（versionCode 1）と分ける。同じ flavor は concurrency で直列化し、
       # 過去の run を後から再実行しても新しい番号になるよう UTC 時刻を使う。

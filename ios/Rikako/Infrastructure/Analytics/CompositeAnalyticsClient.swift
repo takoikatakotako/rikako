@@ -1,7 +1,7 @@
 import Foundation
 
 /// 複数の `AnalyticsClient` に同じイベントをファンアウトする。
-/// dev では Console（コンソール即確認）と Firebase(rikako-dev, DebugView 検証) の両方に流すために使う。
+/// dev では Console（コンソール即確認）と Firebase(sandbox-492513。GA4 未リンクのため DebugView は見えない) の両方に流すために使う。
 final class CompositeAnalyticsClient: AnalyticsClient {
     private let clients: [AnalyticsClient]
 

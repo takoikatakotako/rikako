@@ -83,7 +83,7 @@ final class AppContainer {
             link: link
         )
 
-        // dev(Debug) = rikako-dev、prod(Release) = rikako-prd。plist は slug×env で選択。
+        // dev(Debug) = sandbox-492513、prod(Release) = rikako-prd。plist は slug×env で選択。
         // dev は Console にも出力（コンソール即確認 + DebugView 検証の両立）。
         // plist が無ければ Firebase 分はスキップ（dev=Consoleのみ / prod=Noop）。
         #if DEBUG
@@ -99,5 +99,8 @@ final class AppContainer {
         #endif
         analytics.setCommonProperties(.current(flavor: flavor))
         self.analytics = analytics
+
+        // Crashlytics は上の Firebase configure に相乗りする（plist が無ければ何もしない）。
+        CrashReporter.configure(flavor: flavor)
     }
 }

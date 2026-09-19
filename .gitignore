@@ -43,3 +43,6 @@ firebase-debug.log
 # Python
 __pycache__/
 *.pyc
+
+# Firebase の Android 設定（API キーを含むため git に載せない。docs/android.md 参照）
+**/google-services.json
