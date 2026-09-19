@@ -15,6 +15,9 @@ name: Sync Content Prod
 on:
   workflow_dispatch:
 
+# 呼び出す側の権限は、呼ばれる側の上限になる（reusable workflow は昇格できない）。
+# deploy-web-prod.yml の release-note が web-prod/* タグの push と Release 作成で
+# contents: write を使うため、web job にはここから渡す必要がある。
 permissions:
   contents: read
   id-token: write
@@ -81,4 +84,7 @@ jobs:
   web:
     name: 問題集Web
     needs: [sync]
+    permissions:
+      contents: write # release-note（web-prod/* タグ + Release）のため
+      id-token: write
     uses: ./.github/workflows/deploy-web-prod.yml
