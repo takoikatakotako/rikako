@@ -144,7 +144,7 @@ struct StudyHomeView: View {
                                 Image(systemName: "book.closed.fill")
                                     .font(.system(size: 28))
                                     .foregroundStyle(.white)
-                                Text("0点から\n化学基礎")
+                                Text(AppFlavor.current.copy.homeHeroBadge)
                                     .font(.caption2.bold())
                                     .foregroundStyle(.white)
                                     .multilineTextAlignment(.center)
