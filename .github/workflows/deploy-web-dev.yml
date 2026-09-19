@@ -18,6 +18,12 @@ on:
         description: "ロールバック用。戻したい commit の 40 桁 SHA（main 履歴上のもののみ。未指定なら起動した ref の HEAD）"
         required: false
         type: string
+  # sync-content-dev.yml が publish の後に呼ぶ（#391）
+  workflow_call:
+    inputs:
+      checkout_ref:
+        required: false
+        type: string
 
 permissions:
   contents: read

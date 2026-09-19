@@ -1,0 +1,95 @@
+name: Publish content
+description: 管理API の /publish で DB → S3 に JSON を書き出し、コンテンツ CDN を invalidate して完了を待つ
+
+# AWS 認証（configure-aws-credentials）は呼び出し側で済ませておくこと。
+# 管理API の Basic 認証は SSM（/rikako/admin-basic-auth-*）から読む。
+
+inputs:
+  admin-api-url:
+    description: "管理API のベース URL（例: https://admin.rikako.org/api）"
+    required: true
+  content-cf-alias:
+    description: "コンテンツ CDN の CloudFront alias（例: content.rikako.org）"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Publish content
+      shell: bash
+      env:
+        ADMIN_API_URL: ${{ inputs.admin-api-url }}
+      run: |
+        set -euo pipefail
+        USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
+        PASS=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
+
+        # 管理API は普段使われないため、ほぼ必ずコールドスタートになる。
+        # 初回リクエストが 502 で落ちることがあるので、先に /health で温めてから
+        # publish し、失敗しても数回試す（Issue #359）。
+        curl -s -o /dev/null -u "${USER}:${PASS}" "${ADMIN_API_URL}/health" || true
+
+        for attempt in 1 2 3; do
+          # curl が接続・TLS・DNS で落ちると非ゼロ終了する。set -e でその場で
+          # 止まらないよう if で受けて、HTTP 応答が無かった場合もリトライ対象にする。
+          if CODE=$(curl -s -o /tmp/publish.json -w "%{http_code}" \
+            -u "${USER}:${PASS}" -X POST "${ADMIN_API_URL}/publish"); then
+            :
+          else
+            CODE="000"
+          fi
+
+          if [ "$CODE" = "200" ]; then
+            echo "publish OK (attempt ${attempt})"
+            cat /tmp/publish.json
+            exit 0
+          fi
+
+          echo "publish failed with HTTP ${CODE} (attempt ${attempt})"
+          cat /tmp/publish.json 2>/dev/null || true
+          sleep 10
+        done
+
+        echo "::error::publish が 3 回とも失敗しました。"
+        exit 1
+
+    - name: Invalidate content CDN
+      shell: bash
+      env:
+        CONTENT_CF_ALIAS: ${{ inputs.content-cf-alias }}
+      # publish は S3 を上書きするだけで CloudFront のキャッシュは消えない。
+      # JSON は max-age=60、ディストリビューションの default_ttl も 60 なので、
+      # publish 直前に edge へ載った古い JSON が最大 60 秒返り続ける。
+      # web はビルド時にこれを焼き込むため、完了を待ってから次へ進む。
+      run: |
+        set -euo pipefail
+        DIST_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?contains(Aliases.Items, '${CONTENT_CF_ALIAS}')].Id | [0]" \
+          --output text)
+        if [ -z "$DIST_ID" ] || [ "$DIST_ID" = "None" ]; then
+          echo "::error::${CONTENT_CF_ALIAS} の CloudFront distribution が見つかりません"
+          exit 1
+        fi
+
+        INV_ID=$(aws cloudfront create-invalidation \
+          --distribution-id "$DIST_ID" --paths "/v1/*" \
+          --query 'Invalidation.Id' --output text)
+        echo "Invalidation ${INV_ID} on ${DIST_ID} ..."
+
+        aws cloudfront wait invalidation-completed \
+          --distribution-id "$DIST_ID" --id "$INV_ID"
+        echo "invalidation completed"
+
+    - name: Summary
+      shell: bash
+      run: |
+        {
+          echo "## コンテンツ公開"
+          echo ""
+          echo '```json'
+          cat /tmp/publish.json
+          echo ''
+          echo '```'
+          echo ""
+          echo "コンテンツ CDN の \`/v1/*\` を invalidate し、完了を待った。"
+        } >> "$GITHUB_STEP_SUMMARY"

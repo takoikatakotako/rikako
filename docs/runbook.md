@@ -95,6 +95,28 @@ IAM ポリシーがまさにこれで、apply 前に一括デプロイしてい�
 
 ポータルはコンテンツを焼き込まない（API を実行時に叩く）ため publish を待たない。
 
+### データだけ反映する: Sync Content {Dev,Prod}（#391）
+
+`data/` の YAML だけを変えたときは Deploy All Prod ではなく **Sync Content** を使う。
+手順が 1 本になっており、順序も強制される。
+
+```
+datasync apply（YAML → Neon）→ /publish（DB → S3）→ CDN invalidation → 問題集Web のビルド
+```
+
+| | 起動 | 承認 |
+|---|---|---|
+| **Sync Content Dev** (`sync-content-dev.yml`) | `data/**` が main に入ると自動（`workflow_dispatch` も可、main のみ） | なし |
+| **Sync Content Prod** (`sync-content-prod.yml`) | 手動 dispatch（main のみ） | `production` ×2（sync → web） |
+
+- `datasync apply` は CI 上で `go build ./cmd/datasync` して実行し、接続 URL は SSM の
+  `/rikako/<env>/database-url` から読む。prod の GitHub Actions ロールにはこのための
+  `ssm:GetParameter` を付けている（`github_actions.tf`）
+- publish + invalidation は `.github/actions/publish-content`（composite action）で、
+  Deploy All Prod の publish job と同じもの
+- PR 段階の差分は従来通り `plan-datasync.yml` がコメントする。apply を手元で打つ運用は
+  デバッグ時のみ（[datasync](datasync.md)）
+
 > **承認は数回に分かれる。** 各コンポーネントの job が `production` environment を
 > 使うため、同時に走る job の分をまとめて承認したあと、`publish`、続いて `web` の
 > 分を順に承認することになる。
