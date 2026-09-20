@@ -225,17 +225,17 @@ def check_s3_sync(path: Path, workflow: dict) -> list[str]:
         return errors
 
     src, dst = operands
-    if "_next/static" in src or "_next/static" in dst:
+    # source はビルド成果物の out/ そのもの。別のディレクトリ（空ディレクトリ等）を指すと
+    # --delete が公開バケットの中身を消すので、完全一致で見る。
+    if src != "out/":
+        errors.append(f"{path.name}: source が out/ ではない（{src}）。--delete で公開中の内容を消しかねない")
+    # destination はバケット直下（s3://<bucket>/）。サブディレクトリや _next/static/ を
+    # 指すとサイト全体をその階層へ流し込み、--delete がバケット直下の他のものを消す。
+    # バケット名は ${{ matrix.bucket }} / ${S3_BUCKET} のような expression でもよい。
+    if not re.fullmatch(r"s3://[^/]+/", dst):
         errors.append(
-            f"{path.name}: sync が _next/static/ 階層を対象にしている（out/ 全体をバケット直下へ同期する）"
-            f"（{src} → {dst}）"
+            f"{path.name}: destination がバケット直下（s3://<bucket>/）ではない（{dst}）"
         )
-    if not src.endswith("/"):
-        errors.append(f"{path.name}: source がディレクトリ（末尾 /）になっていない（{src}）")
-    if not dst.startswith("s3://"):
-        errors.append(f"{path.name}: destination が s3:// になっていない（{dst}）")
-    elif not dst.endswith("/"):
-        errors.append(f"{path.name}: destination がバケット直下（末尾 /）になっていない（{dst}）")
 
     return errors
 

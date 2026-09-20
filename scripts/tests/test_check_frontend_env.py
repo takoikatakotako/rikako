@@ -314,7 +314,23 @@ aws s3 sync out/ s3://bucket/ --delete --exclude "_next/static/*"
         errors = self.run_sync_check(workflow(PROD, sync="""
 aws s3 sync out/ s3://bucket/_next/static/ --delete
 """))
-        self.assertTrue(any("_next/static" in e for e in errors), errors)
+        self.assertTrue(any("バケット直下" in e for e in errors), errors)
+
+    def test_wrong_source_is_detected(self):
+        """source を間違えると --delete が公開中のファイルを消す。out/ 完全一致で見る。"""
+        for src in ("wrong/", "out", "./out/", "web/out/"):
+            errors = self.run_sync_check(workflow(PROD, sync=f"""
+aws s3 sync {src} s3://bucket/ --delete
+"""))
+            self.assertTrue(any("source が out/ ではない" in e for e in errors), (src, errors))
+
+    def test_subdirectory_destination_is_detected(self):
+        """バケット直下以外へ流し込むと、--delete が直下の他のものを消す。"""
+        for dst in ("s3://bucket/subdir/", "s3://bucket", "s3://bucket/x"):
+            errors = self.run_sync_check(workflow(PROD, sync=f"""
+aws s3 sync out/ {dst} --delete
+"""))
+            self.assertTrue(any("バケット直下" in e for e in errors), (dst, errors))
 
     def test_non_s3_destination_is_detected(self):
         errors = self.run_sync_check(workflow(PROD, sync="""
