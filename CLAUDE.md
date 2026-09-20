@@ -96,7 +96,7 @@ Rikako - 問題集アプリ
     ├── plan-datasync.yml           # PR時に data 差分 plan
     ├── sync-content-{dev,prod}.yml # data 反映（datasync apply → publish → invalidate → web）。dev は main push で自動、prod は手動+承認
     ├── migrate-{dev,prod}.yml      # マイグレーション（手動 dispatch。prod は承認）
-    ├── backup-db-prod.yml          # prod DB を毎日バックアップ
+    ├── backup-db-prod.yml          # prod DB を毎日バックアップ（鮮度監視は Terraform の backup_monitor.tf、#331）
     # テスト
     ├── ci.yml / ci-portal.yml / web.yml     # Go / portal / web
     ├── ios.yml / ios-e2e.yml / ios-screenshots.yml
