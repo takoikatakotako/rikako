@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -53,7 +54,25 @@ func PrintPlan(plan *PlanResult) {
 	)
 }
 
+// colorEnabled は色付けするかどうか。端末に直接出しているときだけ色を付ける。
+// CI では tee でファイルに落として Step Summary に貼るため、ANSI エスケープが
+// そのまま文字として見えてしまう（Sync Content Prod の初回で発覚）。
+// NO_COLOR（https://no-color.org/）が設定されていれば端末でも色を付けない。
+var colorEnabled = func() bool {
+	if _, set := os.LookupEnv("NO_COLOR"); set {
+		return false
+	}
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}()
+
 func colorForAction(a Action) string {
+	if !colorEnabled {
+		return ""
+	}
 	switch a {
 	case ActionAdd:
 		return "\033[32m" // green
@@ -67,6 +86,9 @@ func colorForAction(a Action) string {
 }
 
 func resetColor() string {
+	if !colorEnabled {
+		return ""
+	}
 	return "\033[0m"
 }
 
