@@ -10,6 +10,7 @@ schedule の停止（public リポジトリは 60 日無活動で自動停止す
 """
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import boto3
@@ -17,14 +18,32 @@ import boto3
 BUCKET = os.environ["BUCKET"]
 PREFIX = os.environ.get("PREFIX", "")
 MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
+# backup-db-prod.yml の Verify step と同じ下限。これ未満は失敗扱いで上がらないはずだが、
+# 手動で置かれた空ファイル等を「最新のバックアップ」と誤認しないよう、ここでも弾く。
+MIN_SIZE_BYTES = int(os.environ.get("MIN_SIZE_BYTES", "1024"))
 SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
+
+# backup-db-prod.yml が生成するキーだけを対象にする:
+#   <PREFIX>YYYY/MM/DD/rikako-YYYYMMDDTHHMMSSZ.dump
+# 調査用のファイルや手動アップロードが同じ prefix に置かれても鮮度の判定に混ざらない。
+BACKUP_KEY_RE = re.compile(r"^\d{4}/\d{2}/\d{2}/rikako-\d{8}T\d{6}Z\.dump$")
 
 s3 = boto3.client("s3")
 sns = boto3.client("sns")
 
 
+def is_backup_object(obj) -> bool:
+    """ワークフローが作るダンプの形式（キーとサイズ）に一致するか。"""
+    key = obj["Key"]
+    if not key.startswith(PREFIX):
+        return False
+    if not BACKUP_KEY_RE.match(key[len(PREFIX):]):
+        return False
+    return obj.get("Size", 0) >= MIN_SIZE_BYTES
+
+
 def latest_object():
-    """PREFIX 配下で LastModified が最新のオブジェクトを返す（無ければ None）。
+    """PREFIX 配下のバックアップのうち LastModified が最新のものを返す（無ければ None）。
 
     バックアップは production/YYYY/MM/DD/ に日次で置かれ、ライフサイクルで 30 日後に消える。
     多くても数十件なので全件を舐める（ページングは念のため）。
@@ -33,6 +52,8 @@ def latest_object():
     paginator = s3.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=BUCKET, Prefix=PREFIX):
         for obj in page.get("Contents", []):
+            if not is_backup_object(obj):
+                continue
             if newest is None or obj["LastModified"] > newest["LastModified"]:
                 newest = obj
     return newest
@@ -45,7 +66,8 @@ def handler(_event, _context):
     if newest is None:
         notify(
             f":rotating_light: *prod DB バックアップが 1 件もありません*\n"
-            f"s3://{BUCKET}/{PREFIX} にオブジェクトが無い。backup-db-prod.yml が動いているか確認してください。"
+            f"s3://{BUCKET}/{PREFIX} に `YYYY/MM/DD/rikako-*.dump`（{MIN_SIZE_BYTES} bytes 以上）が無い。"
+            "backup-db-prod.yml が動いているか確認してください。"
         )
         return {"status": "missing"}
 

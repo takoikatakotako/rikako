@@ -86,7 +86,9 @@ resource "aws_lambda_function" "backup_freshness" {
       BUCKET        = module.db_backup.bucket_id
       PREFIX        = "${local.environment}/"
       MAX_AGE_HOURS = tostring(local.backup_freshness_max_age_hours)
-      SNS_TOPIC_ARN = aws_sns_topic.alerts.arn
+      # backup-db-prod.yml の Verify step（1024 bytes 未満は失敗）と同じ下限
+      MIN_SIZE_BYTES = "1024"
+      SNS_TOPIC_ARN  = aws_sns_topic.alerts.arn
     }
   }
 
@@ -158,7 +160,36 @@ resource "aws_scheduler_schedule" "backup_freshness" {
   }
 }
 
-# Lambda 自身が壊れて黙るケースを拾う（監視の監視。既存の SNS へ）。
+# --- 監視の監視（既存の SNS へ）---
+#
+# 「この Lambda が 2 日連続で 1 回も呼ばれていない」を拾う。Scheduler の無効化・削除、
+# 実行ロールの不備、retry 枯渇後の破棄（InvocationDroppedCount）、Lambda の削除など、
+# 呼び出しに至らない故障をすべて 1 つで検知できる。AWS/Scheduler のメトリクスは
+# ScheduleGroup 単位でしか出ないため、Lambda 側の Invocations を heartbeat として使う。
+#
+# period は UTC 日付に揃う。当日分は 21:10 UTC の実行までは 0 なので、datapoints_to_alarm
+# を 2 にして「前日も当日も無い」ときだけ鳴らす（実行漏れの翌日中に検知）。
+resource "aws_cloudwatch_metric_alarm" "backup_freshness_heartbeat" {
+  alarm_name          = "${local.project}-${local.environment}-backup-freshness-heartbeat"
+  alarm_description   = "バックアップ鮮度チェック Lambda が 2 日間呼ばれていない（Scheduler 停止・呼び出し失敗など監視自体が止まっている）"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Invocations"
+  statistic           = "Sum"
+  period              = 86400
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+  dimensions = {
+    FunctionName = aws_lambda_function.backup_freshness.function_name
+  }
+  alarm_actions = local.alarm_actions
+  ok_actions    = local.alarm_actions
+  tags          = local.alarm_tags
+}
+
+# Lambda は呼ばれたがエラー終了した（S3 権限や SNS 権限の不備など）。
 resource "aws_cloudwatch_metric_alarm" "backup_freshness_errors" {
   alarm_name          = "${local.project}-${local.environment}-backup-freshness-errors"
   alarm_description   = "バックアップ鮮度チェック Lambda がエラー終了した（監視自体が止まっている可能性）"

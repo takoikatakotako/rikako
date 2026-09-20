@@ -51,7 +51,8 @@ EventBridge Scheduler（毎日 21:10 UTC）
 - 定義: `terraform/environments/prod/backup_monitor.tf`、コード: `lambda/backup_freshness/index.py`
 - 閾値は日次 + 1 日分の遅延・再実行の余地で 48 時間（`local.backup_freshness_max_age_hours`）。
   実際の schedule は cron の 18:10 UTC から 2 時間以上遅れることがある（GitHub の仕様）
-- Lambda 自身のエラーは CloudWatch Alarm `rikako-production-backup-freshness-errors` で拾う（監視の監視）
+- 対象は workflow が作る `YYYY/MM/DD/rikako-<timestamp>.dump`（1024 bytes 以上）だけ。同じ prefix に調査用ファイルや手動アップロードがあっても鮮度の判定に混ざらない
+- 監視の監視は CloudWatch Alarm 2 個: `rikako-production-backup-freshness-heartbeat`（Lambda が 2 日間呼ばれていない = Scheduler 停止・呼び出し失敗）と `...-errors`（Lambda がエラー終了）
 - 手動で確認したいときは Lambda を直接呼ぶ（`{"status": "ok", "age_hours": ...}` が返る）:
 
   ```bash
