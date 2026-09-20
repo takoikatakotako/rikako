@@ -261,6 +261,7 @@ db.SetConnMaxIdleTime(1 * time.Minute)  // アイドル接続の最大時間
   - `/rikako/<env>/database-url` は Terraform が Neon の connection_uri から SecureString として登録
   - `/rikako/neon-api-key` は Terraform Provider 用、手動登録
   - `/rikako/<env>/firebase/ios/<app_slug>`・`/rikako/<env>/firebase/android` は Firebase のクライアント設定（plist / google-services.json、git 管理外）。値は `scripts/firebase-config.sh pull|push` で出し入れ
+  - `/rikako/production/android/*`（upload-keystore / -password / key-alias / key-password / play-service-account）は Android の Play 用署名素材。値は `scripts/android-signing.sh push|pull` で出し入れ（#405）
   - Lambda 環境変数は `ssm:/rikako/<env>/...` のリテラル参照のみ。`app/internal/secrets.Resolve` および Python `_resolve_ssm` が起動時に実値を取得
 
 ### 環境

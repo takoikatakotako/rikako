@@ -46,3 +46,9 @@ __pycache__/
 
 # Firebase の Android 設定（API キーを含むため git に載せない。docs/android.md 参照）
 **/google-services.json
+
+# Android の署名素材（SSM に置く。docs/android.md 参照）
+*.jks
+*.keystore
+*.pepk
+*service-account*.json

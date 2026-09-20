@@ -3,16 +3,12 @@ name: Deploy Android Prod
 # Play Console へ AAB を上げる。手動起動＋ environment: production の承認を通す
 # （Deploy Web Prod / Apply Terraform Prod と同じ方式）。
 #
-# 必要な Secrets:
-#   ANDROID_KEYSTORE_BASE64    … アップロード鍵の JKS を base64 にしたもの
-#   ANDROID_KEYSTORE_PASSWORD  … キーストアのパスワード
-#   ANDROID_KEY_ALIAS          … 鍵のエイリアス
-#   ANDROID_KEY_PASSWORD       … 鍵のパスワード
-#   PLAY_SERVICE_ACCOUNT_JSON  … Play Console に紐づけたサービスアカウントの JSON
-#
-# Firebase の google-services.json（Crashlytics / Analytics 用、#235）は Secrets ではなく
-# prod アカウントの SSM `/rikako/production/firebase/android` から取る（OIDC で assume）。
-# ローカルと同じ scripts/firebase-config.sh を使う。
+# 署名素材（アップロード鍵の keystore・パスワード・alias、Play のサービスアカウント JSON）と
+# Firebase の google-services.json は GitHub Secrets ではなく prod アカウントの SSM から取る
+# （OIDC で assume、#405 / #235）。手元の初回手動アップロードも同じスクリプトで同じ場所から取る:
+#   scripts/android-signing.sh pull / pull-service-account、scripts/firebase-config.sh pull prod android
+# SSM から取った値は GitHub Actions が自動でマスクしないので、ログに出さないよう
+# 変数に入れるだけにし、ファイルは $RUNNER_TEMP に置く。
 #
 # 新規アプリは Play Console の仕様上、最初の1本だけ手動アップロードが要る。
 # 詳細は docs/android.md の「Play Console へのデプロイ」を参照。
@@ -77,21 +73,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Decode upload keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ANDROID_KEYSTORE_BASE64 が設定されていません" >&2
-            exit 1
-          fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
-
       - name: Configure AWS credentials (SSM)
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::211125415945:role/rikako-production-github-actions
           aws-region: ap-northeast-1
+
+      # keystore を $RUNNER_TEMP に復元し、パスワード類を GITHUB_ENV へ（マスクしてから）。
+      - name: Fetch signing material from SSM
+        run: |
+          set -euo pipefail
+          eval "$(scripts/android-signing.sh pull "$RUNNER_TEMP")"
+          for v in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            echo "::add-mask::${!v}"
+            echo "${v}=${!v}" >> "$GITHUB_ENV"
+          done
+          echo "ANDROID_KEYSTORE_FILE=${ANDROID_KEYSTORE_FILE}" >> "$GITHUB_ENV"
+          scripts/android-signing.sh pull-service-account "$RUNNER_TEMP/play-service-account.json"
 
       # google-services.json は git 管理外なので SSM から取る。取れなければ（パラメータ未登録・
       # 権限不足）スクリプトが失敗して止まる。Crashlytics 無しの AAB が黙って上がるのを防ぐため。
@@ -110,13 +108,9 @@ jobs:
           fi
           echo "ANDROID_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
 
+      # 署名用の環境変数は上の step で GITHUB_ENV に入れてある。
       - name: Build AAB
         working-directory: ./android
-        env:
-          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           FLAVOR="${{ inputs.flavor }}"
           VARIANT="$(echo "${FLAVOR:0:1}" | tr '[:lower:]' '[:upper:]')${FLAVOR:1}ProdRelease"
@@ -125,7 +119,7 @@ jobs:
       - name: Upload to Play Console
         uses: r0adkll/upload-google-play@v1
         with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          serviceAccountJson: ${{ runner.temp }}/play-service-account.json
           packageName: ${{ inputs.flavor == 'chemistry' && 'org.rikako.chemistry' || 'org.rikako.itpassport' }}
           releaseFiles: android/app/build/outputs/bundle/${{ inputs.flavor }}ProdRelease/*.aab
           track: ${{ inputs.track }}

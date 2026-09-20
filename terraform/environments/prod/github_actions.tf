@@ -178,6 +178,8 @@ data "aws_iam_policy_document" "github_actions_ssm" {
           aws_ssm_parameter.database_url.name,
         ],
         values(local.firebase_ios_param_names),
+        # Android の署名素材（deploy-android-prod が読む、#405）
+        values(local.android_signing_param_names),
       ) : "${local.ssm_param_arn_prefix}${name}"
     ]
   }
