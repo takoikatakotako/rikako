@@ -285,24 +285,27 @@ gitで前のコミットに戻してデプロイワークフローを再実行�
 gh workflow run "Deploy Admin Frontend Dev" --repo takoikatakotako/rikako --ref <commit-sha>
 ```
 
-### 旧チャンクの保持（#342）
+### 旧チャンクは即削除する（#342）
 
-web / portal / admin の dev・prod（6 ワークフロー）は、同じ 2 段構えで S3 に同期する。
+web / portal / admin の dev・prod（6 ワークフロー）は、`out/` 全体を 1 本の sync で S3 に同期する。
 
 ```bash
-# 1) チャンクを先に公開する。--delete を付けないので旧チャンクが残る。
-aws s3 sync out/_next/static/ s3://<bucket>/_next/static/
-# 2) HTML 等を同期し、こちらだけ stale を削除する。旧チャンクは削除対象から外す。
-aws s3 sync out/ s3://<bucket>/ --delete --exclude "_next/static/*"
+aws s3 sync out/ s3://<bucket>/ --delete
 ```
 
-デプロイ前から開いている画面は旧チャンクを参照し続けるため、即削除すると画面遷移で
-`ChunkLoadError` になる。順序も重要で、HTML を先に出すと新 HTML が参照するチャンクが
-まだ無い瞬間ができる。`scripts/check-frontend-env.py` が 6 本ともこの形であることを検査する。
+`--delete` により stale な HTML も、旧ビルドのハッシュ付きチャンク（`_next/static/`）も
+その場で消える。デプロイの瞬間に開いていた画面が次の遷移で旧チャンクを読みに来ると
+失敗するが、
 
-旧チャンクの自動回収は行わないため、デプロイのたびに S3 上のファイルは蓄積する。
-回収方式は #342 の残件とする。単純な「作成から30日」の Lifecycle expiration は、
-長期間更新していない現行チャンクも消すため追加しない。
+- Next.js の app router はチャンクの読み込み失敗時に**フルリロードへフォールバック**する
+  （エラー画面にはならず、1 回だけ通常のページ読み込みになる）
+- 解答の進捗はサーバー保存で、端末に持つのは認証と deviceId だけ。失うのは「いま選んでいた 1 問」まで
+- web のデプロイは月に数回・トラフィックは小さく、この重なりは実質起きない
+
+ため実害は小さい。一時期（2026-08-28〜09-20）は sync を 2 本に分けて旧チャンクを残していたが、
+回収する仕組みが無く S3 に無限に溜まる方が問題だったため即削除に戻した。
+`scripts/check-frontend-env.py` が 6 本ともこの形（1 本・`--delete` あり・`--exclude` なし）で
+あることを検査する。
 
 ### Cache-Control は CloudFront で付ける（#336）
 

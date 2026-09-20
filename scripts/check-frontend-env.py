@@ -178,7 +178,7 @@ def s3_sync_operands(cmd: str) -> list[str]:
 
 
 def check_s3_sync(path: Path, workflow: dict) -> list[str]:
-    """S3 同期が「チャンク保持」の形になっているかを検証する（#336 / #342）。
+    """S3 同期が「1 本の sync --delete」の形になっているかを検証する（#336 / #342）。
 
     Cache-Control は CloudFront の ResponseHeadersPolicy で付ける
     （terraform/environments/*/frontend_cache.tf）。`aws s3 sync --cache-control` は
@@ -186,9 +186,10 @@ def check_s3_sync(path: Path, workflow: dict) -> list[str]:
     重なると 2 本目がスキップされて値が付かなかった（#336 の実害）。デプロイ手順に
     戻さないよう、ここで禁止する。
 
-    sync を 2 本に分ける理由は --delete の適用範囲だけ。ハッシュ付きチャンクを
-    --delete 無しで先に上げ、HTML 等の削除対象からも外すことで、デプロイ前から
-    開いている画面が旧チャンクを取得できる（#342）。
+    旧チャンク（_next/static/ のハッシュ付きファイル）は --delete で即削除する（#342 で
+    確定）。一時期は 2 本に分けて旧チャンクを残していたが、進捗はサーバー保存で
+    Next.js はチャンク欠落時にフルリロードへフォールバックするため実害が小さく、
+    残すと S3 に無限に溜まる方が問題だった。--delete を外すと蓄積が再発するので禁止。
 
     source / destination も検証する。フラグだけ合っていても転送元・転送先を間違えれば
     壊れるため（例: `aws s3 sync out/ s3://bucket/_next/static/` はサイト全体を
@@ -197,60 +198,44 @@ def check_s3_sync(path: Path, workflow: dict) -> list[str]:
     syncs = s3_sync_commands(workflow)
     if not syncs:
         return [f"{path.name}: s3 sync する step が見つからない"]
-    if len(syncs) != 2:
+    if len(syncs) != 1:
         return [
-            f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 2 回。チャンク用と HTML 用）"
+            f"{path.name}: s3 sync が {len(syncs)} 回（期待値: 1 回。out/ 全体を --delete で同期）"
             "\n    " + "\n    ".join(c.strip() for c in syncs)
         ]
 
-    chunks, rest = syncs
+    (cmd,) = syncs
     errors = []
 
-    for cmd in syncs:
-        if "--cache-control" in cmd:
-            errors.append(
-                f"{path.name}: s3 sync に --cache-control がある"
-                "（Cache-Control は CloudFront の ResponseHeadersPolicy で付ける）"
-            )
-            break
-
-    if "--delete" in chunks:
-        errors.append(f"{path.name}: チャンクの sync に --delete がある（旧チャンクが即削除される）")
-    if "--delete" not in rest:
-        errors.append(f"{path.name}: HTML 等の sync に --delete が無い（stale が消えない）")
-    if '--exclude "_next/static/*"' not in rest:
-        errors.append(f"{path.name}: HTML 等の sync が _next/static を除外していない（旧チャンクが消える）")
-
-    # source / destination。1 本目は必ず _next/static/ 階層どうしで、2 本目はその親どうし。
-    # 「親を剥がすと一致する」ことを見るので、バケット名の取り違えも同時に弾ける。
-    chunk_operands = s3_sync_operands(chunks)
-    rest_operands = s3_sync_operands(rest)
-
-    if len(chunk_operands) != 2 or len(rest_operands) != 2:
+    if "--cache-control" in cmd:
         errors.append(
-            f"{path.name}: sync の位置引数が source / destination の 2 つになっていない"
-            f"（チャンク: {chunk_operands}、HTML 等: {rest_operands}）"
+            f"{path.name}: s3 sync に --cache-control がある"
+            "（Cache-Control は CloudFront の ResponseHeadersPolicy で付ける）"
+        )
+    if "--delete" not in cmd:
+        errors.append(f"{path.name}: s3 sync に --delete が無い（stale な HTML と旧チャンクが消えず溜まる）")
+    if "--exclude" in cmd:
+        errors.append(f"{path.name}: s3 sync に --exclude がある（除外したものは --delete の対象からも外れて溜まる）")
+
+    operands = s3_sync_operands(cmd)
+    if len(operands) != 2:
+        errors.append(
+            f"{path.name}: sync の位置引数が source / destination の 2 つになっていない（{operands}）"
         )
         return errors
 
-    suffix = "_next/static/"
-    chunk_src, chunk_dst = chunk_operands
-    rest_src, rest_dst = rest_operands
-
-    if not chunk_src.endswith("/" + suffix) or not chunk_dst.endswith("/" + suffix):
+    src, dst = operands
+    if "_next/static" in src or "_next/static" in dst:
         errors.append(
-            f"{path.name}: 1 本目が _next/static/ どうしの同期になっていない"
-            f"（{chunk_src} → {chunk_dst}）"
+            f"{path.name}: sync が _next/static/ 階層を対象にしている（out/ 全体をバケット直下へ同期する）"
+            f"（{src} → {dst}）"
         )
-    elif rest_src != chunk_src[: -len(suffix)] or rest_dst != chunk_dst[: -len(suffix)]:
-        errors.append(
-            f"{path.name}: 2 本目の source / destination が 1 本目の親になっていない"
-            f"（期待値: {chunk_src[: -len(suffix)]} → {chunk_dst[: -len(suffix)]}、"
-            f"実際: {rest_src} → {rest_dst}）"
-        )
-
-    if not chunk_dst.startswith("s3://") or not rest_dst.startswith("s3://"):
-        errors.append(f"{path.name}: destination が s3:// になっていない（{chunk_dst} / {rest_dst}）")
+    if not src.endswith("/"):
+        errors.append(f"{path.name}: source がディレクトリ（末尾 /）になっていない（{src}）")
+    if not dst.startswith("s3://"):
+        errors.append(f"{path.name}: destination が s3:// になっていない（{dst}）")
+    elif not dst.endswith("/"):
+        errors.append(f"{path.name}: destination がバケット直下（末尾 /）になっていない（{dst}）")
 
     return errors
 
