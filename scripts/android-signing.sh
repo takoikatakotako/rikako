@@ -21,8 +21,6 @@
 #       keystore を <dir>（既定: $RUNNER_TEMP か mktemp）に復元し、Gradle が読む
 #       ANDROID_KEYSTORE_FILE / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
 #       の export 文を標準出力に出す（値はシングルクォートで囲む）。
-#   scripts/android-signing.sh pull-service-account <path>
-#       SA JSON を <path> に書き出す。
 #
 # 事前に AWS_PROFILE を prod のプロファイルにして `aws sso login`（docs/aws-setup.md 参照）。
 # CI では OIDC で assume したロールでそのまま動く。
@@ -31,7 +29,6 @@ set -euo pipefail
 usage() {
   echo "usage: $0 push <keystore.jks> [service-account.json]" >&2
   echo "       $0 pull [dir]            # eval \"\$(...)\" で環境変数に取り込む" >&2
-  echo "       $0 pull-service-account <path>" >&2
   exit 2
 }
 
@@ -67,7 +64,6 @@ put_param_file() {
 push() {
   local keystore="${1:-}" sa="${2:-}"
   [[ -n "$keystore" && -f "$keystore" ]] || usage
-  require_prod_account
 
   # keytool で keystore とパスワードの組を先に検証する（間違った値を登録しない）。
   local store_pass alias key_pass
@@ -129,17 +125,14 @@ pull() {
   printf 'export ANDROID_KEY_PASSWORD=%q\n' "$key_pass"
 }
 
-pull_service_account() {
-  local out="${1:-}"
-  [[ -n "$out" ]] || usage
-  get_param "$prefix/play-service-account" > "$out"
-  chmod 600 "$out"
-  echo "wrote $out" >&2
-}
-
+# push / pull とも prod アカウント以外では動かさない（別アカウントの同名パラメータを
+# 読み書きしない。pull の出力は eval して署名に使うので、読み側も fail-fast にする）。
 case "${1:-}" in
+  push|pull) require_prod_account ;;
+  *) usage ;;
+esac
+
+case "$1" in
   push) shift; push "$@" ;;
   pull) shift; pull "$@" ;;
-  pull-service-account) shift; pull_service_account "$@" ;;
-  *) usage ;;
 esac
