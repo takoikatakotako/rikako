@@ -7,11 +7,14 @@ plugins {
 
 // Play へ上げるビルドは CI から鍵を渡す。ローカルでは未設定のままでよく、
 // その場合 release も署名なし（= Play へは上げられない）ビルドになる。
-val keystoreFile: String? = System.getenv("ANDROID_KEYSTORE_FILE")
-val keystorePassword: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-val keyAlias: String? = System.getenv("ANDROID_KEY_ALIAS")
-val keyPassword: String? = System.getenv("ANDROID_KEY_PASSWORD")
-val hasReleaseSigning = !keystoreFile.isNullOrBlank() && file(keystoreFile).exists()
+// 名前を SigningConfig のプロパティ（keyAlias / keyPassword）と被らせない。被ると
+// `create("release") { this.keyAlias = keyAlias }` の右辺が receiver 側の null に解決され、
+// 署名時に NPE で落ちる（signingReport で Alias: null になる。#405 の初回ビルドで発覚）。
+val releaseKeystoreFile: String? = System.getenv("ANDROID_KEYSTORE_FILE")
+val releaseKeystorePassword: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias: String? = System.getenv("ANDROID_KEY_ALIAS")
+val releaseKeyPassword: String? = System.getenv("ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = !releaseKeystoreFile.isNullOrBlank() && file(releaseKeystoreFile).exists()
 
 // Firebase（Analytics / Crashlytics、#235）。google-services.json は API キーを含むため
 // git 管理外（iOS の GoogleService-Info.plist と同じ扱い）。SSM に置いてあるので
@@ -54,10 +57,10 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = file(keystoreFile!!)
-                storePassword = keystorePassword
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
+                storeFile = file(releaseKeystoreFile!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
