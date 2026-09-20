@@ -37,7 +37,9 @@ locals {
     admin_basic_auth_user     = "/${local.project}/admin-basic-auth-user"
     admin_basic_auth_password = "/${local.project}/admin-basic-auth-password"
   }
-  # Android の Play 用署名素材（#405）。scripts/android-signing.sh push|pull で出し入れ
+  # Android の Play 用署名素材のマスター（#405）。scripts/android-signing.sh push が SSM と
+  # GitHub Secrets の両方に書き、CI は Secrets を読む。SSM は記録と手元での pull 用なので
+  # GitHub Actions ロールには読み取り権限を付けない。
   android_signing_param_names = {
     upload_keystore          = "/${local.project}/${local.environment}/android/upload-keystore"
     upload_keystore_password = "/${local.project}/${local.environment}/android/upload-keystore-password"
@@ -137,7 +139,7 @@ resource "aws_ssm_parameter" "admin_basic_auth_password" {
   }
 }
 
-# --- Android の Play 用署名素材（deploy-android-prod / 手元の初回アップロードが読む）---
+# --- Android の Play 用署名素材（マスター。手元の初回アップロードが pull する）---
 
 resource "aws_ssm_parameter" "android_signing" {
   for_each = local.android_signing_param_names

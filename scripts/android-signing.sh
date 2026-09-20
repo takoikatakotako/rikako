@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Android の Play 用アップロード鍵と Play Console サービスアカウントを SSM Parameter Store と
-# 手元の間で出し入れする（#41 / Android リリース）。scripts/firebase-config.sh と同じ型。
+# 手元の間で出し入れする（#405）。scripts/firebase-config.sh と同じ型。
+#
+# SSM がマスター。`push` は SSM に登録すると同時に GitHub Secrets（deploy-android-prod.yml が
+# 読む）にも同じ値を書くので、2 か所を手で同期する必要はない。`pull` は手元で署名付きビルドを
+# 作るとき（初回の手動アップロード）に SSM から取る。
 #
 # パラメータ（すべて SecureString、prod アカウントのみ。名前は Terraform の ssm.tf で管理）:
 #   /rikako/production/android/upload-keystore           … アップロード鍵の keystore（base64）
@@ -11,8 +15,8 @@
 #
 # 使い方:
 #   scripts/android-signing.sh push <keystore.jks> [service-account.json]
-#       keystore と（あれば）SA JSON を SSM に登録する。パスワードと alias は対話で入力
-#       （コマンドラインに残さない）。
+#       keystore と（あれば）SA JSON を SSM と GitHub Secrets に登録する。パスワードと alias は
+#       対話で入力（コマンドラインに残さない）。gh の認証（gh auth login）が必要。
 #   eval "$(scripts/android-signing.sh pull [dir])"
 #       keystore を <dir>（既定: $RUNNER_TEMP か mktemp）に復元し、Gradle が読む
 #       ANDROID_KEYSTORE_FILE / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
@@ -80,20 +84,32 @@ push() {
   read -r -s -p "鍵のパスワード（keystore と同じなら空 Enter）: " key_pass; echo
   key_pass="${key_pass:-$store_pass}"
 
+  if [[ -n "$sa" ]]; then
+    [[ -f "$sa" ]] || { echo "missing: $sa" >&2; exit 1; }
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("type")=="service_account", "not a service account JSON"' "$sa"
+  fi
+  command -v gh >/dev/null || { echo "error: gh が必要です（GitHub Secrets にも書くため）" >&2; exit 1; }
+  gh auth status >/dev/null 2>&1 || { echo "error: gh auth login してください" >&2; exit 1; }
+
   local b64
   b64="$(base64 -i "$keystore" | tr -d '\n')"
+
+  # 1) SSM（マスター）
   put_param_value "$prefix/upload-keystore" "$b64"
   put_param_value "$prefix/upload-keystore-password" "$store_pass"
   put_param_value "$prefix/upload-key-alias" "$alias"
   put_param_value "$prefix/upload-key-password" "$key_pass"
-  echo "pushed $prefix/upload-keystore, upload-keystore-password, upload-key-alias, upload-key-password"
+  [[ -n "$sa" ]] && put_param_file "$prefix/play-service-account" "$sa"
+  echo "pushed to SSM: $prefix/*"
 
-  if [[ -n "$sa" ]]; then
-    [[ -f "$sa" ]] || { echo "missing: $sa" >&2; exit 1; }
-    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("type")=="service_account", "not a service account JSON"' "$sa"
-    put_param_file "$prefix/play-service-account" "$sa"
-    echo "pushed $prefix/play-service-account"
-  fi
+  # 2) GitHub Secrets（deploy-android-prod.yml が読む写し）。値は stdin で渡す（引数に出さない）
+  local repo="${GH_REPO:-takoikatakotako/rikako}"
+  printf '%s' "$b64"        | gh secret set ANDROID_KEYSTORE_BASE64   --repo "$repo"
+  printf '%s' "$store_pass" | gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$repo"
+  printf '%s' "$alias"      | gh secret set ANDROID_KEY_ALIAS         --repo "$repo"
+  printf '%s' "$key_pass"   | gh secret set ANDROID_KEY_PASSWORD      --repo "$repo"
+  [[ -n "$sa" ]] && gh secret set PLAY_SERVICE_ACCOUNT_JSON --repo "$repo" < "$sa"
+  echo "mirrored to GitHub Secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD${sa:+, PLAY_SERVICE_ACCOUNT_JSON}"
 }
 
 pull() {

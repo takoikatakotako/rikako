@@ -221,10 +221,12 @@ main からの起動に限定し、`environment: production` の承認を通し�
 
 ### 事前に用意するもの
 
-署名素材と Play のサービスアカウントは **prod アカウントの SSM Parameter Store** に置き、
-CI も手元も `scripts/android-signing.sh` で同じ場所から取る（#405。Firebase 設定と同じ方式。
-GitHub Secrets は書き込み専用で手元から読み返せないため、初回の手動アップロードで経路が
-分かれるのを避ける）。名前は `terraform/environments/prod/ssm.tf` で管理（値は Terraform 管理外）。
+署名素材と Play のサービスアカウントは **prod アカウントの SSM Parameter Store をマスター**にし、
+`scripts/android-signing.sh push` が SSM に登録すると同時に **GitHub Secrets にも同じ値を書く**（#405）。
+CI（`deploy-android-prod.yml`）は Secrets を読み、手元で署名付きビルドを作るときは `pull` で SSM から取る。
+GitHub Secrets は書き込み専用で読み返せないため、マスターを SSM に置いて手元との経路を揃えている。
+2 か所を手で同期する必要はない（`push` だけで両方更新される）。
+名前は `terraform/environments/prod/ssm.tf` で管理（値は Terraform 管理外。CI の AWS ロールには読み取り権限を付けていない）。
 
 | パラメータ | 中身 |
 | --- | --- |
@@ -252,12 +254,16 @@ GitHub Secrets は書き込み専用で手元から読み返せないため、�
 3. **サービスアカウント**: Google Cloud で作成 → Play Console の「ユーザーとアクセス権」に招待し、
    対象アプリのリリース権限を付ける。JSON を発行する
 
-4. **SSM に登録**（prod のプロファイルで `aws sso login` 済みで。パスワードは対話入力なので
-   コマンド履歴に残らない）。Terraform が先にプレースホルダで作っているので `--overwrite` で上書きになる:
+4. **SSM と GitHub Secrets に登録**（prod のプロファイルで `aws sso login` 済み、`gh auth login` 済みで。
+   パスワードは対話入力なのでコマンド履歴に残らない）。Terraform が先にプレースホルダで作っているので
+   `--overwrite` で上書きになる:
 
    ```bash
    scripts/android-signing.sh push ~/path/to/upload.jks ~/path/to/play-service-account.json
    ```
+
+   これで SSM の 5 本と Secrets の `ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` /
+   `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` / `PLAY_SERVICE_ACCOUNT_JSON` が揃う
 
 5. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
    アップロードの前に AAB を1度手動で上げる必要がある。
@@ -272,13 +278,11 @@ GitHub Secrets は書き込み専用で手元から読み返せないため、�
 
 鍵が未設定のときは release ビルドが**署名なし**になる（手元でビルドしても Play へは上げられない）。
 
-`deploy-android-prod.yml` は OIDC で `rikako-production-github-actions` を assume し、同じ
-スクリプトで SSM から取る。SSM から取った値は Actions が自動マスクしないので、ワークフローで
-`::add-mask::` を付けてから環境に入れている。パラメータが未登録（プレースホルダのまま）だと
-keystore の復元で失敗して止まる。
+`deploy-android-prod.yml` は Secrets から鍵を復元して署名する（Secrets は Actions が自動マスクする）。
+Secrets が未設定だとワークフローの先頭で止まる。
 
-Firebase の `google-services.json` も同様に SSM から取る（`scripts/firebase-config.sh pull prod android`）。
-詳細は「Firebase」の節を参照。
+Firebase の `google-services.json` は Secrets ではなく OIDC で `rikako-production-github-actions` を
+assume して SSM から取る（`scripts/firebase-config.sh pull prod android`）。詳細は「Firebase」の節を参照。
 
 ## CI
 
