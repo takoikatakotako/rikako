@@ -35,6 +35,32 @@ export AWS_PROFILE=<prod のプロファイル>   # docs/aws-setup.md 参照
 aws s3 ls s3://rikako-db-backups-production/production/ --recursive | tail -10
 ```
 
+## 鮮度の監視（止まったことに気づく）
+
+`backup-db-prod.yml` は「実行されて失敗した」ときしか Slack に通知しない。schedule が
+実行されない（GitHub の遅延、**public リポジトリは 60 日無活動で schedule が自動停止**、
+Actions の障害）と無音で止まるため、GitHub の外から S3 の実体を見張る（#331）。
+
+```
+EventBridge Scheduler（毎日 21:10 UTC）
+  → Lambda rikako-backup-freshness-production
+      s3://rikako-db-backups-production/production/ の最新オブジェクトの LastModified を取得
+      → 48 時間より古い、または 1 件も無い → SNS rikako-alerts-production → slack_notifier → Slack
+```
+
+- 定義: `terraform/environments/prod/backup_monitor.tf`、コード: `lambda/backup_freshness/index.py`
+- 閾値は日次 + 1 日分の遅延・再実行の余地で 48 時間（`local.backup_freshness_max_age_hours`）。
+  実際の schedule は cron の 18:10 UTC から 2 時間以上遅れることがある（GitHub の仕様）
+- Lambda 自身のエラーは CloudWatch Alarm `rikako-production-backup-freshness-errors` で拾う（監視の監視）
+- 手動で確認したいときは Lambda を直接呼ぶ（`{"status": "ok", "age_hours": ...}` が返る）:
+
+  ```bash
+  aws lambda invoke --function-name rikako-backup-freshness-production /dev/stdout
+  ```
+
+- 通知が飛ぶことの確認は、Lambda の環境変数 `MAX_AGE_HOURS` を一時的に `1` にして invoke する
+  （Terraform で戻す）。バックアップ自体を止める必要はない
+
 ## リストア手順
 
 **本番へ直接戻す前に、必ず別のデータベースへ復元して中身を確認すること。**
