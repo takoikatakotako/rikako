@@ -131,6 +131,11 @@ func New(db *sql.DB, dataDir string) *Syncer {
 func (s *Syncer) Plan() (*PlanResult, error) {
 	result := &PlanResult{}
 
+	// YAML 同士の参照整合を先に見る（DB の FK で落ちる前に、どのファイルが悪いかを示す）。
+	if err := s.validateReferences(); err != nil {
+		return nil, err
+	}
+
 	imageDiff, err := s.planImages()
 	if err != nil {
 		return nil, fmt.Errorf("images: %w", err)
@@ -330,9 +335,86 @@ func (s *Syncer) loadQuestionsYAML() (map[int64]*QuestionYAML, error) {
 		if err := yaml.Unmarshal(data, &q); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", file, err)
 		}
+		if err := q.Validate(); err != nil {
+			return nil, fmt.Errorf("%s: %w", file, err)
+		}
+		if prev, dup := questions[q.ID]; dup {
+			return nil, fmt.Errorf("%s: id %d is duplicated (also used by another file: %q)", file, q.ID, prev.Text)
+		}
 		questions[q.ID] = &q
 	}
 	return questions, nil
+}
+
+// validateReferences は YAML 同士の参照が閉じているかを検証する。
+//   - 問題集が参照する問題がすべて data/questions に存在する
+//   - 問題が参照する画像がすべて data/images に存在する
+//
+// データ整理で問題や画像を消したときに、現役の問題集・問題から参照が残っていれば
+// plan の時点で止める（#390 の 800 問削除で手作業で確認した「削除 ∩ 参照 = 0」の自動化）。
+func (s *Syncer) validateReferences() error {
+	images, err := s.loadImagesYAML()
+	if err != nil {
+		return fmt.Errorf("images: %w", err)
+	}
+	questions, err := s.loadQuestionsYAML()
+	if err != nil {
+		return fmt.Errorf("questions: %w", err)
+	}
+	workbooks, err := s.loadWorkbooksYAML()
+	if err != nil {
+		return fmt.Errorf("workbooks: %w", err)
+	}
+
+	var problems []string
+	for _, q := range questions {
+		for _, img := range q.Images {
+			if _, ok := images[img]; !ok {
+				problems = append(problems, fmt.Sprintf("question %d references image %d which is not in data/images", q.ID, img))
+			}
+		}
+	}
+	for _, wb := range workbooks {
+		for _, qid := range wb.Questions {
+			if _, ok := questions[qid]; !ok {
+				problems = append(problems, fmt.Sprintf("workbook %d (%s) references question %d which is not in data/questions", wb.ID, wb.Title, qid))
+			}
+		}
+	}
+	if len(problems) > 0 {
+		sort.Strings(problems)
+		const max = 20
+		shown := problems
+		if len(shown) > max {
+			shown = append(shown[:max], fmt.Sprintf("... and %d more", len(problems)-max))
+		}
+		return fmt.Errorf("broken references in data/:\n  %s", strings.Join(shown, "\n  "))
+	}
+	return nil
+}
+
+// Validate は問題 YAML が配信できる形かを検証する。
+// 選択肢が空のまま DB に入った問題が 87 件残っていた（Issue #390）ため、plan / apply の
+// 前に弾いて同じ壊れ方の再発を防ぐ。
+func (q *QuestionYAML) Validate() error {
+	if q.ID <= 0 {
+		return fmt.Errorf("id must be positive, got %d", q.ID)
+	}
+	if strings.TrimSpace(q.Text) == "" {
+		return fmt.Errorf("question %d: text is empty", q.ID)
+	}
+	if len(q.Choices) < 2 {
+		return fmt.Errorf("question %d: needs at least 2 choices, got %d", q.ID, len(q.Choices))
+	}
+	for i, c := range q.Choices {
+		if strings.TrimSpace(c) == "" {
+			return fmt.Errorf("question %d: choice %d is empty", q.ID, i)
+		}
+	}
+	if q.Correct < 0 || q.Correct >= len(q.Choices) {
+		return fmt.Errorf("question %d: correct index %d is out of range (0..%d)", q.ID, q.Correct, len(q.Choices)-1)
+	}
+	return nil
 }
 
 func (s *Syncer) loadQuestionsDB() (map[int64]*QuestionDB, error) {

@@ -14,6 +14,24 @@ import (
 	"github.com/takoikatakotako/rikako/internal/openai"
 )
 
+// insertAnswer は user に回答履歴を 1 件入れる。問題と問題集は固定 ID ではなく、
+// importer が投入した workbook_questions から実在する組を 1 件取る（データ整理で
+// ID が消えてもテストが壊れないように。#390 で question 1 が消えて 4 テストが落ちた）。
+func insertAnswer(t *testing.T, userID int64) {
+	t.Helper()
+	var workbookID, questionID int64
+	if err := testDB.QueryRow(
+		`SELECT workbook_id, question_id FROM workbook_questions ORDER BY workbook_id, order_index LIMIT 1`,
+	).Scan(&workbookID, &questionID); err != nil {
+		t.Fatalf("pick a workbook question (importer must have run): %v", err)
+	}
+	if _, err := testDB.Exec(
+		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
+		 VALUES ($1, $2, $3, 0, true)`, userID, questionID, workbookID); err != nil {
+		t.Fatalf("insert answer: %v", err)
+	}
+}
+
 func newTestHandler() *Handler {
 	return New(testDB, "https://example.com", "1.0.0", "1.0.0", testLogger, &identity.MockProvider{}, openai.NewClient(""), "")
 }
@@ -99,12 +117,7 @@ func TestLinkAccount_CreateIdempotentAndMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create dev2 user: %v", err)
 	}
-	// CI では importer 実行済みで question/workbook 1 が存在する前提。
-	if _, err := testDB.Exec(
-		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-		 VALUES ($1, 1, 1, 0, true)`, dev2User); err != nil {
-		t.Fatalf("insert dev2 answer: %v", err)
-	}
+	insertAnswer(t, dev2User)
 
 	linkAccount(t, h, sub, dev2)
 
@@ -285,11 +298,7 @@ func TestResolveUserID_AccountAcrossDevices(t *testing.T) {
 
 	linkAccount(t, h, sub, dev1)
 	primary := userIDByIdentity(t, dev1)
-	if _, err := testDB.Exec(
-		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-		 VALUES ($1, 1, 1, 0, true)`, primary); err != nil {
-		t.Fatalf("insert answer: %v", err)
-	}
+	insertAnswer(t, primary)
 
 	// (1) ログイン中 + 別の未リンク端末 dev2 → account primary のデータが見える。
 	resp, err := h.GetUserSummary(ctxWithSub(sub), api.GetUserSummaryRequestObject{
@@ -429,11 +438,7 @@ func TestResolveUserID_LinkedDeviceWhileLoggedOut(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveUserIDForWrite(anon, linked device): %v", err)
 	}
-	if _, err := testDB.Exec(
-		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-		 VALUES ($1, 1, 1, 0, true)`, userID); err != nil {
-		t.Fatalf("insert answer: %v", err)
-	}
+	insertAnswer(t, userID)
 
 	// canonical user に入っていること（device user 側に取り残されていない）。
 	primary := userIDByIdentity(t, dev1)
@@ -495,11 +500,7 @@ func TestResolveUserID_OtherSubDoesNotReachLinkedAccount(t *testing.T) {
 	// 端末を account A へリンクし、A に記録を作る。
 	linkAccount(t, h, subA, dev)
 	primaryA := userIDByIdentity(t, dev)
-	if _, err := testDB.Exec(
-		`INSERT INTO user_answers (user_id, question_id, workbook_id, selected_choice, is_correct)
-		 VALUES ($1, 1, 1, 0, true)`, primaryA); err != nil {
-		t.Fatalf("insert answer: %v", err)
-	}
+	insertAnswer(t, primaryA)
 
 	// account を持たない sub B の JWT で読み取り → A のデータへ到達しない。
 	_, _, err := h.resolveUserIDForRead(ctxWithSub(subB), dev)
