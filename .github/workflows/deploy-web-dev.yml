@@ -116,14 +116,14 @@ jobs:
         run: |
           set -euo pipefail
           # Cache-Control は CloudFront の ResponseHeadersPolicy で付ける
-          # （terraform/environments/*/frontend_cache.tf）。sync は転送するファイルを
-          # 選ぶだけなので、ここで 2 本に分けているのは --delete の適用範囲のためだけ。
+          # （terraform/environments/*/frontend_cache.tf）。sync は転送するファイルを選ぶだけ。
           #
-          # 1) ハッシュ名付きチャンクを先に公開する。--delete を付けないので、デプロイ前から
-          #    開いている画面が参照する旧チャンクも残る（#342）。
-          aws s3 sync out/_next/static/ s3://${{ matrix.bucket }}/_next/static/
-          # 2) HTML 等を同期し、こちらだけ stale を削除する。旧チャンクは削除対象から外す。
-          aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete --exclude "_next/static/*"
+          # --delete で stale な HTML も旧ビルドのハッシュ付きチャンク（_next/static/）も
+          # まとめて消す（#342 で確定）。デプロイの瞬間に開いていた画面が旧チャンクを
+          # 読みに来ると失敗するが、Next.js はチャンク欠落時にフルリロードへフォールバック
+          # するし進捗はサーバー保存なので実害は小さい。残すと S3 に無限に溜まる方が問題。
+          # 形は scripts/check-frontend-env.py が検査している。
+          aws s3 sync out/ s3://${{ matrix.bucket }}/ --delete
 
       - name: Invalidate CloudFront cache
         run: |
