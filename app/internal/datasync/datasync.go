@@ -330,9 +330,39 @@ func (s *Syncer) loadQuestionsYAML() (map[int64]*QuestionYAML, error) {
 		if err := yaml.Unmarshal(data, &q); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", file, err)
 		}
+		if err := q.Validate(); err != nil {
+			return nil, fmt.Errorf("%s: %w", file, err)
+		}
+		if prev, dup := questions[q.ID]; dup {
+			return nil, fmt.Errorf("%s: id %d is duplicated (also used by another file: %q)", file, q.ID, prev.Text)
+		}
 		questions[q.ID] = &q
 	}
 	return questions, nil
+}
+
+// Validate は問題 YAML が配信できる形かを検証する。
+// 選択肢が空のまま DB に入った問題が 87 件残っていた（Issue #390）ため、plan / apply の
+// 前に弾いて同じ壊れ方の再発を防ぐ。
+func (q *QuestionYAML) Validate() error {
+	if q.ID <= 0 {
+		return fmt.Errorf("id must be positive, got %d", q.ID)
+	}
+	if strings.TrimSpace(q.Text) == "" {
+		return fmt.Errorf("question %d: text is empty", q.ID)
+	}
+	if len(q.Choices) < 2 {
+		return fmt.Errorf("question %d: needs at least 2 choices, got %d", q.ID, len(q.Choices))
+	}
+	for i, c := range q.Choices {
+		if strings.TrimSpace(c) == "" {
+			return fmt.Errorf("question %d: choice %d is empty", q.ID, i)
+		}
+	}
+	if q.Correct < 0 || q.Correct >= len(q.Choices) {
+		return fmt.Errorf("question %d: correct index %d is out of range (0..%d)", q.ID, q.Correct, len(q.Choices)-1)
+	}
+	return nil
 }
 
 func (s *Syncer) loadQuestionsDB() (map[int64]*QuestionDB, error) {
