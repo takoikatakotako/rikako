@@ -3,7 +3,8 @@ name: Deploy Android Prod
 # Play Console へ AAB を上げる。手動起動＋ environment: production の承認を通す
 # （Deploy Web Prod / Apply Terraform Prod と同じ方式）。
 #
-# 必要な Secrets:
+# 必要な Secrets（マスターは prod アカウントの SSM `/rikako/production/android/*`。
+# `scripts/android-signing.sh push` が SSM に登録すると同時にここへも書くので、手で更新しない。#405）:
 #   ANDROID_KEYSTORE_BASE64    … アップロード鍵の JKS を base64 にしたもの
 #   ANDROID_KEYSTORE_PASSWORD  … キーストアのパスワード
 #   ANDROID_KEY_ALIAS          … 鍵のエイリアス

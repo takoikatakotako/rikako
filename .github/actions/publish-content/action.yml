@@ -23,6 +23,9 @@ runs:
         set -euo pipefail
         USER=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-user --query 'Parameter.Value' --output text)
         PASS=$(aws ssm get-parameter --with-decryption --name /rikako/admin-basic-auth-password --query 'Parameter.Value' --output text)
+        # SSM から取った値は Actions が自動マスクしないので明示する（public リポジトリのログ対策）
+        echo "::add-mask::${USER}"
+        echo "::add-mask::${PASS}"
 
         # 管理API は普段使われないため、ほぼ必ずコールドスタートになる。
         # 初回リクエストが 502 で落ちることがあるので、先に /health で温めてから

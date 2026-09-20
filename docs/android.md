@@ -221,42 +221,68 @@ main からの起動に限定し、`environment: production` の承認を通し�
 
 ### 事前に用意するもの
 
-1. **アップロード鍵**（1度だけ作る。紛失すると再作成に Google の対応が要るので保管する）
+署名素材と Play のサービスアカウントは **prod アカウントの SSM Parameter Store をマスター**にし、
+`scripts/android-signing.sh push` が SSM に登録すると同時に **GitHub Secrets にも同じ値を書く**（#405）。
+CI（`deploy-android-prod.yml`）は Secrets を読み、手元で署名付きビルドを作るときは `pull` で SSM から取る。
+GitHub Secrets は書き込み専用で読み返せないため、マスターを SSM に置いて手元との経路を揃えている。
+2 か所を手で同期する必要はない（`push` だけで両方更新される）。
+名前は `terraform/environments/prod/ssm.tf` で管理（値は Terraform 管理外。CI の AWS ロールには読み取り権限を付けていない）。
+
+| パラメータ | 中身 |
+| --- | --- |
+| `/rikako/production/android/upload-keystore` | アップロード鍵の keystore（base64） |
+| `/rikako/production/android/upload-keystore-password` | keystore のパスワード |
+| `/rikako/production/android/upload-key-alias` | 鍵の alias |
+| `/rikako/production/android/upload-key-password` | 鍵のパスワード |
+| `/rikako/production/android/play-service-account` | Play Developer API のサービスアカウント JSON |
+
+1. **アップロード鍵**。既存の keystore（RSA 2048 以上、有効期限が 2033-10-22 より後）があれば
+   それでよい。無ければ作る:
 
    ```bash
    keytool -genkeypair -v -keystore upload.jks -keyalg RSA -keysize 2048 \
-     -validity 10000 -alias rikako
-   base64 -i upload.jks | pbcopy   # ← Secrets に貼る
+     -validity 10000 -alias key0
    ```
 
-2. **Play Console にアプリを登録**（`org.rikako.chemistry` / `org.rikako.itpassport` の2本）
+   化学と IT パスポートは**同じアップロード鍵**を使う（ワークフローが 1 組しか持たないため）。
+   Play App Signing が必須なので、これは「アップロード鍵」であり本物の署名鍵は Google が持つ。
+   紛失しても Google サポート経由でリセットできるが、keystore 本体はパスワードマネージャー等にも保管する。
+
+2. **Play Console にアプリを登録**（`org.rikako.chemistry` / `org.rikako.itpassport` の2本）。
+   dev フレーバー（`.dev`）は Play に登録しない（手元インストールか Firebase App Distribution で配る）
 
 3. **サービスアカウント**: Google Cloud で作成 → Play Console の「ユーザーとアクセス権」に招待し、
-   対象アプリのリリース権限を付ける。発行した JSON を Secrets に入れる
+   対象アプリのリリース権限を付ける。JSON を発行する
 
-4. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
-   アップロードの前に AAB を1度手動で上げる必要がある。先に
-   `scripts/firebase-config.sh pull prod android` で `google-services.json` を置き
-   （無いと prod release はビルドが止まる。「Firebase」の節を参照）、署名用の環境変数を設定し、
-   `ANDROID_VERSION_CODE=1 ./gradlew :app:bundleChemistryProdRelease`（IT版は
-   `:app:bundleItPassportProdRelease`）で作成する
+4. **SSM と GitHub Secrets に登録**（prod のプロファイルで `aws sso login` 済み、`gh auth login` 済みで。
+   パスワードは対話入力なのでコマンド履歴に残らない）。Terraform が先にプレースホルダで作っているので
+   `--overwrite` で上書きになる:
 
-### 必要な Secrets
+   ```bash
+   scripts/android-signing.sh push ~/path/to/upload.jks ~/path/to/play-service-account.json
+   ```
 
-| 名前 | 中身 |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | アップロード鍵の JKS を base64 にしたもの |
-| `ANDROID_KEYSTORE_PASSWORD` | キーストアのパスワード |
-| `ANDROID_KEY_ALIAS` | 鍵のエイリアス |
-| `ANDROID_KEY_PASSWORD` | 鍵のパスワード |
-| `PLAY_SERVICE_ACCOUNT_JSON` | サービスアカウントの JSON（そのまま貼る） |
+   これで SSM の 5 本と Secrets の `ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` /
+   `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` / `PLAY_SERVICE_ACCOUNT_JSON` が揃う
+
+5. **最初の1本は手動アップロード**: 新規アプリは Play Console の仕様上、API からの
+   アップロードの前に AAB を1度手動で上げる必要がある。
+
+   ```bash
+   scripts/firebase-config.sh pull prod android     # google-services.json（無いと prod release は止まる）
+   eval "$(scripts/android-signing.sh pull)"        # keystore を一時ディレクトリに復元して環境変数を export
+   cd android
+   ANDROID_VERSION_CODE=1 ./gradlew :app:bundleChemistryProdRelease   # IT版は :app:bundleItPassportProdRelease
+   # → app/build/outputs/bundle/chemistryProdRelease/app-chemistry-prod-release.aab を Play Console に手動アップロード
+   ```
 
 鍵が未設定のときは release ビルドが**署名なし**になる（手元でビルドしても Play へは上げられない）。
 
-Firebase の `google-services.json` は Secrets ではなく prod アカウントの SSM から取る
-（`permissions: id-token: write` で `rikako-production-github-actions` を assume →
-`scripts/firebase-config.sh pull prod android`）。パラメータが未登録だとここで止まる。
-詳細は「Firebase」の節を参照。
+`deploy-android-prod.yml` は Secrets から鍵を復元して署名する（Secrets は Actions が自動マスクする）。
+Secrets が未設定だとワークフローの先頭で止まる。
+
+Firebase の `google-services.json` は Secrets ではなく OIDC で `rikako-production-github-actions` を
+assume して SSM から取る（`scripts/firebase-config.sh pull prod android`）。詳細は「Firebase」の節を参照。
 
 ## CI
 

@@ -37,6 +37,16 @@ locals {
     admin_basic_auth_user     = "/${local.project}/admin-basic-auth-user"
     admin_basic_auth_password = "/${local.project}/admin-basic-auth-password"
   }
+  # Android の Play 用署名素材のマスター（#405）。scripts/android-signing.sh push が SSM と
+  # GitHub Secrets の両方に書き、CI は Secrets を読む。SSM は記録と手元での pull 用なので
+  # GitHub Actions ロールには読み取り権限を付けない。
+  android_signing_param_names = {
+    upload_keystore          = "/${local.project}/${local.environment}/android/upload-keystore"
+    upload_keystore_password = "/${local.project}/${local.environment}/android/upload-keystore-password"
+    upload_key_alias         = "/${local.project}/${local.environment}/android/upload-key-alias"
+    upload_key_password      = "/${local.project}/${local.environment}/android/upload-key-password"
+    play_service_account     = "/${local.project}/${local.environment}/android/play-service-account"
+  }
   firebase_ios_param_names = {
     for slug in local.firebase_ios_app_slugs : slug => "/${local.project}/${local.environment}/firebase/ios/${slug}"
   }
@@ -123,6 +133,21 @@ resource "aws_ssm_parameter" "admin_basic_auth_password" {
   type        = "SecureString"
   value       = local.ssm_placeholder_value
   description = "Basic auth password for the admin console (value managed out-of-band)"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# --- Android の Play 用署名素材（マスター。手元の初回アップロードが pull する）---
+
+resource "aws_ssm_parameter" "android_signing" {
+  for_each = local.android_signing_param_names
+
+  name        = each.value
+  type        = "SecureString"
+  value       = local.ssm_placeholder_value
+  description = "Android Play upload signing material: ${each.key} (value managed out-of-band via scripts/android-signing.sh)"
 
   lifecycle {
     ignore_changes = [value]
