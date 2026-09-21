@@ -10,6 +10,12 @@ permissions:
   contents: read
   id-token: write
 
+# 連続マージで 2 本同時に走ると Lambda の UpdateFunctionCode が ResourceConflictException で
+# 落ちる（2026-09-21 に #411 / #412 の連続マージで発生）。直列化して後の run に譲る。
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 env:
   AWS_REGION: ap-northeast-1
   ENVIRONMENT: dev
