@@ -201,7 +201,8 @@ Basic 認証の資格情報は管理画面と共通（SSM の `/rikako/admin-bas
 
 ### アカウントポータル（account.rikako.org）
 
-メールログイン・アカウント管理の画面（`portal/`）。
+メールログイン・アカウント管理・アカウント削除（`/delete`、#408。Play Console のデータセーフティに
+登録する削除 URL は `https://account.rikako.org/delete`）の画面（`portal/`）。
 
 - **dev**: `account.dev.rikako.org`（Basic 認証あり）。main へのマージで `portal/` に変更があれば自動デプロイ
 - **prod**: `account.rikako.org`。手動起動 + `production` environment の**承認**

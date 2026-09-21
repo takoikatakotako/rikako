@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn, cognitoErrorMessage, CognitoError } from "@/lib/cognito";
+import { useQueryParam } from "@/lib/hooks";
 
 export default function LoginPage() {
   const router = useRouter();
+  // ログイン後の遷移先（例: /delete）。オープンリダイレクト防止で同一オリジンの相対パスだけ許可。
+  const nextParam = useQueryParam("next");
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +23,7 @@ export default function LoginPage() {
     try {
       await signIn(email.trim(), password);
       // アカウントの作成/紐付けはホームで ensureAccountLinked() が担う（失敗時は再試行UI）。
-      router.push("/");
+      router.push(next);
     } catch (err) {
       // メール未確認なら確認画面へ誘導。
       if (err instanceof CognitoError && err.code === "UserNotConfirmedException") {

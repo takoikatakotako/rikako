@@ -87,3 +87,17 @@ export async function getServices(): Promise<Service[]> {
   const data = (await res.json()) as { services?: Service[] };
   return data.services ?? [];
 }
+
+// アカウント削除（#408）。サーバーがアカウント・全端末の学習データ・Cognito ユーザーを消す。
+// 成功したらローカルのトークンと device id を破棄し、新しい匿名ユーザーとしてやり直す。
+// 204 でなければ ApiError（500 は「Cognito 側の削除確認が未完了」でもあり、再実行で収束する）。
+export async function deleteAccount(): Promise<void> {
+  const res = await authedFetch("/account", { method: "DELETE" });
+  if (res.status !== 204) {
+    throw new ApiError(res.status, `delete account failed: ${res.status}`);
+  }
+  clearTokens();
+  // 削除したアカウントに紐付いていた device id を使い回すと、次のログイン時に
+  // 「別アカウントに紐付き済み」ではなく「消えた users 行」を参照する。新しい id にする。
+  rotateDeviceId();
+}
