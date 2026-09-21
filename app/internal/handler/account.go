@@ -50,6 +50,18 @@ func (h *Handler) LinkAccount(ctx context.Context, request api.LinkAccountReques
 	defer func() { _ = tx.Rollback() }()
 	q := h.queries.WithTx(tx)
 
+	// DeleteAccount と直列化し、削除済み sub（墓標）なら拒否する（#408）。
+	// Cognito のユーザーを消しても発行済み ID token は期限まで有効に見えるため、
+	// ここで止めないと削除直後に accounts / users が再作成される。
+	if err := q.LockAccountSub(ctx, sub); err != nil {
+		return fail("failed to lock sub", err)
+	}
+	if deleted, err := q.IsAccountDeleted(ctx, sub); err != nil {
+		return fail("failed to check deleted accounts", err)
+	} else if deleted {
+		return api.LinkAccount401JSONResponse{Code: "ACCOUNT_DELETED", Message: "account has been deleted"}, nil
+	}
+
 	// 端末の匿名 users 行を確保し、ロックして現在の account_id を読む。
 	deviceUserID, err := q.UpsertUser(ctx, deviceID)
 	if err != nil {
@@ -176,22 +188,30 @@ func commitLink(tx *sql.Tx, accountID int64, email sql.NullString) (api.LinkAcco
 	return resp, nil
 }
 
-// DeleteAccount は認証済みアカウント（JWT の sub）を削除する（#408）。
+// DeleteAccount は認証済みアカウント（JWT の sub / cognito:username）を削除する（#408）。
 //
-//  1. DB: accounts 行と、それに束ねられた全 users 行（primary 含む）を消す。
-//     user_answers / user_app_settings は users の ON DELETE CASCADE で一緒に消える。
-//     accounts.primary_user_id は ON DELETE RESTRICT なので account → users の順。
-//  2. Cognito User Pool のユーザーを消す（DB コミット後）。
+// 1. DB（1 トランザクション、sub 単位のアドバイザリロック下）:
+//   - deleted_accounts に墓標を残す（発行済み ID token による /account/link の再作成を拒否するため）
+//   - accounts 行 → それに束ねられた全 users 行（primary 含む）の順で削除。
+//     user_answers / user_app_settings は users の ON DELETE CASCADE。
+//     accounts.primary_user_id は ON DELETE RESTRICT なので account → users の順
+//   - 各端末の identity_id に紐づく transfer_tokens（FK 無し）も削除
+//
+// 2. Cognito User Pool のユーザーを AdminDeleteUser（DB コミット後、cognito:username で）
 //
 // 順序の理由: Cognito を先に消して DB が失敗すると、ユーザーは再ログインできず DB に
 // 孤児が残る。DB を先に消して Cognito が失敗した場合は再ログインして再実行でき、
 // その際 DB に account が無くても Cognito 側の削除だけを行うので冪等に収束する。
 //
+// LinkAccount とは LockAccountSub（pg_advisory_xact_lock）で直列化しているので、
+// 進行中の link が読んだスナップショット外の users が残ることはない。
+//
 // 端末側は 204 を受けたらトークンと匿名 identity を破棄し、新しい匿名ユーザーとして
 // やり直す（サーバーは端末の identity を知らないので、ここでは何もしない）。
 func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestObject) (api.DeleteAccountResponseObject, error) {
 	sub, _ := ctx.Value(auth.UserSubContextKey).(string)
-	if sub == "" {
+	username, _ := ctx.Value(auth.UserNameContextKey).(string)
+	if sub == "" || username == "" {
 		return api.DeleteAccount401JSONResponse{Code: "UNAUTHORIZED", Message: "authentication required"}, nil
 	}
 	fail := func(msg string, err error) (api.DeleteAccountResponseObject, error) {
@@ -206,32 +226,48 @@ func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestO
 	defer func() { _ = tx.Rollback() }()
 	q := h.queries.WithTx(tx)
 
+	if err := q.LockAccountSub(ctx, sub); err != nil {
+		return fail("failed to lock sub", err)
+	}
+	if err := q.MarkAccountDeleted(ctx, sub); err != nil {
+		return fail("failed to mark account deleted", err)
+	}
+
 	acct, err := q.GetAccountByCognitoSub(ctx, sub)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		// DB 側は既に無い（前回の途中失敗、または一度も link していない）。Cognito だけ消す。
+		// DB 側は既に無い（前回の途中失敗、または一度も link していない）。墓標だけ残して Cognito を消す。
 	case err != nil:
 		return fail("failed to get account", err)
 	default:
-		userIDs, lerr := q.ListUserIDsByAccountID(ctx, sql.NullInt64{Int64: acct.ID, Valid: true})
+		users, lerr := q.ListUsersByAccountID(ctx, sql.NullInt64{Int64: acct.ID, Valid: true})
 		if lerr != nil {
 			return fail("failed to list account users", lerr)
+		}
+		userIDs := make([]int64, 0, len(users))
+		identityIDs := make([]string, 0, len(users))
+		for _, u := range users {
+			userIDs = append(userIDs, u.ID)
+			identityIDs = append(identityIDs, u.IdentityID)
 		}
 		if derr := q.DeleteAccountByID(ctx, acct.ID); derr != nil {
 			return fail("failed to delete account", derr)
 		}
 		if len(userIDs) > 0 {
+			if derr := q.DeleteTransferTokensByIdentityIDs(ctx, identityIDs); derr != nil {
+				return fail("failed to delete transfer tokens", derr)
+			}
 			if derr := q.DeleteUsersByIDs(ctx, userIDs); derr != nil {
 				return fail("failed to delete account users", derr)
 			}
 		}
-		if cerr := tx.Commit(); cerr != nil {
-			return fail("failed to commit", cerr)
-		}
 		h.logger.Info("account deleted", "account_id", acct.ID, "users", len(userIDs))
 	}
+	if cerr := tx.Commit(); cerr != nil {
+		return fail("failed to commit", cerr)
+	}
 
-	if err := h.userPool.DeleteUserBySub(ctx, sub); err != nil {
+	if err := h.userPool.DeleteUser(ctx, username); err != nil {
 		return fail("failed to delete cognito user", err)
 	}
 	return api.DeleteAccount204Response{}, nil

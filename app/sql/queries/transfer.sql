@@ -27,3 +27,7 @@ WHERE token = $1
   AND used_at IS NULL
   AND expires_at > CURRENT_TIMESTAMP
 RETURNING identity_id;
+
+-- name: DeleteTransferTokensByIdentityIDs :exec
+-- アカウント削除で、束ねられていた全端末の引き継ぎトークンを消す（#408）。
+DELETE FROM transfer_tokens WHERE identity_id = ANY($1::text[]);

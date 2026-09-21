@@ -128,24 +128,42 @@ func (q *Queries) GetUserAccountIDForUpdate(ctx context.Context, id int64) (sql.
 	return account_id, err
 }
 
-const listUserIDsByAccountID = `-- name: ListUserIDsByAccountID :many
-SELECT id FROM users WHERE account_id = $1 ORDER BY id
+const isAccountDeleted = `-- name: IsAccountDeleted :one
+SELECT EXISTS (SELECT 1 FROM deleted_accounts WHERE cognito_sub = $1)
 `
 
+// 削除済み sub か（墓標）。link はこれが真なら拒否する。
+func (q *Queries) IsAccountDeleted(ctx context.Context, cognitoSub string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isAccountDeleted, cognitoSub)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listUsersByAccountID = `-- name: ListUsersByAccountID :many
+SELECT id, identity_id FROM users WHERE account_id = $1 ORDER BY id
+`
+
+type ListUsersByAccountIDRow struct {
+	ID         int64  `json:"id"`
+	IdentityID string `json:"identity_id"`
+}
+
 // アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
-func (q *Queries) ListUserIDsByAccountID(ctx context.Context, accountID sql.NullInt64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listUserIDsByAccountID, accountID)
+// identity_id は transfer_tokens（FK 無し・文字列参照）を消すのに使う。
+func (q *Queries) ListUsersByAccountID(ctx context.Context, accountID sql.NullInt64) ([]ListUsersByAccountIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersByAccountID, accountID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int64{}
+	items := []ListUsersByAccountIDRow{}
 	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var i ListUsersByAccountIDRow
+		if err := rows.Scan(&i.ID, &i.IdentityID); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -154,6 +172,27 @@ func (q *Queries) ListUserIDsByAccountID(ctx context.Context, accountID sql.Null
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockAccountSub = `-- name: LockAccountSub :exec
+SELECT pg_advisory_xact_lock(hashtext($1::text))
+`
+
+// 同じ sub に対する link と delete を直列化するトランザクション内アドバイザリロック。
+// 行が無い状態（削除済み・未作成）でもロックできるよう、行ロックではなくこれを使う。
+func (q *Queries) LockAccountSub(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, lockAccountSub, cognitoSub)
+	return err
+}
+
+const markAccountDeleted = `-- name: MarkAccountDeleted :exec
+INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
+ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP
+`
+
+func (q *Queries) MarkAccountDeleted(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, markAccountDeleted, cognitoSub)
+	return err
 }
 
 const moveUserAppSettingsToUser = `-- name: MoveUserAppSettingsToUser :exec

@@ -3,10 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/takoikatakotako/rikako/internal/api"
+	"github.com/takoikatakotako/rikako/internal/auth"
 	"github.com/takoikatakotako/rikako/internal/userpool"
 )
 
@@ -41,6 +43,8 @@ func TestDeleteAccount_RemovesAllLinkedDataAndCognitoUser(t *testing.T) {
 	defer func() {
 		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
 		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM transfer_tokens WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, sub)
 	}()
 
 	// 2 端末を同じアカウントに束ね、両方に回答と設定を持たせる。
@@ -51,6 +55,13 @@ func TestDeleteAccount_RemovesAllLinkedDataAndCognitoUser(t *testing.T) {
 	if _, err := testDB.Exec(
 		`INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id) VALUES ($1, 1, 1)`, primary); err != nil {
 		t.Fatalf("insert settings: %v", err)
+	}
+	for _, dev := range []string{dev1, dev2} {
+		if _, err := testDB.Exec(
+			`INSERT INTO transfer_tokens (token, identity_id, expires_at) VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '3 years')`,
+			prefix+"-tok-"+dev, dev); err != nil {
+			t.Fatalf("insert transfer token: %v", err)
+		}
 	}
 	if n := countRows(t, `SELECT count(*) FROM users WHERE identity_id LIKE $1`, prefix+"%"); n != 2 {
 		t.Fatalf("precondition: users = %d; want 2", n)
@@ -72,8 +83,14 @@ func TestDeleteAccount_RemovesAllLinkedDataAndCognitoUser(t *testing.T) {
 	if n := countRows(t, `SELECT count(*) FROM user_app_settings WHERE user_id = $1`, primary); n != 0 {
 		t.Errorf("user_app_settings remaining = %d", n)
 	}
-	if len(pool.Deleted) != 1 || pool.Deleted[0] != sub {
-		t.Errorf("cognito delete calls = %v; want [%s]", pool.Deleted, sub)
+	if len(pool.Deleted) != 1 || pool.Deleted[0] != sub+"-name" {
+		t.Errorf("cognito delete calls = %v; want [%s-name] (cognito:username, not sub)", pool.Deleted, sub)
+	}
+	if n := countRows(t, `SELECT count(*) FROM transfer_tokens WHERE identity_id IN ($1, $2)`, dev1, dev2); n != 0 {
+		t.Errorf("transfer_tokens remaining = %d", n)
+	}
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, sub); n != 1 {
+		t.Errorf("tombstone rows = %d; want 1", n)
 	}
 
 	// 冪等: DB に無くても Cognito の削除を試みて 204。
@@ -96,6 +113,7 @@ func TestDeleteAccount_DoesNotTouchOtherAccounts(t *testing.T) {
 	defer func() {
 		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub IN ($1, $2)`, subA, subB)
 		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub IN ($1, $2)`, subA, subB)
 	}()
 	linkAccount(t, h, subA, devA)
 	linkAccount(t, h, subB, devB)
@@ -111,13 +129,97 @@ func TestDeleteAccount_DoesNotTouchOtherAccounts(t *testing.T) {
 	}
 }
 
-func TestDeleteAccount_MissingSub(t *testing.T) {
+func TestDeleteAccount_MissingSubOrUsername(t *testing.T) {
 	h := newTestHandler()
-	resp, err := h.DeleteAccount(context.Background(), api.DeleteAccountRequestObject{})
-	if err != nil {
-		t.Fatal(err)
+	for name, ctx := range map[string]context.Context{
+		"no claims":   context.Background(),
+		"sub only":    context.WithValue(context.Background(), auth.UserSubContextKey, "x"),
+		"no username": context.WithValue(context.WithValue(context.Background(), auth.UserSubContextKey, "x"), auth.UserNameContextKey, ""),
+	} {
+		resp, err := h.DeleteAccount(ctx, api.DeleteAccountRequestObject{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := resp.(api.DeleteAccount401JSONResponse); !ok {
+			t.Errorf("%s: expected 401, got %T", name, resp)
+		}
 	}
-	if _, ok := resp.(api.DeleteAccount401JSONResponse); !ok {
-		t.Fatalf("expected 401, got %T", resp)
+}
+
+// 削除後、期限内の ID token で /account/link されても再作成しない（墓標、#408）。
+func TestDeleteAccount_LinkAfterDeleteIsRejected(t *testing.T) {
+	h := newTestHandler()
+	h.WithUserPool(&userpool.NoopDeleter{})
+
+	prefix := fmt.Sprintf("deltest3-%d", time.Now().UnixNano())
+	sub := prefix + "-sub"
+	dev1, dev2 := prefix+"-dev1", prefix+"-dev2"
+	defer func() {
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, sub)
+	}()
+	linkAccount(t, h, sub, dev1)
+	deleteAccount(t, h, sub)
+
+	// 同じ端末・別の端末のどちらからでも拒否される。
+	for _, dev := range []string{dev1, dev2} {
+		resp, err := h.LinkAccount(ctxWithSub(sub), api.LinkAccountRequestObject{Params: api.LinkAccountParams{XDeviceID: dev}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, ok := resp.(api.LinkAccount401JSONResponse)
+		if !ok || r.Code != "ACCOUNT_DELETED" {
+			t.Errorf("link after delete (%s): got %T %+v; want 401 ACCOUNT_DELETED", dev, resp, resp)
+		}
+	}
+	if n := countRows(t, `SELECT count(*) FROM accounts WHERE cognito_sub = $1`, sub); n != 0 {
+		t.Errorf("account recreated after delete")
+	}
+}
+
+// link と delete が並行しても、delete 完了時点でその sub の accounts / users が残らない（#408）。
+// アドバイザリロックで直列化されるので、どちらの順で走っても最終状態は同じ。
+func TestDeleteAccount_ConcurrentLinkDoesNotResurrect(t *testing.T) {
+	h := newTestHandler()
+	h.WithUserPool(&userpool.NoopDeleter{})
+
+	for round := 0; round < 5; round++ {
+		prefix := fmt.Sprintf("deltest4-%d-%d", time.Now().UnixNano(), round)
+		sub := prefix + "-sub"
+		dev1 := prefix + "-dev1"
+		linkAccount(t, h, sub, dev1)
+
+		// 複数の別端末からの link と delete を同時に投げる。
+		var wg sync.WaitGroup
+		devs := []string{prefix + "-dev2", prefix + "-dev3", prefix + "-dev4"}
+		wg.Add(len(devs) + 1)
+		for _, dev := range devs {
+			go func(dev string) {
+				defer wg.Done()
+				_, _ = h.LinkAccount(ctxWithSub(sub), api.LinkAccountRequestObject{Params: api.LinkAccountParams{XDeviceID: dev}})
+			}(dev)
+		}
+		go func() {
+			defer wg.Done()
+			deleteAccount(t, h, sub)
+		}()
+		wg.Wait()
+
+		// 遅れて到着した link も拒否されるので、最終的に account も紐付き users も存在しない。
+		if n := countRows(t, `SELECT count(*) FROM accounts WHERE cognito_sub = $1`, sub); n != 0 {
+			t.Errorf("round %d: account exists after delete", round)
+		}
+		if n := countRows(t, `SELECT count(*) FROM users u JOIN accounts a ON a.id = u.account_id WHERE a.cognito_sub = $1`, sub); n != 0 {
+			t.Errorf("round %d: linked users exist after delete", round)
+		}
+		// delete より先に link した端末の users 行は消え、delete より後に link を試みた端末の
+		// 匿名 users 行（UpsertUser 済み）は account_id NULL のまま残る。どちらも紐付き無し。
+		if n := countRows(t, `SELECT count(*) FROM users WHERE identity_id LIKE $1 AND account_id IS NOT NULL`, prefix+"%"); n != 0 {
+			t.Errorf("round %d: users still bound to an account", round)
+		}
+
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, sub)
 	}
 }

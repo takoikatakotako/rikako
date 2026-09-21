@@ -57,6 +57,11 @@ type Category struct {
 	UpdatedAt   sql.NullTime   `json:"updated_at"`
 }
 
+type DeletedAccount struct {
+	CognitoSub string    `json:"cognito_sub"`
+	DeletedAt  time.Time `json:"deleted_at"`
+}
+
 type Image struct {
 	ID        int64        `json:"id"`
 	Path      string       `json:"path"`

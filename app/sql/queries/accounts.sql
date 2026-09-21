@@ -38,9 +38,23 @@ FROM users u
 JOIN accounts a ON a.id = u.account_id
 WHERE u.identity_id = $1;
 
--- name: ListUserIDsByAccountID :many
+-- name: LockAccountSub :exec
+-- 同じ sub に対する link と delete を直列化するトランザクション内アドバイザリロック。
+-- 行が無い状態（削除済み・未作成）でもロックできるよう、行ロックではなくこれを使う。
+SELECT pg_advisory_xact_lock(hashtext(sqlc.arg(cognito_sub)::text));
+
+-- name: IsAccountDeleted :one
+-- 削除済み sub か（墓標）。link はこれが真なら拒否する。
+SELECT EXISTS (SELECT 1 FROM deleted_accounts WHERE cognito_sub = $1);
+
+-- name: MarkAccountDeleted :exec
+INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
+ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP;
+
+-- name: ListUsersByAccountID :many
 -- アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
-SELECT id FROM users WHERE account_id = $1 ORDER BY id;
+-- identity_id は transfer_tokens（FK 無し・文字列参照）を消すのに使う。
+SELECT id, identity_id FROM users WHERE account_id = $1 ORDER BY id;
 
 -- name: DeleteAccountByID :exec
 -- accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
