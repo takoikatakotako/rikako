@@ -352,6 +352,7 @@ android/app/src/
 
 - release は R8 で難読化するので、Crashlytics プラグインが `mapping.txt` を自動アップロードする（`deploy-android-prod.yml` で json を SSM から取ってからビルド）。
 - **debug ビルドでも収集する**。dev / prod で Firebase プロジェクトが分かれているため prod のデータは汚れない。
+- **広告 ID は収集しない**（#409）。`AndroidManifest.xml` で `google_analytics_adid_collection_enabled=false` を指定し、Firebase 系ライブラリが自動マージする `com.google.android.gms.permission.AD_ID` / `ACCESS_ADSERVICES_AD_ID` / `ACCESS_ADSERVICES_ATTRIBUTION` を `tools:node="remove"` で外している。iOS の IDFA 不使用（`FirebaseAnalyticsIdentitySupport` を入れない）と同じ方針で、Play の「広告 ID」申告は「使用しない」。merged manifest（`app/build/intermediates/merged_manifests/…/AndroidManifest.xml`）に `AD_ID` が無いことで確認できる
 - クラッシュレポートに載せるのは非 PII のキーのみ。ユーザー入力・メールアドレス・Cognito Identity ID は載せない。
 - Analytics はライブラリを入れて初期化するところまで。iOS 側のイベント（`app_open` 等）の発火は別途対応する。
 
