@@ -26,8 +26,8 @@ export default function DeleteAccountPage() {
       setDone(true);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        // セッション切れ。authedFetch が token を消しているのでログインからやり直す。
-        router.push("/login");
+        // セッション切れ。authedFetch が token を消しているので、ログイン後にここへ戻す。
+        router.push("/login?next=/delete");
         return;
       }
       setError(
