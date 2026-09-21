@@ -42,11 +42,11 @@ if (hasGoogleServicesJson) {
 
 android {
     namespace = "org.rikako.quiz"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Play は同じ versionCode を二度受け付けないため、CI では UTC 時刻由来の
         // 一意な番号を渡す。手元では初回手動アップロード用の 1 のまま。
         versionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInt()
