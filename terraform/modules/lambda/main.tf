@@ -70,6 +70,25 @@ resource "aws_iam_role_policy" "lambda_cognito_identity" {
   })
 }
 
+# Cognito User Pool: アカウント削除（DELETE /account、#408）。
+# ID token の cognito:username で AdminDeleteUser するだけなので、ユーザー列挙（ListUsers）は許可しない。
+resource "aws_iam_role_policy" "lambda_cognito_user_pool" {
+  count = var.cognito_user_pool_arn != "" ? 1 : 0
+  name  = "cognito-user-pool-delete-user"
+  role  = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-idp:AdminDeleteUser"]
+        Resource = [var.cognito_user_pool_arn]
+      }
+    ]
+  })
+}
+
 # SSM Parameter Store read access (for app-side env resolution; internal/secrets.Resolve)
 resource "aws_iam_role_policy" "lambda_ssm" {
   count = length(var.ssm_parameter_arns) > 0 ? 1 : 0

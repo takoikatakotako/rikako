@@ -9,14 +9,61 @@ on:
 permissions:
   contents: read
   id-token: write
+  actions: read # 同じコミットの Apply Terraform Dev の完了を待つため
 
 env:
   AWS_REGION: ap-northeast-1
   ENVIRONMENT: dev
 
+# 順序: migration → Terraform apply（あれば）→ Lambda 更新（#408 のレビューで確定）。
+# 新しいコードが要求するテーブルや IAM 権限が先に無いと、更新直後の Lambda が
+# 既存エンドポイントごと 500 / AccessDenied になる。prod は手動なので runbook に同じ順序を明記。
 jobs:
+  # 未適用の migration を先に当てる（無ければ no change）。
+  migrate:
+    name: Migrate (dev)
+    uses: ./.github/workflows/migrate-dev.yml
+    with:
+      direction: up
+
+  # 同じコミットで Apply Terraform Dev が走っていれば完了を待つ（無ければ即通過）。
+  # terraform/ の変更が無い push では Apply Terraform Dev 自体が起動しない。
+  wait-terraform:
+    name: Wait for Apply Terraform Dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the same-commit Terraform apply
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # 起動直後だと run がまだ登録されていないことがあるので少し待ってから探す
+          sleep 20
+          for i in $(seq 1 60); do
+            RUNS=$(gh run list --repo "$REPO" --workflow=apply-terraform-dev.yml --commit "$SHA"               --json status,conclusion,databaseId --jq '.[] | "\(.databaseId) \(.status) \(.conclusion)"')
+            if [ -z "$RUNS" ]; then
+              echo "このコミットの Apply Terraform Dev は無い（terraform/ の変更なし）。続行します"
+              exit 0
+            fi
+            echo "$RUNS"
+            if ! echo "$RUNS" | grep -qvE ' completed '; then
+              if echo "$RUNS" | grep -qE ' completed (failure|cancelled|timed_out)'; then
+                echo "::error::Apply Terraform Dev が失敗しています。IAM 等が揃わないため API のデプロイを止めます"
+                exit 1
+              fi
+              echo "Apply Terraform Dev 完了。続行します"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::Apply Terraform Dev の完了を 30 分待ちましたが終わりません"
+          exit 1
+
   build-and-push:
     name: Build and Push Docker Image
+    needs: [migrate, wait-terraform]
     runs-on: ubuntu-latest
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}

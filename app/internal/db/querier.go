@@ -38,6 +38,9 @@ type Querier interface {
 	CreateUserAnswers(ctx context.Context, arg CreateUserAnswersParams) error
 	CreateWorkbook(ctx context.Context, arg CreateWorkbookParams) (int64, error)
 	CreateWorkbookQuestion(ctx context.Context, arg CreateWorkbookQuestionParams) error
+	// accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
+	// （users.account_id は ON DELETE SET NULL）。
+	DeleteAccountByID(ctx context.Context, id int64) error
 	DeleteAllCategories(ctx context.Context) error
 	DeleteAllChoices(ctx context.Context) error
 	DeleteAllImages(ctx context.Context) error
@@ -53,7 +56,11 @@ type Querier interface {
 	DeleteQuestion(ctx context.Context, id int64) (sql.Result, error)
 	DeleteQuestionImages(ctx context.Context, questionID int64) error
 	DeleteTransferTokensByIdentityID(ctx context.Context, identityID string) error
+	// アカウント削除で、束ねられていた全端末の引き継ぎトークンを消す（#408）。
+	DeleteTransferTokensByIdentityIDs(ctx context.Context, dollar_1 []string) error
 	DeleteUserAppSettingsByUser(ctx context.Context, userID int64) error
+	// user_answers / user_app_settings は ON DELETE CASCADE で一緒に消える。
+	DeleteUsersByIDs(ctx context.Context, dollar_1 []int64) error
 	DeleteWorkbook(ctx context.Context, id int64) (sql.Result, error)
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
 	GetAccountByCognitoSub(ctx context.Context, cognitoSub string) (GetAccountByCognitoSubRow, error)
@@ -92,6 +99,8 @@ type Querier interface {
 	ImportSingleChoice(ctx context.Context, arg ImportSingleChoiceParams) (int64, error)
 	ImportWorkbook(ctx context.Context, arg ImportWorkbookParams) error
 	ImportWorkbookQuestion(ctx context.Context, arg ImportWorkbookQuestionParams) error
+	// 削除済み sub か（墓標）。link はこれが真なら拒否する。
+	IsAccountDeleted(ctx context.Context, cognitoSub string) (bool, error)
 	// publisher 専用。公開コンテンツの workbook_count は公開中のみを数える。
 	ListAllCategories(ctx context.Context) ([]ListAllCategoriesRow, error)
 	ListAllWorkbooks(ctx context.Context) ([]ListAllWorkbooksRow, error)
@@ -113,13 +122,27 @@ type Querier interface {
 	ListUserAnswerLogs(ctx context.Context, arg ListUserAnswerLogsParams) ([]ListUserAnswerLogsRow, error)
 	ListUserAppSettings(ctx context.Context, userID int64) ([]ListUserAppSettingsRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
+	// アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
+	// identity_id は transfer_tokens（FK 無し・文字列参照）を消すのに使う。
+	ListUsersByAccountID(ctx context.Context, accountID sql.NullInt64) ([]ListUsersByAccountIDRow, error)
 	ListWeeklyWorkbookIDs(ctx context.Context, arg ListWeeklyWorkbookIDsParams) ([]int64, error)
 	ListWorkbookProgress(ctx context.Context, arg ListWorkbookProgressParams) ([]ListWorkbookProgressRow, error)
 	ListWorkbooks(ctx context.Context, arg ListWorkbooksParams) ([]ListWorkbooksRow, error)
 	ListWorkbooksByCategory(ctx context.Context, categoryID sql.NullInt64) ([]ListWorkbooksByCategoryRow, error)
 	ListWrongAnswers(ctx context.Context, arg ListWrongAnswersParams) ([]ListWrongAnswersRow, error)
 	ListWrongAnswersWithChoices(ctx context.Context, arg ListWrongAnswersWithChoicesParams) ([]ListWrongAnswersWithChoicesRow, error)
+	// 同じ sub に対する link と delete を直列化するトランザクション内アドバイザリロック。
+	// 行が無い状態（削除済み・未作成）でもロックできるよう、行ロックではなくこれを使う。
+	LockAccountSub(ctx context.Context, cognitoSub string) error
+	// 再実行（前回 Cognito 削除に失敗した等）では deleted_at を更新し、cognito_deleted_at は
+	// 未確認（NULL）に戻す。Cognito 削除が成功したら MarkCognitoUserDeleted で確認時刻を入れる。
+	MarkAccountDeleted(ctx context.Context, cognitoSub string) error
+	MarkCognitoUserDeleted(ctx context.Context, cognitoSub string) error
 	MoveUserAppSettingsToUser(ctx context.Context, arg MoveUserAppSettingsToUserParams) error
+	// Cognito 側の削除が確認できてから 7 日（ID token 有効期間 1 時間に余裕）経った墓標だけ消す。
+	// cognito_deleted_at が NULL（Cognito にユーザーが残っている可能性がある）ものは残す。
+	// DeleteAccount のたびに呼ぶほか、backup-db-prod.yml が毎日呼んで「最長 7 日」を保証する。
+	PurgeExpiredDeletedAccounts(ctx context.Context) (int64, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	RepointUserAnswersToUser(ctx context.Context, arg RepointUserAnswersToUserParams) error
 	SetUserAccountID(ctx context.Context, arg SetUserAccountIDParams) error

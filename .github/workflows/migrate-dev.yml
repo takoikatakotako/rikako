@@ -15,6 +15,18 @@ on:
         description: 'Number of steps (leave empty for all)'
         required: false
         type: string
+  # deploy-api-dev.yml が Lambda 更新の前に呼ぶ（新しいコードが要求するテーブルを先に作る、#408）。
+  # 未適用の migration が無ければ "no change" で終わる。
+  workflow_call:
+    inputs:
+      direction:
+        required: false
+        default: 'up'
+        type: string
+      steps:
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -46,9 +58,8 @@ jobs:
       - name: Get database connection string
         id: db-config
         working-directory: terraform/environments/dev
-        env:
-          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
         run: |
+          # Neon の API キーは versions.tf が SSM から読む。output は state を読むだけなので provider 認証は不要。
           terraform init
           CONNECTION_STRING=$(terraform output -raw connection_string)
           echo "connection-string=${CONNECTION_STRING}" >> $GITHUB_OUTPUT
@@ -56,10 +67,10 @@ jobs:
 
       - name: Run migration
         run: |
-          MIGRATION_COMMAND="${{ github.event.inputs.direction }}"
+          MIGRATION_COMMAND="${{ inputs.direction }}"
 
-          if [ -n "${{ github.event.inputs.steps }}" ]; then
-            MIGRATION_COMMAND="${MIGRATION_COMMAND} ${{ github.event.inputs.steps }}"
+          if [ -n "${{ inputs.steps }}" ]; then
+            MIGRATION_COMMAND="${MIGRATION_COMMAND} ${{ inputs.steps }}"
           fi
 
           echo "Running migration: ${MIGRATION_COMMAND}"
@@ -75,9 +86,9 @@ jobs:
           echo "## Migration Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Environment:** dev" >> $GITHUB_STEP_SUMMARY
-          echo "**Direction:** ${{ github.event.inputs.direction }}" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ github.event.inputs.steps }}" ]; then
-            echo "**Steps:** ${{ github.event.inputs.steps }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Direction:** ${{ inputs.direction }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ inputs.steps }}" ]; then
+            echo "**Steps:** ${{ inputs.steps }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Steps:** All" >> $GITHUB_STEP_SUMMARY
           fi

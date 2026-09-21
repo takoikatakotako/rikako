@@ -47,6 +47,32 @@ jobs:
           echo "::add-mask::$DATABASE_URL"
           echo "DATABASE_URL=$DATABASE_URL" >> "$GITHUB_ENV"
 
+      # アカウント削除の墓標（deleted_accounts、#408）のうち、Cognito 側の削除確認から 7 日を
+      # 過ぎたものを消す。API の DeleteAccount でも掃除するが、削除リクエストが来ない日でも
+      # 期限を守るために、この日次ジョブで必ず回す。確認できていない（cognito_deleted_at IS NULL）
+      # 墓標は消さない。
+      # - ダンプの前に実行し、期限切れの行をその日のバックアップに含めない
+      # - migration 前（テーブルが無い）は to_regclass で no-op にし、バックアップを止めない
+      - name: Purge expired account tombstones
+        run: |
+          set -euo pipefail
+          # 失敗はジョブ失敗（→ Slack 通知）にする。migration 前は上の guard で no-op なので、
+          # ここで落ちるのは DB 到達不能など、どのみちダンプも失敗する状況だけ。
+          docker run --rm -e PGCONNECT_TIMEOUT=15 -e DATABASE_URL -e PURGE_SQL postgres:18 \
+            sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$PURGE_SQL"'
+        env:
+          PURGE_SQL: |
+            DO $$
+            BEGIN
+              IF to_regclass('public.deleted_accounts') IS NULL THEN
+                RAISE NOTICE 'deleted_accounts does not exist yet (migration pending); skipping';
+                RETURN;
+              END IF;
+              DELETE FROM deleted_accounts
+              WHERE cognito_deleted_at IS NOT NULL
+                AND cognito_deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days';
+            END $$;
+
       - name: Dump database
         run: |
           set -euo pipefail

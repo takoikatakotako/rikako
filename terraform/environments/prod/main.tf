@@ -57,6 +57,7 @@ module "lambda" {
   memory_size   = 512
 
   cognito_identity_pool_arn = module.cognito_identity.identity_pool_arn
+  cognito_user_pool_arn     = module.cognito.user_pool_arn # DELETE /account（#408）
 
   environment_variables = {
     DATABASE_URL                     = "ssm:${aws_ssm_parameter.database_url.name}"

@@ -782,13 +782,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountResponse'
         '401':
-          description: 認証エラー
+          description: >-
+            認証エラー。DELETE /account で削除済みのアカウントの ID token で呼ばれた場合も
+            code=ACCOUNT_DELETED で 401（発行済みトークンの期限内でも再作成しない）。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
           description: 指定した端末が別のアカウントに紐付いている
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /account:
+    delete:
+      summary: アカウントを削除
+      description: >-
+        認証済みアカウント（JWT の sub）と、それに束ねられたすべての端末の学習データ
+        （users / user_answers / user_app_settings / transfer_tokens）を削除し、
+        Cognito User Pool のユーザー（ID token の cognito:username）も削除する。
+        削除した sub は記録され、以後その sub での /account/link は拒否される。
+        冪等（DB 側が既に無くても Cognito 側の削除を試みて 204 を返す）。
+        端末側は成功後にトークンと匿名 identity を破棄して、新しい匿名ユーザーとしてやり直す。
+        Google Play のアカウント削除ポリシーと App Store 審査ガイドライン 5.1.1(v) への対応。
+      operationId: deleteAccount
+      tags:
+        - Account
+      responses:
+        '204':
+          description: 削除完了
+        '401':
+          description: 認証エラー
           content:
             application/json:
               schema:

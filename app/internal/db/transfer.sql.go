@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 const consumeTransferToken = `-- name: ConsumeTransferToken :one
@@ -56,6 +58,16 @@ DELETE FROM transfer_tokens WHERE identity_id = $1
 
 func (q *Queries) DeleteTransferTokensByIdentityID(ctx context.Context, identityID string) error {
 	_, err := q.db.ExecContext(ctx, deleteTransferTokensByIdentityID, identityID)
+	return err
+}
+
+const deleteTransferTokensByIdentityIDs = `-- name: DeleteTransferTokensByIdentityIDs :exec
+DELETE FROM transfer_tokens WHERE identity_id = ANY($1::text[])
+`
+
+// アカウント削除で、束ねられていた全端末の引き継ぎトークンを消す（#408）。
+func (q *Queries) DeleteTransferTokensByIdentityIDs(ctx context.Context, dollar_1 []string) error {
+	_, err := q.db.ExecContext(ctx, deleteTransferTokensByIdentityIDs, pq.Array(dollar_1))
 	return err
 }
 

@@ -37,7 +37,9 @@ func newTestHandler() *Handler {
 }
 
 func ctxWithSub(sub string) context.Context {
-	return context.WithValue(context.Background(), auth.UserSubContextKey, sub)
+	ctx := context.WithValue(context.Background(), auth.UserSubContextKey, sub)
+	// cognito:username 相当。テストでは sub に "-name" を付けたものにして区別できるようにする。
+	return context.WithValue(ctx, auth.UserNameContextKey, sub+"-name")
 }
 
 func userIDByIdentity(t *testing.T, identityID string) int64 {

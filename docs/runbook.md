@@ -214,6 +214,96 @@ gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main
 **最後にいつ prod へ出したか**はタグで確認する。prod デプロイが成功すると
 `portal-prod/<日時>` のタグと GitHub Release が作られる。
 
+### アカウントの削除（#408）
+
+ユーザーは `DELETE /account`（JWT 必須）で自分のアカウントを削除できる。ポータルの削除画面と
+アプリ内の「アカウントを削除」がこれを呼ぶ。処理は `app/internal/handler/account.go` の
+`DeleteAccount`:
+
+1. DB（1 トランザクション、sub 単位の `pg_advisory_xact_lock` で `/account/link` と直列化）:
+   - `deleted_accounts` に sub の墓標を残す。認証は JWT の署名と期限しか見ないので、
+     Cognito のユーザーを消しても発行済み ID token は期限まで有効に見える。その間の
+     `/account/link` は墓標を見て `401 ACCOUNT_DELETED` で拒否する
+   - `accounts` 行 → それに束ねられた全 `users` 行（primary 含む）の順で削除。
+     `user_answers` / `user_app_settings` は `users` の `ON DELETE CASCADE` で消える
+   - 各端末の `identity_id` に紐づく `transfer_tokens`（FK 無し・有効期限 3 年）も削除
+2. Cognito User Pool のユーザーを `AdminDeleteUser`（ID token の `cognito:username` で。
+   sub からの `ListUsers` 検索は結果整合で取りこぼすので使わない）
+
+DB を先に消すのは、Cognito を先に消して DB が失敗すると再ログインできず孤児が残るため。
+逆順の途中失敗（DB 消えて Cognito 残り）は、再ログインしてもう一度削除すれば Cognito 側だけ
+消えて収束する（冪等）。端末側は 204 を受けたらトークンと匿名 identity を破棄する。
+`deleted_accounts` は sub（不透明な UUID）・削除日時・**Cognito 側の削除確認日時**を持つ。
+Cognito 削除が確認できた行だけ、確認から 7 日（ID token 有効期間 1 時間に余裕）で消える。
+掃除は DeleteAccount のたびと、`backup-db-prod.yml`（毎日、ダンプの前）の
+「Purge expired account tombstones」ステップで行う。日次なので実際の上限は 7 日 + 1 日 = **最長 8 日**
+（プライバシーポリシーもこの表現）。ステップは migration 前なら `to_regclass` で no-op、
+それ以外の失敗はジョブ失敗（→ Slack）にする。
+**確認できていない行（DB は消えたが Cognito の削除に失敗した状態）は消さない**。その状態では
+ユーザーが再ログインできてしまうので、墓標が link を拒否し続ける必要がある。ユーザーが再実行
+すれば Cognito 側が消えて確認日時が付く。Cognito 削除は成功したのに確認日時の書き込みだけ失敗した
+場合は 3 回リトライのうえ 500 を返し（ERROR ログ → Slack）、クライアントの再実行で確認日時が付く。
+未確認のまま残っている墓標は次で一覧できる（Cognito に本当に残っているかは `list-users --filter 'sub = "…"'` で確認し、
+残っていなければ確認日時を手で入れる）:
+
+```sql
+SELECT cognito_sub, deleted_at FROM deleted_accounts
+WHERE cognito_deleted_at IS NULL AND deleted_at < CURRENT_TIMESTAMP - INTERVAL '1 day';
+```
+
+保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。バックアップ（30 日保持）には
+削除前のデータが残るため、**バックアップから復元したら、復元後にバックアップ取得以降の削除を再適用する**
+（[DBバックアップとリストア](db-backup.md) 参照）。
+
+**デプロイ順序**: 新しいコードは `deleted_accounts` と `cognito-idp:AdminDeleteUser` を前提にするので、
+**migration → Terraform apply → API deploy** の順でないと、更新直後の Lambda で `/account/link` が
+500、`DELETE /account` が AccessDenied になる。dev は `deploy-api-dev.yml` が migrate → 同一コミットの
+Apply Terraform Dev 待ち → Lambda 更新の順で動く。prod は手動なので、
+`Run Database Migration (Prod)` → `Apply Terraform Prod` → `Deploy API Prod`（または Deploy All Prod）の
+順で実行する。
+
+**メールで削除依頼が来た場合（ログインできない等）**は手動で同じことをする:
+
+```bash
+export AWS_PROFILE=<prod のプロファイル>
+POOL=ap-northeast-1_d8LkqgsJU   # prod の User Pool（dev は ap-northeast-1_DvsZzCoJw）
+
+# 1) メールアドレスから sub と Username を引く
+aws cognito-idp list-users --user-pool-id $POOL --filter 'email = "user@example.com"' \
+  --query 'Users[].{Username:Username,sub:Attributes[?Name==`sub`].Value|[0]}'
+
+# 2) DB（SSM の database-url で接続）。API の DeleteAccount と同じ順序・同じロックで消す。
+#    <sub> を 1 か所置き換えるだけでそのまま実行できる（削除対象は一時テーブルに保持）。
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v sub="'<sub>'" <<'SQL'
+BEGIN;
+-- API と同じアドバイザリロック（進行中の /account/link と直列化）
+SELECT pg_advisory_xact_lock(hashtext(:sub));
+INSERT INTO deleted_accounts (cognito_sub) VALUES (:sub)
+  ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP, cognito_deleted_at = NULL;
+-- 束ねられた全端末（primary 含む）
+CREATE TEMP TABLE doomed ON COMMIT DROP AS
+  SELECT u.id, u.identity_id FROM users u
+  JOIN accounts a ON a.id = u.account_id
+  WHERE a.cognito_sub = :sub;
+SELECT * FROM doomed;  -- 確認用
+-- accounts.primary_user_id が RESTRICT なので accounts が先
+DELETE FROM accounts WHERE cognito_sub = :sub;
+DELETE FROM transfer_tokens WHERE identity_id IN (SELECT identity_id FROM doomed);
+DELETE FROM users WHERE id IN (SELECT id FROM doomed);  -- user_answers / user_app_settings は CASCADE
+COMMIT;
+SQL
+
+# 3) Cognito のユーザーを消す
+aws cognito-idp admin-delete-user --user-pool-id $POOL --username '<Username>'
+
+# 4) Cognito 側の削除を確認したので、墓標に確認日時を付ける（これで 7 日後に自動で消える）
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v sub="'<sub>'" \
+  -c "UPDATE deleted_accounts SET cognito_deleted_at = CURRENT_TIMESTAMP WHERE cognito_sub = :sub"
+```
+
+依頼者本人であることは、登録メールアドレスからの依頼であることで確認する（そのメール宛に
+確認の返信をしてから実行する）。
+
 ```bash
 git fetch --tags
 git tag -l 'portal-prod/*' --sort=-refname | head -3

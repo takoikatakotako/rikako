@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"database/sql"
+
+	"github.com/lib/pq"
 )
 
 const createAccountIfNotExists = `-- name: CreateAccountIfNotExists :one
@@ -44,12 +46,33 @@ func (q *Queries) CreateAccountIfNotExists(ctx context.Context, arg CreateAccoun
 	return i, err
 }
 
+const deleteAccountByID = `-- name: DeleteAccountByID :exec
+DELETE FROM accounts WHERE id = $1
+`
+
+// accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
+// （users.account_id は ON DELETE SET NULL）。
+func (q *Queries) DeleteAccountByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAccountByID, id)
+	return err
+}
+
 const deleteUserAppSettingsByUser = `-- name: DeleteUserAppSettingsByUser :exec
 DELETE FROM user_app_settings WHERE user_id = $1
 `
 
 func (q *Queries) DeleteUserAppSettingsByUser(ctx context.Context, userID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteUserAppSettingsByUser, userID)
+	return err
+}
+
+const deleteUsersByIDs = `-- name: DeleteUsersByIDs :exec
+DELETE FROM users WHERE id = ANY($1::bigint[])
+`
+
+// user_answers / user_app_settings は ON DELETE CASCADE で一緒に消える。
+func (q *Queries) DeleteUsersByIDs(ctx context.Context, dollar_1 []int64) error {
+	_, err := q.db.ExecContext(ctx, deleteUsersByIDs, pq.Array(dollar_1))
 	return err
 }
 
@@ -105,6 +128,84 @@ func (q *Queries) GetUserAccountIDForUpdate(ctx context.Context, id int64) (sql.
 	return account_id, err
 }
 
+const isAccountDeleted = `-- name: IsAccountDeleted :one
+SELECT EXISTS (SELECT 1 FROM deleted_accounts WHERE cognito_sub = $1)
+`
+
+// 削除済み sub か（墓標）。link はこれが真なら拒否する。
+func (q *Queries) IsAccountDeleted(ctx context.Context, cognitoSub string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isAccountDeleted, cognitoSub)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listUsersByAccountID = `-- name: ListUsersByAccountID :many
+SELECT id, identity_id FROM users WHERE account_id = $1 ORDER BY id
+`
+
+type ListUsersByAccountIDRow struct {
+	ID         int64  `json:"id"`
+	IdentityID string `json:"identity_id"`
+}
+
+// アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
+// identity_id は transfer_tokens（FK 無し・文字列参照）を消すのに使う。
+func (q *Queries) ListUsersByAccountID(ctx context.Context, accountID sql.NullInt64) ([]ListUsersByAccountIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersByAccountID, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersByAccountIDRow{}
+	for rows.Next() {
+		var i ListUsersByAccountIDRow
+		if err := rows.Scan(&i.ID, &i.IdentityID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockAccountSub = `-- name: LockAccountSub :exec
+SELECT pg_advisory_xact_lock(hashtext($1::text))
+`
+
+// 同じ sub に対する link と delete を直列化するトランザクション内アドバイザリロック。
+// 行が無い状態（削除済み・未作成）でもロックできるよう、行ロックではなくこれを使う。
+func (q *Queries) LockAccountSub(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, lockAccountSub, cognitoSub)
+	return err
+}
+
+const markAccountDeleted = `-- name: MarkAccountDeleted :exec
+INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
+ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP, cognito_deleted_at = NULL
+`
+
+// 再実行（前回 Cognito 削除に失敗した等）では deleted_at を更新し、cognito_deleted_at は
+// 未確認（NULL）に戻す。Cognito 削除が成功したら MarkCognitoUserDeleted で確認時刻を入れる。
+func (q *Queries) MarkAccountDeleted(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, markAccountDeleted, cognitoSub)
+	return err
+}
+
+const markCognitoUserDeleted = `-- name: MarkCognitoUserDeleted :exec
+UPDATE deleted_accounts SET cognito_deleted_at = CURRENT_TIMESTAMP WHERE cognito_sub = $1
+`
+
+func (q *Queries) MarkCognitoUserDeleted(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, markCognitoUserDeleted, cognitoSub)
+	return err
+}
+
 const moveUserAppSettingsToUser = `-- name: MoveUserAppSettingsToUser :exec
 INSERT INTO user_app_settings (user_id, app_id, selected_workbook_id, created_at, updated_at)
 SELECT $1::bigint, app_id, selected_workbook_id, created_at, updated_at
@@ -121,6 +222,23 @@ type MoveUserAppSettingsToUserParams struct {
 func (q *Queries) MoveUserAppSettingsToUser(ctx context.Context, arg MoveUserAppSettingsToUserParams) error {
 	_, err := q.db.ExecContext(ctx, moveUserAppSettingsToUser, arg.Dst, arg.Src)
 	return err
+}
+
+const purgeExpiredDeletedAccounts = `-- name: PurgeExpiredDeletedAccounts :execrows
+DELETE FROM deleted_accounts
+WHERE cognito_deleted_at IS NOT NULL
+  AND cognito_deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
+`
+
+// Cognito 側の削除が確認できてから 7 日（ID token 有効期間 1 時間に余裕）経った墓標だけ消す。
+// cognito_deleted_at が NULL（Cognito にユーザーが残っている可能性がある）ものは残す。
+// DeleteAccount のたびに呼ぶほか、backup-db-prod.yml が毎日呼んで「最長 7 日」を保証する。
+func (q *Queries) PurgeExpiredDeletedAccounts(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, purgeExpiredDeletedAccounts)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const repointUserAnswersToUser = `-- name: RepointUserAnswersToUser :exec

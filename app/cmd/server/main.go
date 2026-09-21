@@ -21,6 +21,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/logging"
 	"github.com/takoikatakotako/rikako/internal/openai"
 	"github.com/takoikatakotako/rikako/internal/secrets"
+	"github.com/takoikatakotako/rikako/internal/userpool"
 )
 
 func main() {
@@ -121,6 +122,17 @@ func main() {
 
 	// ハンドラー登録
 	h := handler.New(db, imageBaseURL, minimumVersion, latestVersion, logger, idProvider, openaiClient, slackWebhookURL)
+	// アカウント削除（DELETE /account）で Cognito User Pool のユーザーを消す。認証と同じ条件で有効化。
+	if cognitoRegion != "" && cognitoUserPoolID != "" {
+		deleter, err := userpool.NewCognitoDeleter(cognitoRegion, cognitoUserPoolID)
+		if err != nil {
+			logger.Error("failed to create user pool deleter", "error", err)
+			os.Exit(1)
+		}
+		h = h.WithUserPool(deleter)
+	} else {
+		logger.Info("using noop user pool deleter (COGNITO_USER_POOL_ID not set)")
+	}
 	strictHandler := api.NewStrictHandler(h, middlewares)
 	api.RegisterHandlers(e, strictHandler)
 
