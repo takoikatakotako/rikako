@@ -73,6 +73,17 @@ jobs:
             pg_restore --list /backup/backup.dump > /dev/null
           echo "pg_restore --list: OK"
 
+      # アカウント削除の墓標（deleted_accounts、#408）のうち、Cognito 側の削除確認から 7 日を
+      # 過ぎたものを消す。API の DeleteAccount でも掃除するが、削除リクエストが来ない日でも
+      # 「最長 7 日で自動削除」（プライバシーポリシー）を守るために、この日次ジョブで必ず回す。
+      # 確認できていない（cognito_deleted_at IS NULL）墓標は消さない。
+      # ダンプの後に実行するので、消す前の行がその日のバックアップに含まれる。
+      - name: Purge expired account tombstones
+        run: |
+          set -euo pipefail
+          docker run --rm -e PGCONNECT_TIMEOUT=15 -e DATABASE_URL postgres:18 \
+            sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "DELETE FROM deleted_accounts WHERE cognito_deleted_at IS NOT NULL AND cognito_deleted_at < CURRENT_TIMESTAMP - INTERVAL '"'"'7 days'"'"'"'
+
       - name: Upload to S3
         run: |
           set -euo pipefail

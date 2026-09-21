@@ -58,8 +58,9 @@ type Category struct {
 }
 
 type DeletedAccount struct {
-	CognitoSub string    `json:"cognito_sub"`
-	DeletedAt  time.Time `json:"deleted_at"`
+	CognitoSub       string       `json:"cognito_sub"`
+	DeletedAt        time.Time    `json:"deleted_at"`
+	CognitoDeletedAt sql.NullTime `json:"cognito_deleted_at"`
 }
 
 type Image struct {

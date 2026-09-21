@@ -187,11 +187,22 @@ func (q *Queries) LockAccountSub(ctx context.Context, cognitoSub string) error {
 
 const markAccountDeleted = `-- name: MarkAccountDeleted :exec
 INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
-ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP
+ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP, cognito_deleted_at = NULL
 `
 
+// 再実行（前回 Cognito 削除に失敗した等）では deleted_at を更新し、cognito_deleted_at は
+// 未確認（NULL）に戻す。Cognito 削除が成功したら MarkCognitoUserDeleted で確認時刻を入れる。
 func (q *Queries) MarkAccountDeleted(ctx context.Context, cognitoSub string) error {
 	_, err := q.db.ExecContext(ctx, markAccountDeleted, cognitoSub)
+	return err
+}
+
+const markCognitoUserDeleted = `-- name: MarkCognitoUserDeleted :exec
+UPDATE deleted_accounts SET cognito_deleted_at = CURRENT_TIMESTAMP WHERE cognito_sub = $1
+`
+
+func (q *Queries) MarkCognitoUserDeleted(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.ExecContext(ctx, markCognitoUserDeleted, cognitoSub)
 	return err
 }
 
@@ -214,11 +225,14 @@ func (q *Queries) MoveUserAppSettingsToUser(ctx context.Context, arg MoveUserApp
 }
 
 const purgeExpiredDeletedAccounts = `-- name: PurgeExpiredDeletedAccounts :execrows
-DELETE FROM deleted_accounts WHERE deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
+DELETE FROM deleted_accounts
+WHERE cognito_deleted_at IS NOT NULL
+  AND cognito_deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days'
 `
 
-// 墓標は発行済み ID token（有効期間 1 時間）対策なので、余裕を見て 7 日で消す。
-// 削除処理のたびに呼んで掃除する（cron を持たない）。
+// Cognito 側の削除が確認できてから 7 日（ID token 有効期間 1 時間に余裕）経った墓標だけ消す。
+// cognito_deleted_at が NULL（Cognito にユーザーが残っている可能性がある）ものは残す。
+// DeleteAccount のたびに呼ぶほか、backup-db-prod.yml が毎日呼んで「最長 7 日」を保証する。
 func (q *Queries) PurgeExpiredDeletedAccounts(ctx context.Context) (int64, error) {
 	result, err := q.db.ExecContext(ctx, purgeExpiredDeletedAccounts)
 	if err != nil {

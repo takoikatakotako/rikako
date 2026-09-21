@@ -48,13 +48,21 @@ SELECT pg_advisory_xact_lock(hashtext(sqlc.arg(cognito_sub)::text));
 SELECT EXISTS (SELECT 1 FROM deleted_accounts WHERE cognito_sub = $1);
 
 -- name: MarkAccountDeleted :exec
+-- 再実行（前回 Cognito 削除に失敗した等）では deleted_at を更新し、cognito_deleted_at は
+-- 未確認（NULL）に戻す。Cognito 削除が成功したら MarkCognitoUserDeleted で確認時刻を入れる。
 INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
-ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP;
+ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP, cognito_deleted_at = NULL;
+
+-- name: MarkCognitoUserDeleted :exec
+UPDATE deleted_accounts SET cognito_deleted_at = CURRENT_TIMESTAMP WHERE cognito_sub = $1;
 
 -- name: PurgeExpiredDeletedAccounts :execrows
--- 墓標は発行済み ID token（有効期間 1 時間）対策なので、余裕を見て 7 日で消す。
--- 削除処理のたびに呼んで掃除する（cron を持たない）。
-DELETE FROM deleted_accounts WHERE deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days';
+-- Cognito 側の削除が確認できてから 7 日（ID token 有効期間 1 時間に余裕）経った墓標だけ消す。
+-- cognito_deleted_at が NULL（Cognito にユーザーが残っている可能性がある）ものは残す。
+-- DeleteAccount のたびに呼ぶほか、backup-db-prod.yml が毎日呼んで「最長 7 日」を保証する。
+DELETE FROM deleted_accounts
+WHERE cognito_deleted_at IS NOT NULL
+  AND cognito_deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days';
 
 -- name: ListUsersByAccountID :many
 -- アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。

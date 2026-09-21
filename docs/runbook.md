@@ -233,9 +233,13 @@ gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main
 DB を先に消すのは、Cognito を先に消して DB が失敗すると再ログインできず孤児が残るため。
 逆順の途中失敗（DB 消えて Cognito 残り）は、再ログインしてもう一度削除すれば Cognito 側だけ
 消えて収束する（冪等）。端末側は 204 を受けたらトークンと匿名 identity を破棄する。
-`deleted_accounts` は sub（不透明な UUID）と日時だけを持ち、ID token の有効期間（1 時間）に
-余裕を見て **7 日で自動的に消える**（DeleteAccount が毎回 `PurgeExpiredDeletedAccounts` で掃除する）。
-保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。
+`deleted_accounts` は sub（不透明な UUID）・削除日時・**Cognito 側の削除確認日時**を持つ。
+Cognito 削除が確認できた行だけ、確認から 7 日（ID token 有効期間 1 時間に余裕）で消える。
+掃除は DeleteAccount のたびと、`backup-db-prod.yml`（毎日）の「Purge expired account tombstones」
+ステップで行い、削除リクエストが来ない日でも「最長 7 日」を守る。
+**確認できていない行（DB は消えたが Cognito の削除に失敗した状態）は消さない**。その状態では
+ユーザーが再ログインできてしまうので、墓標が link を拒否し続ける必要がある。ユーザーが再実行
+すれば Cognito 側が消えて確認日時が付く。保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。
 
 **デプロイ順序**: 新しいコードは `deleted_accounts` と `cognito-idp:AdminDeleteUser` を前提にするので、
 **migration → Terraform apply → API deploy** の順でないと、更新直後の Lambda で `/account/link` が
@@ -261,7 +265,7 @@ BEGIN;
 -- API と同じアドバイザリロック（進行中の /account/link と直列化）
 SELECT pg_advisory_xact_lock(hashtext(:sub));
 INSERT INTO deleted_accounts (cognito_sub) VALUES (:sub)
-  ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP;
+  ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP, cognito_deleted_at = NULL;
 -- 束ねられた全端末（primary 含む）
 CREATE TEMP TABLE doomed ON COMMIT DROP AS
   SELECT u.id, u.identity_id FROM users u
@@ -277,6 +281,10 @@ SQL
 
 # 3) Cognito のユーザーを消す
 aws cognito-idp admin-delete-user --user-pool-id $POOL --username '<Username>'
+
+# 4) Cognito 側の削除を確認したので、墓標に確認日時を付ける（これで 7 日後に自動で消える）
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v sub="'<sub>'" \
+  -c "UPDATE deleted_accounts SET cognito_deleted_at = CURRENT_TIMESTAMP WHERE cognito_sub = :sub"
 ```
 
 依頼者本人であることは、登録メールアドレスからの依頼であることで確認する（そのメール宛に

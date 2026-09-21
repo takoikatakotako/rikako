@@ -233,17 +233,95 @@ func TestDeleteAccount_PurgesOldTombstones(t *testing.T) {
 	defer func() {
 		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub IN ($1, $2)`, oldSub, sub)
 	}()
+	unconfirmed := prefix + "-unconfirmed"
+	defer testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, unconfirmed)
+	// Cognito 削除確認済みで 8 日経過 → 消える
 	if _, err := testDB.Exec(
-		`INSERT INTO deleted_accounts (cognito_sub, deleted_at) VALUES ($1, CURRENT_TIMESTAMP - INTERVAL '8 days')`, oldSub); err != nil {
+		`INSERT INTO deleted_accounts (cognito_sub, deleted_at, cognito_deleted_at)
+		 VALUES ($1, CURRENT_TIMESTAMP - INTERVAL '8 days', CURRENT_TIMESTAMP - INTERVAL '8 days')`, oldSub); err != nil {
+		t.Fatal(err)
+	}
+	// Cognito 削除未確認で 8 日経過 → 消えない（ユーザーが Cognito に残っている可能性がある）
+	if _, err := testDB.Exec(
+		`INSERT INTO deleted_accounts (cognito_sub, deleted_at) VALUES ($1, CURRENT_TIMESTAMP - INTERVAL '8 days')`, unconfirmed); err != nil {
 		t.Fatal(err)
 	}
 
-	deleteAccount(t, h, sub) // account が無くても墓標を書き、古い墓標を掃除する
+	deleteAccount(t, h, sub) // account が無くても墓標を書き、期限切れの墓標を掃除する
 
 	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, oldSub); n != 0 {
-		t.Errorf("8-day-old tombstone should be purged")
+		t.Errorf("confirmed 8-day-old tombstone should be purged")
 	}
-	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, sub); n != 1 {
-		t.Errorf("fresh tombstone should remain")
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, unconfirmed); n != 1 {
+		t.Errorf("unconfirmed tombstone must never be purged")
+	}
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1 AND cognito_deleted_at IS NOT NULL`, sub); n != 1 {
+		t.Errorf("fresh tombstone should remain with cognito_deleted_at set")
+	}
+}
+
+// failingDeleter は Cognito 側の一時障害を模す。
+type failingDeleter struct{ calls int }
+
+func (d *failingDeleter) DeleteUser(context.Context, string) error {
+	d.calls++
+	return fmt.Errorf("cognito unavailable")
+}
+
+// Cognito 削除に失敗したアカウントは、時間が経っても link で再作成できない（#408 レビュー）。
+// DB は消えるが Cognito にユーザーが残るので、ユーザーは再ログインして新しい token を取れる。
+// その token での link は、墓標が期限切れにならないことで拒否され続ける。
+func TestDeleteAccount_CognitoFailureKeepsTombstoneForever(t *testing.T) {
+	h := newTestHandler()
+	deleter := &failingDeleter{}
+	h.WithUserPool(deleter)
+
+	prefix := fmt.Sprintf("deltest6-%d", time.Now().UnixNano())
+	sub, dev := prefix+"-sub", prefix+"-dev"
+	defer func() {
+		testDB.Exec(`DELETE FROM accounts WHERE cognito_sub = $1`, sub)
+		testDB.Exec(`DELETE FROM users WHERE identity_id LIKE $1`, prefix+"%")
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, sub)
+	}()
+	linkAccount(t, h, sub, dev)
+
+	resp := deleteAccount(t, h, sub)
+	if _, ok := resp.(api.DeleteAccount500JSONResponse); !ok {
+		t.Fatalf("expected 500 on cognito failure, got %T", resp)
+	}
+	if n := countRows(t, `SELECT count(*) FROM accounts WHERE cognito_sub = $1`, sub); n != 0 {
+		t.Fatalf("DB account should be gone even though cognito failed")
+	}
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1 AND cognito_deleted_at IS NULL`, sub); n != 1 {
+		t.Fatalf("tombstone must exist and be unconfirmed")
+	}
+
+	// 8 日経ったことにして、別ユーザーの削除（= 掃除）が走っても消えない。
+	if _, err := testDB.Exec(`UPDATE deleted_accounts SET deleted_at = CURRENT_TIMESTAMP - INTERVAL '8 days' WHERE cognito_sub = $1`, sub); err != nil {
+		t.Fatal(err)
+	}
+	other := &Handler{}
+	*other = *h
+	other.WithUserPool(&userpool.NoopDeleter{})
+	otherSub := prefix + "-other"
+	defer testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, otherSub)
+	deleteAccount(t, other, otherSub)
+
+	// 再ログインした体で link → 拒否される
+	linkResp, err := h.LinkAccount(ctxWithSub(sub), api.LinkAccountRequestObject{Params: api.LinkAccountParams{XDeviceID: prefix + "-dev2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, ok := linkResp.(api.LinkAccount401JSONResponse); !ok || r.Code != "ACCOUNT_DELETED" {
+		t.Fatalf("link after failed cognito delete must be rejected; got %T %+v", linkResp, linkResp)
+	}
+
+	// 再実行で Cognito 削除が通れば確認時刻が付き、以後は期限付きになる。
+	h.WithUserPool(&userpool.NoopDeleter{})
+	if r := deleteAccount(t, h, sub); r != (api.DeleteAccount204Response{}) {
+		t.Fatalf("retry should succeed, got %T", r)
+	}
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1 AND cognito_deleted_at IS NOT NULL`, sub); n != 1 {
+		t.Errorf("tombstone should be confirmed after successful retry")
 	}
 }

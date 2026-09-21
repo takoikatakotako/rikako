@@ -232,7 +232,7 @@ func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestO
 	if err := q.MarkAccountDeleted(ctx, sub); err != nil {
 		return fail("failed to mark account deleted", err)
 	}
-	// 墓標の保持期間（7 日）を過ぎた行を掃除する。ID token の有効期間は 1 時間なので十分。
+	// Cognito 削除確認から 7 日を過ぎた墓標を掃除する（毎日の backup-db-prod.yml でも掃除する）。
 	if _, err := q.PurgeExpiredDeletedAccounts(ctx); err != nil {
 		return fail("failed to purge expired tombstones", err)
 	}
@@ -272,7 +272,14 @@ func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestO
 	}
 
 	if err := h.userPool.DeleteUser(ctx, username); err != nil {
+		// 墓標は cognito_deleted_at = NULL のまま残る（期限切れで消えない）。
+		// ユーザーは Cognito に残っているので再ログインして再実行できる。
 		return fail("failed to delete cognito user", err)
+	}
+	// Cognito 側の削除が確認できたので、墓標に期限（確認時刻 + 7 日）が付く。
+	// ここが失敗しても墓標が残るだけで安全側なので、ログに残して 204 を返す。
+	if err := h.queries.MarkCognitoUserDeleted(ctx, sub); err != nil {
+		h.logger.Error("failed to mark cognito user deleted (tombstone will not expire)", "error", err)
 	}
 	return api.DeleteAccount204Response{}, nil
 }

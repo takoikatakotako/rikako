@@ -134,10 +134,14 @@ type Querier interface {
 	// 同じ sub に対する link と delete を直列化するトランザクション内アドバイザリロック。
 	// 行が無い状態（削除済み・未作成）でもロックできるよう、行ロックではなくこれを使う。
 	LockAccountSub(ctx context.Context, cognitoSub string) error
+	// 再実行（前回 Cognito 削除に失敗した等）では deleted_at を更新し、cognito_deleted_at は
+	// 未確認（NULL）に戻す。Cognito 削除が成功したら MarkCognitoUserDeleted で確認時刻を入れる。
 	MarkAccountDeleted(ctx context.Context, cognitoSub string) error
+	MarkCognitoUserDeleted(ctx context.Context, cognitoSub string) error
 	MoveUserAppSettingsToUser(ctx context.Context, arg MoveUserAppSettingsToUserParams) error
-	// 墓標は発行済み ID token（有効期間 1 時間）対策なので、余裕を見て 7 日で消す。
-	// 削除処理のたびに呼んで掃除する（cron を持たない）。
+	// Cognito 側の削除が確認できてから 7 日（ID token 有効期間 1 時間に余裕）経った墓標だけ消す。
+	// cognito_deleted_at が NULL（Cognito にユーザーが残っている可能性がある）ものは残す。
+	// DeleteAccount のたびに呼ぶほか、backup-db-prod.yml が毎日呼んで「最長 7 日」を保証する。
 	PurgeExpiredDeletedAccounts(ctx context.Context) (int64, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	RepointUserAnswersToUser(ctx context.Context, arg RepointUserAnswersToUserParams) error
