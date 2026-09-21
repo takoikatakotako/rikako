@@ -93,6 +93,10 @@ export default function Home() {
         >
           ログアウト
         </button>
+
+        <Link href="/delete" className="block text-center text-sm text-slate-500 hover:underline">
+          アカウントを削除する
+        </Link>
       </div>
     );
   }

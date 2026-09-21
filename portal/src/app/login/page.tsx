@@ -4,9 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn, cognitoErrorMessage, CognitoError } from "@/lib/cognito";
+import { useQueryParam } from "@/lib/hooks";
+
+const ALLOWED_NEXT = new Set(["/delete"]);
 
 export default function LoginPage() {
   const router = useRouter();
+  // ログイン後の遷移先。オープンリダイレクト防止のため allowlist（現状 /delete のみ）。
+  // 「/ で始まり // でない」のような検査は `/\evil.example` を通してしまう（URL 標準で
+  // バックスラッシュがスラッシュに正規化され、外部ドメインへの hard navigation になる）。
+  const next = ALLOWED_NEXT.has(useQueryParam("next")) ? "/delete" : "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +26,7 @@ export default function LoginPage() {
     try {
       await signIn(email.trim(), password);
       // アカウントの作成/紐付けはホームで ensureAccountLinked() が担う（失敗時は再試行UI）。
-      router.push("/");
+      router.push(next);
     } catch (err) {
       // メール未確認なら確認画面へ誘導。
       if (err instanceof CognitoError && err.code === "UserNotConfirmedException") {
