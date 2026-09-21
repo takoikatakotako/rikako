@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/takoikatakotako/rikako/internal/api"
 	"github.com/takoikatakotako/rikako/internal/auth"
@@ -276,10 +277,21 @@ func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestO
 		// ユーザーは Cognito に残っているので再ログインして再実行できる。
 		return fail("failed to delete cognito user", err)
 	}
-	// Cognito 側の削除が確認できたので、墓標に期限（確認時刻 + 7 日）が付く。
-	// ここが失敗しても墓標が残るだけで安全側なので、ログに残して 204 を返す。
-	if err := h.queries.MarkCognitoUserDeleted(ctx, sub); err != nil {
-		h.logger.Error("failed to mark cognito user deleted (tombstone will not expire)", "error", err)
+	// Cognito 側の削除が確認できたので、墓標に確認時刻を入れる（これで 7 日後に期限切れになる）。
+	// 失敗すると墓標が無期限に残るので握り潰さない: 数回リトライし、それでも駄目なら 500 を返す。
+	// クライアントは ID token の有効期間内なら再実行でき（DB に account は無く、Cognito は
+	// UserNotFound で成功扱い）、確認時刻だけが付く。ERROR ログは CloudWatch → Slack に流れる。
+	var markErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if markErr = h.queries.MarkCognitoUserDeleted(ctx, sub); markErr == nil {
+			break
+		}
+		time.Sleep(time.Duration(attempt+1) * 200 * time.Millisecond)
+	}
+	if markErr != nil {
+		// sub はログに残さない（削除済み識別子の保持先を増やさない）。未確認の墓標は runbook のクエリで一覧できる。
+		h.logger.Error("failed to mark cognito user deleted after retries (tombstone will not expire until retried)", "error", markErr)
+		return api.DeleteAccount500JSONResponse{Code: "INTERNAL_ERROR", Message: "account deleted but cleanup incomplete; please retry"}, nil
 	}
 	return api.DeleteAccount204Response{}, nil
 }

@@ -235,11 +235,25 @@ DB を先に消すのは、Cognito を先に消して DB が失敗すると再�
 消えて収束する（冪等）。端末側は 204 を受けたらトークンと匿名 identity を破棄する。
 `deleted_accounts` は sub（不透明な UUID）・削除日時・**Cognito 側の削除確認日時**を持つ。
 Cognito 削除が確認できた行だけ、確認から 7 日（ID token 有効期間 1 時間に余裕）で消える。
-掃除は DeleteAccount のたびと、`backup-db-prod.yml`（毎日）の「Purge expired account tombstones」
-ステップで行い、削除リクエストが来ない日でも「最長 7 日」を守る。
+掃除は DeleteAccount のたびと、`backup-db-prod.yml`（毎日、ダンプの前）の
+「Purge expired account tombstones」ステップで行う。日次なので実際の上限は 7 日 + 1 日 = **最長 8 日**
+（プライバシーポリシーもこの表現）。ステップは migration 前なら `to_regclass` で no-op、
+それ以外の失敗はジョブ失敗（→ Slack）にする。
 **確認できていない行（DB は消えたが Cognito の削除に失敗した状態）は消さない**。その状態では
 ユーザーが再ログインできてしまうので、墓標が link を拒否し続ける必要がある。ユーザーが再実行
-すれば Cognito 側が消えて確認日時が付く。保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。
+すれば Cognito 側が消えて確認日時が付く。Cognito 削除は成功したのに確認日時の書き込みだけ失敗した
+場合は 3 回リトライのうえ 500 を返し（ERROR ログ → Slack）、クライアントの再実行で確認日時が付く。
+未確認のまま残っている墓標は次で一覧できる（Cognito に本当に残っているかは `list-users --filter 'sub = "…"'` で確認し、
+残っていなければ確認日時を手で入れる）:
+
+```sql
+SELECT cognito_sub, deleted_at FROM deleted_accounts
+WHERE cognito_deleted_at IS NULL AND deleted_at < CURRENT_TIMESTAMP - INTERVAL '1 day';
+```
+
+保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。バックアップ（30 日保持）には
+削除前のデータが残るため、**バックアップから復元したら、復元後にバックアップ取得以降の削除を再適用する**
+（[DBバックアップとリストア](db-backup.md) 参照）。
 
 **デプロイ順序**: 新しいコードは `deleted_accounts` と `cognito-idp:AdminDeleteUser` を前提にするので、
 **migration → Terraform apply → API deploy** の順でないと、更新直後の Lambda で `/account/link` が
