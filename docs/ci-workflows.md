@@ -44,7 +44,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     M([main push])
-    M -->|"常に"| api["Deploy API Dev<br/>ECR → Lambda"]
+    M -->|"常に"| api["Deploy API Dev<br/>migrate → TF 待ち → ECR → Lambda"]
     M -->|"常に"| aapi["Deploy Admin API Dev"]
     M -->|"常に"| docs["Deploy Docs<br/>→ docs.rikako.org (prod)"]
     M -->|"admin/**"| afe["Deploy Admin Frontend Dev"]
@@ -61,7 +61,7 @@ flowchart LR
 
 - `Deploy API Dev` / `Deploy Admin API Dev` / `Deploy Docs` は `paths` を絞っていないので、**main への push があれば毎回**動く
 - `Sync Content Dev` は「データ反映の順序」を強制するためのもの。web は静的エクスポートでビルド時に content CDN の JSON を焼き込むため、publish → invalidate の**後**にビルドしないと古い内容が出る（#391）
-- 新しいマイグレーションを含む変更は、Deploy API Dev のあとに **Run Database Migration (Dev)** を手動 dispatch する（自動では走らない）
+- **Deploy API Dev は migration → 同一コミットの Apply Terraform Dev 待ち → Lambda 更新** の順で動く（#408）。新しいコードが要求するテーブルや IAM が先に無いと更新直後の Lambda が既存エンドポイントごと壊れるため。`migrate-dev.yml` を `workflow_call` で呼ぶので、dev の migration は手動 dispatch 不要（未適用が無ければ no change）。prod は手動: Run Database Migration (Prod) → Apply Terraform Prod → Deploy API Prod
 
 ## 3. prod へ出すとき（手動 + 承認）
 
@@ -187,7 +187,7 @@ sequenceDiagram
 | `deploy-lp-dev.yml` | Deploy LP Dev | main push（lp）/ dispatch | — |
 | `sync-content-dev.yml` | Sync Content Dev | main push（data）/ dispatch@main | — |
 | `apply-terraform-dev.yml` | Apply Terraform Dev | main push（terraform dev/modules）/ dispatch | — |
-| `migrate-dev.yml` | Run Database Migration (Dev) | dispatch | — |
+| `migrate-dev.yml` | Run Database Migration (Dev) | dispatch / call（Deploy API Dev から） | — |
 | `docs.yml` | Deploy Docs | main push / dispatch | —（prod へ自動） |
 | `deploy-all-prod.yml` | Deploy All Prod | dispatch@main | production（複数） |
 | `deploy-admin-prod.yml` | Deploy Admin Prod | dispatch | production（呼び先） |

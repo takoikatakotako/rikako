@@ -71,7 +71,7 @@ resource "aws_iam_role_policy" "lambda_cognito_identity" {
 }
 
 # Cognito User Pool: アカウント削除（DELETE /account、#408）。
-# ユーザー名は sub と一致しないため ListUsers で sub → Username を引いてから AdminDeleteUser する。
+# ID token の cognito:username で AdminDeleteUser するだけなので、ユーザー列挙（ListUsers）は許可しない。
 resource "aws_iam_role_policy" "lambda_cognito_user_pool" {
   count = var.cognito_user_pool_arn != "" ? 1 : 0
   name  = "cognito-user-pool-delete-user"
@@ -82,7 +82,7 @@ resource "aws_iam_role_policy" "lambda_cognito_user_pool" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["cognito-idp:ListUsers", "cognito-idp:AdminDeleteUser"]
+        Action   = ["cognito-idp:AdminDeleteUser"]
         Resource = [var.cognito_user_pool_arn]
       }
     ]

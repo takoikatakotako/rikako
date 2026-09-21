@@ -51,6 +51,11 @@ SELECT EXISTS (SELECT 1 FROM deleted_accounts WHERE cognito_sub = $1);
 INSERT INTO deleted_accounts (cognito_sub) VALUES ($1)
 ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP;
 
+-- name: PurgeExpiredDeletedAccounts :execrows
+-- 墓標は発行済み ID token（有効期間 1 時間）対策なので、余裕を見て 7 日で消す。
+-- 削除処理のたびに呼んで掃除する（cron を持たない）。
+DELETE FROM deleted_accounts WHERE deleted_at < CURRENT_TIMESTAMP - INTERVAL '7 days';
+
 -- name: ListUsersByAccountID :many
 -- アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
 -- identity_id は transfer_tokens（FK 無し・文字列参照）を消すのに使う。

@@ -223,3 +223,27 @@ func TestDeleteAccount_ConcurrentLinkDoesNotResurrect(t *testing.T) {
 		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub = $1`, sub)
 	}
 }
+
+// 墓標は 7 日で消える（削除処理のたびに掃除、#408）。
+func TestDeleteAccount_PurgesOldTombstones(t *testing.T) {
+	h := newTestHandler()
+	h.WithUserPool(&userpool.NoopDeleter{})
+	prefix := fmt.Sprintf("deltest5-%d", time.Now().UnixNano())
+	oldSub, sub := prefix+"-old", prefix+"-sub"
+	defer func() {
+		testDB.Exec(`DELETE FROM deleted_accounts WHERE cognito_sub IN ($1, $2)`, oldSub, sub)
+	}()
+	if _, err := testDB.Exec(
+		`INSERT INTO deleted_accounts (cognito_sub, deleted_at) VALUES ($1, CURRENT_TIMESTAMP - INTERVAL '8 days')`, oldSub); err != nil {
+		t.Fatal(err)
+	}
+
+	deleteAccount(t, h, sub) // account が無くても墓標を書き、古い墓標を掃除する
+
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, oldSub); n != 0 {
+		t.Errorf("8-day-old tombstone should be purged")
+	}
+	if n := countRows(t, `SELECT count(*) FROM deleted_accounts WHERE cognito_sub = $1`, sub); n != 1 {
+		t.Errorf("fresh tombstone should remain")
+	}
+}

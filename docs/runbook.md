@@ -233,7 +233,16 @@ gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main
 DB を先に消すのは、Cognito を先に消して DB が失敗すると再ログインできず孤児が残るため。
 逆順の途中失敗（DB 消えて Cognito 残り）は、再ログインしてもう一度削除すれば Cognito 側だけ
 消えて収束する（冪等）。端末側は 204 を受けたらトークンと匿名 identity を破棄する。
-`deleted_accounts` は sub（不透明な UUID）と日時だけで、消さなくてよい。
+`deleted_accounts` は sub（不透明な UUID）と日時だけを持ち、ID token の有効期間（1 時間）に
+余裕を見て **7 日で自動的に消える**（DeleteAccount が毎回 `PurgeExpiredDeletedAccounts` で掃除する）。
+保持の目的と期間は [プライバシーポリシー](privacy.md) に明記している。
+
+**デプロイ順序**: 新しいコードは `deleted_accounts` と `cognito-idp:AdminDeleteUser` を前提にするので、
+**migration → Terraform apply → API deploy** の順でないと、更新直後の Lambda で `/account/link` が
+500、`DELETE /account` が AccessDenied になる。dev は `deploy-api-dev.yml` が migrate → 同一コミットの
+Apply Terraform Dev 待ち → Lambda 更新の順で動く。prod は手動なので、
+`Run Database Migration (Prod)` → `Apply Terraform Prod` → `Deploy API Prod`（または Deploy All Prod）の
+順で実行する。
 
 **メールで削除依頼が来た場合（ログインできない等）**は手動で同じことをする:
 
@@ -245,15 +254,24 @@ POOL=ap-northeast-1_d8LkqgsJU   # prod の User Pool（dev は ap-northeast-1_Dv
 aws cognito-idp list-users --user-pool-id $POOL --filter 'email = "user@example.com"' \
   --query 'Users[].{Username:Username,sub:Attributes[?Name==`sub`].Value|[0]}'
 
-# 2) DB（SSM の database-url で接続）。sub を使って accounts → users を消す
-#    accounts.primary_user_id が RESTRICT なので accounts が先
-psql "$DATABASE_URL" <<SQL
+# 2) DB（SSM の database-url で接続）。API の DeleteAccount と同じ順序・同じロックで消す。
+#    <sub> を 1 か所置き換えるだけでそのまま実行できる（削除対象は一時テーブルに保持）。
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v sub="'<sub>'" <<'SQL'
 BEGIN;
-INSERT INTO deleted_accounts (cognito_sub) VALUES ('<sub>') ON CONFLICT (cognito_sub) DO NOTHING;
-SELECT id, identity_id FROM users WHERE account_id = (SELECT id FROM accounts WHERE cognito_sub = '<sub>');
-DELETE FROM accounts WHERE cognito_sub = '<sub>';
-DELETE FROM transfer_tokens WHERE identity_id IN (<上で出た identity_id>);
-DELETE FROM users WHERE id IN (<上で出た id>);
+-- API と同じアドバイザリロック（進行中の /account/link と直列化）
+SELECT pg_advisory_xact_lock(hashtext(:sub));
+INSERT INTO deleted_accounts (cognito_sub) VALUES (:sub)
+  ON CONFLICT (cognito_sub) DO UPDATE SET deleted_at = CURRENT_TIMESTAMP;
+-- 束ねられた全端末（primary 含む）
+CREATE TEMP TABLE doomed ON COMMIT DROP AS
+  SELECT u.id, u.identity_id FROM users u
+  JOIN accounts a ON a.id = u.account_id
+  WHERE a.cognito_sub = :sub;
+SELECT * FROM doomed;  -- 確認用
+-- accounts.primary_user_id が RESTRICT なので accounts が先
+DELETE FROM accounts WHERE cognito_sub = :sub;
+DELETE FROM transfer_tokens WHERE identity_id IN (SELECT identity_id FROM doomed);
+DELETE FROM users WHERE id IN (SELECT id FROM doomed);  -- user_answers / user_app_settings は CASCADE
 COMMIT;
 SQL
 

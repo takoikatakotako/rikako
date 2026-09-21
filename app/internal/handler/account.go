@@ -232,6 +232,10 @@ func (h *Handler) DeleteAccount(ctx context.Context, _ api.DeleteAccountRequestO
 	if err := q.MarkAccountDeleted(ctx, sub); err != nil {
 		return fail("failed to mark account deleted", err)
 	}
+	// 墓標の保持期間（7 日）を過ぎた行を掃除する。ID token の有効期間は 1 時間なので十分。
+	if _, err := q.PurgeExpiredDeletedAccounts(ctx); err != nil {
+		return fail("failed to purge expired tombstones", err)
+	}
 
 	acct, err := q.GetAccountByCognitoSub(ctx, sub)
 	switch {

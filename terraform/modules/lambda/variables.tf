@@ -57,7 +57,7 @@ variable "cognito_identity_pool_arn" {
 }
 
 variable "cognito_user_pool_arn" {
-  description = "Cognito User Pool ARN. 指定するとアカウント削除（DELETE /account）用に ListUsers / AdminDeleteUser を許可する（#408）"
+  description = "Cognito User Pool ARN. 指定するとアカウント削除（DELETE /account）用に AdminDeleteUser を許可する（#408）"
   type        = string
   default     = ""
 }

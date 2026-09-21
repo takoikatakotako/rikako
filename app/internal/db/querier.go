@@ -136,6 +136,9 @@ type Querier interface {
 	LockAccountSub(ctx context.Context, cognitoSub string) error
 	MarkAccountDeleted(ctx context.Context, cognitoSub string) error
 	MoveUserAppSettingsToUser(ctx context.Context, arg MoveUserAppSettingsToUserParams) error
+	// 墓標は発行済み ID token（有効期間 1 時間）対策なので、余裕を見て 7 日で消す。
+	// 削除処理のたびに呼んで掃除する（cron を持たない）。
+	PurgeExpiredDeletedAccounts(ctx context.Context) (int64, error)
 	QuestionExists(ctx context.Context, id int64) (bool, error)
 	RepointUserAnswersToUser(ctx context.Context, arg RepointUserAnswersToUserParams) error
 	SetUserAccountID(ctx context.Context, arg SetUserAccountIDParams) error
