@@ -8,7 +8,7 @@ Content CDN（S3 + CloudFront の静的 JSON）から取得する。
 | 項目 | 値 |
 | --- | --- |
 | 言語 / UI | Kotlin 2.1 + Jetpack Compose (Material 3) |
-| ビルド | Gradle 8.11.1 + AGP 8.7.3 |
+| ビルド | Gradle 8.11.1 + AGP 8.10.1 |
 | SDK | compileSdk / targetSdk 36、minSdk 26（Play の新規アプリ要件で 2026-08 以降 targetSdk 36 が必須） |
 | 通信 | Ktor Client (OkHttp) + kotlinx.serialization |
 | 画像 | Coil 3（設問画像の読み込み）、iOS と共通のマスコット・結果イラスト |
