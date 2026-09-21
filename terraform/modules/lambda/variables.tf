@@ -56,6 +56,12 @@ variable "cognito_identity_pool_arn" {
   default     = ""
 }
 
+variable "cognito_user_pool_arn" {
+  description = "Cognito User Pool ARN. 指定するとアカウント削除（DELETE /account）用に ListUsers / AdminDeleteUser を許可する（#408）"
+  type        = string
+  default     = ""
+}
+
 variable "ssm_parameter_arns" {
   description = "List of SSM Parameter ARNs the Lambda is allowed to read at startup (used by internal/secrets.Resolve)"
   type        = list(string)

@@ -584,6 +584,9 @@ type ServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx echo.Context) error
+	// アカウントを削除
+	// (DELETE /account)
+	DeleteAccount(ctx echo.Context) error
 	// 匿名データをアカウントへ紐付け・マージ
 	// (POST /account/link)
 	LinkAccount(ctx echo.Context, params LinkAccountParams) error
@@ -678,6 +681,17 @@ func (w *ServerInterfaceWrapper) Root(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.Root(ctx)
+	return err
+}
+
+// DeleteAccount converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteAccount(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteAccount(ctx)
 	return err
 }
 
@@ -1458,6 +1472,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/", wrapper.Root)
+	router.DELETE(baseURL+"/account", wrapper.DeleteAccount)
 	router.POST(baseURL+"/account/link", wrapper.LinkAccount)
 	router.GET(baseURL+"/account/services", wrapper.GetAccountServices)
 	router.GET(baseURL+"/announcements", wrapper.GetAnnouncements)
@@ -1500,6 +1515,39 @@ type Root200JSONResponse MessageResponse
 func (response Root200JSONResponse) VisitRootResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccountRequestObject struct {
+}
+
+type DeleteAccountResponseObject interface {
+	VisitDeleteAccountResponse(w http.ResponseWriter) error
+}
+
+type DeleteAccount204Response struct {
+}
+
+func (response DeleteAccount204Response) VisitDeleteAccountResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAccount401JSONResponse Error
+
+func (response DeleteAccount401JSONResponse) VisitDeleteAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAccount500JSONResponse Error
+
+func (response DeleteAccount500JSONResponse) VisitDeleteAccountResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2275,6 +2323,9 @@ type StrictServerInterface interface {
 	// ルート
 	// (GET /)
 	Root(ctx context.Context, request RootRequestObject) (RootResponseObject, error)
+	// アカウントを削除
+	// (DELETE /account)
+	DeleteAccount(ctx context.Context, request DeleteAccountRequestObject) (DeleteAccountResponseObject, error)
 	// 匿名データをアカウントへ紐付け・マージ
 	// (POST /account/link)
 	LinkAccount(ctx context.Context, request LinkAccountRequestObject) (LinkAccountResponseObject, error)
@@ -2387,6 +2438,29 @@ func (sh *strictHandler) Root(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RootResponseObject); ok {
 		return validResponse.VisitRootResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteAccount operation middleware
+func (sh *strictHandler) DeleteAccount(ctx echo.Context) error {
+	var request DeleteAccountRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAccount(ctx.Request().Context(), request.(DeleteAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAccount")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeleteAccountResponseObject); ok {
+		return validResponse.VisitDeleteAccountResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

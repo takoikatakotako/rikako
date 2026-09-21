@@ -214,6 +214,47 @@ gh workflow run "Deploy Portal Prod" --repo takoikatakotako/rikako --ref main
 **最後にいつ prod へ出したか**はタグで確認する。prod デプロイが成功すると
 `portal-prod/<日時>` のタグと GitHub Release が作られる。
 
+### アカウントの削除（#408）
+
+ユーザーは `DELETE /account`（JWT 必須）で自分のアカウントを削除できる。ポータルの削除画面と
+アプリ内の「アカウントを削除」がこれを呼ぶ。処理は `app/internal/handler/account.go` の
+`DeleteAccount`:
+
+1. DB: `accounts` 行 → それに束ねられた全 `users` 行（primary 含む）の順で削除。
+   `user_answers` / `user_app_settings` は `users` の `ON DELETE CASCADE` で消える
+2. Cognito User Pool のユーザーを削除（`ListUsers` で sub → Username を引き `AdminDeleteUser`）
+
+DB を先に消すのは、Cognito を先に消して DB が失敗すると再ログインできず孤児が残るため。
+逆順の途中失敗（DB 消えて Cognito 残り）は、再ログインしてもう一度削除すれば Cognito 側だけ
+消えて収束する（冪等）。端末側は 204 を受けたらトークンと匿名 identity を破棄する。
+
+**メールで削除依頼が来た場合（ログインできない等）**は手動で同じことをする:
+
+```bash
+export AWS_PROFILE=<prod のプロファイル>
+POOL=ap-northeast-1_d8LkqgsJU   # prod の User Pool（dev は ap-northeast-1_DvsZzCoJw）
+
+# 1) メールアドレスから sub と Username を引く
+aws cognito-idp list-users --user-pool-id $POOL --filter 'email = "user@example.com"' \
+  --query 'Users[].{Username:Username,sub:Attributes[?Name==`sub`].Value|[0]}'
+
+# 2) DB（SSM の database-url で接続）。sub を使って accounts → users を消す
+#    accounts.primary_user_id が RESTRICT なので accounts が先
+psql "$DATABASE_URL" <<SQL
+BEGIN;
+SELECT id FROM users WHERE account_id = (SELECT id FROM accounts WHERE cognito_sub = '<sub>');
+DELETE FROM accounts WHERE cognito_sub = '<sub>';
+DELETE FROM users WHERE id IN (<上で出た id>);
+COMMIT;
+SQL
+
+# 3) Cognito のユーザーを消す
+aws cognito-idp admin-delete-user --user-pool-id $POOL --username '<Username>'
+```
+
+依頼者本人であることは、登録メールアドレスからの依頼であることで確認する（そのメール宛に
+確認の返信をしてから実行する）。
+
 ```bash
 git fetch --tags
 git tag -l 'portal-prod/*' --sort=-refname | head -3

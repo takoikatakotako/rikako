@@ -37,3 +37,16 @@ SELECT a.primary_user_id
 FROM users u
 JOIN accounts a ON a.id = u.account_id
 WHERE u.identity_id = $1;
+
+-- name: ListUserIDsByAccountID :many
+-- アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
+SELECT id FROM users WHERE account_id = $1 ORDER BY id;
+
+-- name: DeleteAccountByID :exec
+-- accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
+-- （users.account_id は ON DELETE SET NULL）。
+DELETE FROM accounts WHERE id = $1;
+
+-- name: DeleteUsersByIDs :exec
+-- user_answers / user_app_settings は ON DELETE CASCADE で一緒に消える。
+DELETE FROM users WHERE id = ANY($1::bigint[]);

@@ -10,6 +10,7 @@ import (
 	"github.com/takoikatakotako/rikako/internal/db"
 	"github.com/takoikatakotako/rikako/internal/identity"
 	"github.com/takoikatakotako/rikako/internal/openai"
+	"github.com/takoikatakotako/rikako/internal/userpool"
 )
 
 type Handler struct {
@@ -22,6 +23,8 @@ type Handler struct {
 	identityProvider identity.Provider
 	openaiClient     *openai.Client
 	slackWebhookURL  string
+	// アカウント削除時に Cognito User Pool のユーザーを消す（#408）。未設定なら NoopDeleter。
+	userPool userpool.Deleter
 }
 
 func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion string, logger *slog.Logger, identityProvider identity.Provider, openaiClient *openai.Client, slackWebhookURL string) *Handler {
@@ -35,7 +38,14 @@ func New(d *sql.DB, imageBaseURL string, minimumVersion string, latestVersion st
 		identityProvider: identityProvider,
 		openaiClient:     openaiClient,
 		slackWebhookURL:  slackWebhookURL,
+		userPool:         &userpool.NoopDeleter{},
 	}
+}
+
+// WithUserPool は Cognito User Pool の削除実装を差し替える（本番は CognitoDeleter）。
+func (h *Handler) WithUserPool(d userpool.Deleter) *Handler {
+	h.userPool = d
+	return h
 }
 
 func validatePagination(limit, offset *int) (int, int, error) {

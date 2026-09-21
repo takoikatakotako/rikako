@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"database/sql"
+
+	"github.com/lib/pq"
 )
 
 const createAccountIfNotExists = `-- name: CreateAccountIfNotExists :one
@@ -44,12 +46,33 @@ func (q *Queries) CreateAccountIfNotExists(ctx context.Context, arg CreateAccoun
 	return i, err
 }
 
+const deleteAccountByID = `-- name: DeleteAccountByID :exec
+DELETE FROM accounts WHERE id = $1
+`
+
+// accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
+// （users.account_id は ON DELETE SET NULL）。
+func (q *Queries) DeleteAccountByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAccountByID, id)
+	return err
+}
+
 const deleteUserAppSettingsByUser = `-- name: DeleteUserAppSettingsByUser :exec
 DELETE FROM user_app_settings WHERE user_id = $1
 `
 
 func (q *Queries) DeleteUserAppSettingsByUser(ctx context.Context, userID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteUserAppSettingsByUser, userID)
+	return err
+}
+
+const deleteUsersByIDs = `-- name: DeleteUsersByIDs :exec
+DELETE FROM users WHERE id = ANY($1::bigint[])
+`
+
+// user_answers / user_app_settings は ON DELETE CASCADE で一緒に消える。
+func (q *Queries) DeleteUsersByIDs(ctx context.Context, dollar_1 []int64) error {
+	_, err := q.db.ExecContext(ctx, deleteUsersByIDs, pq.Array(dollar_1))
 	return err
 }
 
@@ -103,6 +126,34 @@ func (q *Queries) GetUserAccountIDForUpdate(ctx context.Context, id int64) (sql.
 	var account_id sql.NullInt64
 	err := row.Scan(&account_id)
 	return account_id, err
+}
+
+const listUserIDsByAccountID = `-- name: ListUserIDsByAccountID :many
+SELECT id FROM users WHERE account_id = $1 ORDER BY id
+`
+
+// アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
+func (q *Queries) ListUserIDsByAccountID(ctx context.Context, accountID sql.NullInt64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listUserIDsByAccountID, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const moveUserAppSettingsToUser = `-- name: MoveUserAppSettingsToUser :exec

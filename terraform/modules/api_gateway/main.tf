@@ -65,6 +65,7 @@ locals {
     "ANY /auth/{proxy+}",
     "ANY /users/{proxy+}",
     "ANY /transfer/{proxy+}",
+    "ANY /account",
     "ANY /account/{proxy+}",
   ]
 }

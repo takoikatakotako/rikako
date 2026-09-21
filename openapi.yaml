@@ -800,6 +800,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /account:
+    delete:
+      summary: アカウントを削除
+      description: >-
+        認証済みアカウント（JWT の sub）と、それに束ねられたすべての端末の学習データ
+        （users / user_answers / user_app_settings）を削除し、Cognito User Pool のユーザーも削除する。
+        冪等（DB 側が既に無くても Cognito 側の削除を試みて 204 を返す）。
+        端末側は成功後にトークンと匿名 identity を破棄して、新しい匿名ユーザーとしてやり直す。
+        Google Play のアカウント削除ポリシーと App Store 審査ガイドライン 5.1.1(v) への対応。
+      operationId: deleteAccount
+      tags:
+        - Account
+      responses:
+        '204':
+          description: 削除完了
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /account/services:
     get:
       summary: 利用中サービス（アプリ）一覧

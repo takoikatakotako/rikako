@@ -38,6 +38,9 @@ type Querier interface {
 	CreateUserAnswers(ctx context.Context, arg CreateUserAnswersParams) error
 	CreateWorkbook(ctx context.Context, arg CreateWorkbookParams) (int64, error)
 	CreateWorkbookQuestion(ctx context.Context, arg CreateWorkbookQuestionParams) error
+	// accounts.primary_user_id は ON DELETE RESTRICT なので、users を消す前に account を消す
+	// （users.account_id は ON DELETE SET NULL）。
+	DeleteAccountByID(ctx context.Context, id int64) error
 	DeleteAllCategories(ctx context.Context) error
 	DeleteAllChoices(ctx context.Context) error
 	DeleteAllImages(ctx context.Context) error
@@ -54,6 +57,8 @@ type Querier interface {
 	DeleteQuestionImages(ctx context.Context, questionID int64) error
 	DeleteTransferTokensByIdentityID(ctx context.Context, identityID string) error
 	DeleteUserAppSettingsByUser(ctx context.Context, userID int64) error
+	// user_answers / user_app_settings は ON DELETE CASCADE で一緒に消える。
+	DeleteUsersByIDs(ctx context.Context, dollar_1 []int64) error
 	DeleteWorkbook(ctx context.Context, id int64) (sql.Result, error)
 	DeleteWorkbookQuestions(ctx context.Context, workbookID int64) error
 	GetAccountByCognitoSub(ctx context.Context, cognitoSub string) (GetAccountByCognitoSubRow, error)
@@ -112,6 +117,8 @@ type Querier interface {
 	// LIMIT/OFFSET のページングで並びが安定せず、取りこぼしや重複が起きる。
 	ListUserAnswerLogs(ctx context.Context, arg ListUserAnswerLogsParams) ([]ListUserAnswerLogsRow, error)
 	ListUserAppSettings(ctx context.Context, userID int64) ([]ListUserAppSettingsRow, error)
+	// アカウントに束ねられている users 行（primary を含む全端末）。削除時に一括で消す。
+	ListUserIDsByAccountID(ctx context.Context, accountID sql.NullInt64) ([]int64, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
 	ListWeeklyWorkbookIDs(ctx context.Context, arg ListWeeklyWorkbookIDsParams) ([]int64, error)
 	ListWorkbookProgress(ctx context.Context, arg ListWorkbookProgressParams) ([]ListWorkbookProgressRow, error)
