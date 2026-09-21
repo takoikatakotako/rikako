@@ -286,6 +286,63 @@ Secrets が未設定だとワークフローの先頭で止まる。
 Firebase の `google-services.json` は Secrets ではなく OIDC で `rikako-production-github-actions` を
 assume して SSM から取る（`scripts/firebase-config.sh pull prod android`）。詳細は「Firebase」の節を参照。
 
+## ストア掲載用の画像（#410）
+
+`android/screenshots/<flavor>/` に Play のストア掲載情報に使う画像を置いている（git 管理。差し替えたら PR）。
+
+| ファイル | 用途 | 仕様 |
+| --- | --- | --- |
+| `01-onboarding.png` 〜 `08-mypage.png` | スマートフォン用スクリーンショット（7 インチ / 10 インチ タブレット用にも同じ画像を流用） | 1080×1920（9:16）PNG |
+| `feature-graphic.png` | フィーチャー グラフィック | 1024×500 PNG |
+| アイコン | `app/src/<flavor>Prod/res/mipmap-nodpi/ic_launcher_art.png` をそのまま使う | 512×512 PNG |
+
+### スクリーンショットの撮り方（エミュレータ）
+
+Play は 16:9 / 9:16 しか受け付けないため、iOS のスクショ（9:19.5）は流用できない。
+Android Studio の Pixel 8 AVD（1080×2400）を起動し、`adb shell wm size 1080x1920` で
+表示サイズだけ 9:16 に上書きして `adb exec-out screencap -p` で撮る（終わったら `wm size reset`）。
+ステータスバーは SystemUI のデモモードで 9:41 / 電池 100% に揃える。
+
+```bash
+adb shell wm size 1080x1920
+adb shell settings put global sysui_demo_allowed 1
+adb shell am broadcast -a com.android.systemui.demo -e command enter
+adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941
+adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
+adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
+adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
+# prod release の APK を入れて画面を操作しながら
+adb exec-out screencap -p > 01-onboarding.png
+# 後片付け
+adb shell am broadcast -a com.android.systemui.demo -e command exit
+adb shell wm size reset
+```
+
+撮る画面: オンボーディング / ホーム / 出題 / 解説 / AI チャット / 結果 / 学習記録 / マイページ。
+`adb shell input text` は日本語を打てないので、AI チャットは入力前の状態を撮る。
+
+### フィーチャー グラフィックの作り方
+
+アイコン素材とタイトルを ImageMagick で合成している（フォントは macOS のヒラギノ角ゴ W8）。
+
+```bash
+magick -size 1024x500 "xc:srgb(90,168,15)" \
+  \( app/src/chemistryProd/res/mipmap-nodpi/ic_launcher_art.png -resize 420x420 \) \
+  -gravity west -geometry +50+0 -composite \
+  -font "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc" -fill white \
+  -pointsize 96 -gravity west -annotate +520-40 "４択化学" \
+  -pointsize 40 -annotate +522+60 "高校化学を4択クイズで" \
+  screenshots/chemistry/feature-graphic.png
+```
+
+背景色はアイコンの角のピクセル（`magick icon.png -format "%[pixel:p{4,4}]" info:`）に合わせる。
+IT 版は `srgb(84,163,26)`、サブタイトルは 34pt。
+
+### Play Console へのアップロード
+
+ストアの掲載情報のアップロードはネイティブのファイル選択ダイアログなので手動。
+一括で入れるとアセットライブラリの新しい順（逆順）に並ぶため、順番どおりに 1 枚ずつ追加する。
+
 ## CI
 
 `.github/workflows/android.yml` が `android/**` の変更で走る（main への push と PR）。
