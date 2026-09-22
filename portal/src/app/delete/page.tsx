@@ -57,6 +57,29 @@ export default function DeleteAccountPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold">アカウントの削除</h1>
 
+      {/* Play / App Store の審査は、このページにストア掲載のアプリ名と運営者名が
+          明記されていることを要求する（#422）。掲載名は全角「４」。 */}
+      <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">
+        <p className="font-semibold">対象のアプリ</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>４択化学（iOS / Android）</li>
+          <li>４択IT（Android）／ ４択ITパスポート（iOS）</li>
+        </ul>
+        <p className="text-slate-500">
+          運営者: 小野純平（Google Play デベロッパー名: PureFlatAtSmallField / App Store 販売者名: junpei
+          ono）。上記アプリで作成したアカウント（メールアドレスで登録したもの）をこのページから削除できます。
+        </p>
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">
+        <p className="font-semibold">削除の手順</p>
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>削除したいアカウントでログインします</li>
+          <li>削除される内容を確認し、同意にチェックします</li>
+          <li>「アカウントを削除する」を押します（即時に削除されます）</li>
+        </ol>
+      </section>
+
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">
         <p>アカウントを削除すると、次のデータがただちに削除されます。</p>
         <ul className="list-disc space-y-1 pl-5">
@@ -71,7 +94,7 @@ export default function DeleteAccountPage() {
         <p className="text-slate-500">
           削除処理の整合性のため、アカウントの内部識別子（メールアドレスや氏名を含まない ID）のみを最長 8 日間保持したのち自動的に削除します。バックアップでの保持については
           <a
-            href="https://rikako.org/privacy.html"
+            href="https://rikako.org/privacy"
             target="_blank"
             rel="noopener noreferrer"
             className="text-brand-strong hover:underline"
