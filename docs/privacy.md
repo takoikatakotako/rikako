@@ -10,7 +10,7 @@
 - **４択IT**（Android。アプリ内表示名「4択IT」）／**４択ITパスポート**（iOS）
 - **rikako.org** およびそのサブドメイン（it.rikako.org、chemistry.rikako.org、account.rikako.org など）
 
-> 公開版は https://rikako.org/privacy 。Play / App Store の審査ではストア掲載のアプリ名・デベロッパー名がポリシー本文に含まれている必要がある（2026-09-22 に Play で否承認、#420）。
+<!-- 公開版は https://rikako.org/privacy 。Play / App Store の審査ではストア掲載のアプリ名・デベロッパー名がポリシー本文に含まれている必要がある（2026-09-22 に Play で否承認、#420）。 -->
 
 ## 収集する情報
 
