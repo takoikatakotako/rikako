@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { QuestionCard } from "@/components/QuestionCard";
+import { AppDownloadLinks } from "@/components/AppDownloadLinks";
 import { findQuestionContext, getAllExams } from "@/lib/content";
 
 type Params = { questionId: string };
@@ -114,6 +115,8 @@ export default async function QuestionPage({
           </Link>
         )}
       </nav>
+
+      <AppDownloadLinks placement="question" />
     </div>
   );
 }

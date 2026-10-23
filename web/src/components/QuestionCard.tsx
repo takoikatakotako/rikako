@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Question } from "@/lib/content";
 import { submitAnswer } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 
 const CHOICE_LABELS = ["ア", "イ", "ウ", "エ", "オ", "カ"];
 
@@ -34,6 +35,10 @@ export function QuestionCard({
     (index: number) => {
       setSelected(index);
       setRevealed(true);
+      trackEvent("question_answered", {
+        workbook_id: workbookId,
+        question_id: question.id,
+      });
       // 記録はサーバー側。失敗しても解答体験は止めない（次に解いたときに再度送られる）。
       void submitAnswer(workbookId, question.id, index).catch(() => {});
     },
