@@ -68,15 +68,8 @@
             間違えた問題は自動で復習リストに入るから、ニガテを着実に減らせます。
           </p>
           <div class="hero-cta">
-            <!-- TODO: 実際の App Store URL に差し替え -->
-            <a class="btn btn-app" href="#download" aria-label="App Store でダウンロード">
-              <span class="btn-app-icon" aria-hidden="true"></span>
-              <span class="btn-app-text">
-                <small>Download on the</small>
-                <strong>App Store</strong>
-              </span>
-            </a>
-            <p class="hero-note">iPhone 対応・無料ではじめられます</p>
+            <a class="btn btn-primary" href="#download">アプリを選ぶ ↓</a>
+            <p class="hero-note">iPhone・Android 対応。無料ではじめられます</p>
           </div>
         </div>
 
@@ -194,16 +187,26 @@
     <!-- Download CTA -->
     <section id="download" class="section cta">
       <div class="container cta-inner">
-        <h2>さっそく、はじめよう。</h2>
-        <p>理科子があなたの学習をサポートします。まずは1問から。</p>
-        <!-- TODO: 実際の App Store URL に差し替え -->
-        <a class="btn btn-app btn-app--invert" href="#download" aria-label="App Store でダウンロード">
-          <span class="btn-app-icon" aria-hidden="true"></span>
-          <span class="btn-app-text">
-            <small>Download on the</small>
-            <strong>App Store</strong>
-          </span>
-        </a>
+        <h2>学びたい分野を選ぼう。</h2>
+        <p>どちらも無料で、すぐに1問目を始められます。</p>
+        <div class="download-cards">
+          <section class="download-card" aria-labelledby="download-chemistry">
+            <h3 id="download-chemistry">🧪 ４択化学</h3>
+            <p>化学基礎・高校化学を4択で学ぶ</p>
+            <div class="download-links">
+              <a class="btn btn-app btn-app--invert" href="https://apps.apple.com/jp/app/%EF%BC%94%E6%8A%9E%E5%8C%96%E5%AD%A6/id960647263" data-app-slug="high-school-chemistry" data-store="app_store" data-placement="lp_download" target="_blank" rel="noopener noreferrer">App Store で入手</a>
+              <a class="btn btn-app btn-app--invert" href="https://play.google.com/store/apps/details?id=org.rikako.chemistry" data-app-slug="high-school-chemistry" data-store="google_play" data-placement="lp_download" target="_blank" rel="noopener noreferrer">Google Play で入手</a>
+            </div>
+          </section>
+          <section class="download-card" aria-labelledby="download-it">
+            <h3 id="download-it">💻 ４択IT</h3>
+            <p>ITパスポートの公開問題を4択で学ぶ</p>
+            <div class="download-links">
+              <a class="btn btn-app btn-app--invert" href="https://apps.apple.com/jp/app/%EF%BC%94%E6%8A%9Eit%E3%83%91%E3%82%B9%E3%83%9D%E3%83%BC%E3%83%88/id6772535532" data-app-slug="it-passport" data-store="app_store" data-placement="lp_download" target="_blank" rel="noopener noreferrer">App Store で入手</a>
+              <a class="btn btn-app btn-app--invert" href="https://play.google.com/store/apps/details?id=org.rikako.itpassport" data-app-slug="it-passport" data-store="google_play" data-placement="lp_download" target="_blank" rel="noopener noreferrer">Google Play で入手</a>
+            </div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -230,7 +233,7 @@
           </details>
           <details>
             <summary>Android 版はありますか？</summary>
-            <p>現在は iPhone 向けに提供しています。</p>
+            <p>はい。４択化学・４択ITともに iPhone と Android で利用できます。</p>
           </details>
         </div>
 
@@ -262,6 +265,20 @@
       <p class="copyright"><small>&copy; 2026 Rikako</small></p>
     </div>
   </footer>
+
+  <script>
+    document.querySelectorAll('a[data-store][data-app-slug]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        if (typeof gtag === 'function') {
+          gtag('event', 'app_store_click', {
+            app_slug: link.dataset.appSlug,
+            store: link.dataset.store,
+            placement: link.dataset.placement
+          });
+        }
+      });
+    });
+  </script>
 
 </body>
 </html>

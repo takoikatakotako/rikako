@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExamProgress } from "@/components/ExamProgress";
+import { AppDownloadLinks } from "@/components/AppDownloadLinks";
 import { getExam, getExamCategory } from "@/lib/content";
 
 type Params = { workbookId: string };
@@ -55,6 +56,7 @@ export default async function ExamPage({
         workbookId={exam.id}
         questionIds={exam.questions.map((q) => q.id)}
       />
+      <AppDownloadLinks placement="workbook" />
     </div>
   );
 }

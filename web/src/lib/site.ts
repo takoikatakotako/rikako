@@ -14,6 +14,10 @@ export type SiteConfig = {
   heroLead: string; // トップのリード文
   unitLabel: string; // 「試験回」「問題集」など選択単位の呼称
   sourceNote: string; // フッターの出典注記（無ければ空）
+  appSlug: string;
+  appName: string;
+  appStoreUrl: string;
+  playStoreUrl: string;
 };
 
 const SITES: Record<SiteKey, SiteConfig> = {
@@ -30,6 +34,10 @@ const SITES: Record<SiteKey, SiteConfig> = {
       "ITパスポート試験の公開問題（過去問）を、解説付きで解いたり見たりできます。会員登録は不要です。まずは試験回を選んでください。",
     unitLabel: "試験回",
     sourceNote: "ITパスポート試験の公開問題を利用しています。",
+    appSlug: "it-passport",
+    appName: "４択IT",
+    appStoreUrl: "https://apps.apple.com/jp/app/%EF%BC%94%E6%8A%9Eit%E3%83%91%E3%82%B9%E3%83%9D%E3%83%BC%E3%83%88/id6772535532",
+    playStoreUrl: "https://play.google.com/store/apps/details?id=org.rikako.itpassport",
   },
   chemistry: {
     key: "chemistry",
@@ -44,6 +52,10 @@ const SITES: Record<SiteKey, SiteConfig> = {
       "化学基礎・高校化学の問題を、解説付きで解いたり見たりできます。会員登録は不要です。まずは問題集を選んでください。",
     unitLabel: "問題集",
     sourceNote: "",
+    appSlug: "high-school-chemistry",
+    appName: "４択化学",
+    appStoreUrl: "https://apps.apple.com/jp/app/%EF%BC%94%E6%8A%9E%E5%8C%96%E5%AD%A6/id960647263",
+    playStoreUrl: "https://play.google.com/store/apps/details?id=org.rikako.chemistry",
   },
 };
 
