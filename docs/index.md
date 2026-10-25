@@ -22,6 +22,10 @@
 - [公開API](api/index.html) — OpenAPI から生成（Swagger UI）
 - [管理API](admin-api/index.html) — 同上
 
+## コンテンツ企画
+
+- [化学基礎 カリキュラム・動画ネタ一覧](chemistry-basic-content-map.md) — 学習範囲とショート動画の企画案
+
 ## 開発
 
 - [AWS CLI セットアップ](aws-setup.md) — SSO プロファイルの設定

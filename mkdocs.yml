@@ -23,6 +23,8 @@ nav:
       - iOS アーキテクチャ: ios/architecture.md
       - iOS オンボーディング: ios/onboarding.md
       - Androidアプリ: android.md
+  - コンテンツ企画:
+      - 化学基礎 カリキュラム・動画ネタ一覧: chemistry-basic-content-map.md
   - APIリファレンス:
       - 公開API: api/index.html
       - 管理API (Swagger): admin-api/index.html
