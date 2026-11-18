@@ -1,0 +1,89 @@
+version: 1
+
+meta:
+  title: "食塩と砂、どう分ける？｜化学基礎"
+  output: out/salt-sand-sulafat-hiyoko.mp4
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+
+export:
+  crf: 23
+  audio_bitrate: 160k
+
+audio:
+  pause_between_lines_ms: 300
+  bgm:
+    src: ../../assets/bgm/bgmer-hiyoko-no-bouken-short.mp3
+    volume: 0.25
+    fade_out_ms: 1500
+
+# 背景に問いと説明を描いているので、字幕は重ねない。
+subtitle:
+  mode: none
+
+characters:
+  narrator:
+    name: "理科子（声のみ）"
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Sulafat, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+
+scenes:
+  - id: hook
+    background: frames/hook.png
+    script:
+      - wait: 1000
+      - narrator: "食塩と砂。食塩だけを取り出すには？"
+        wait: 700
+
+  - id: choices
+    background: frames/choices.png
+    script:
+      - narrator: "正しいのはどれ？"
+        wait: 1600
+
+  - id: three
+    background: frames/three.png
+    script:
+      - wait: 1000
+  - id: two
+    background: frames/two.png
+    script:
+      - wait: 1000
+  - id: one
+    background: frames/one.png
+    script:
+      - wait: 1000
+
+  - id: answer
+    background: frames/answer.png
+    script:
+      - narrator: "正解は、B。"
+        read: "正解は、ビー。"
+        wait: 550
+
+  - id: dissolve
+    background: frames/dissolve.png
+    script:
+      - narrator: "まず水に溶かす。食塩は溶けて、砂は残ります。"
+        wait: 600
+
+  - id: filter
+    background: frames/filter.png
+    script:
+      - narrator: "ろ過して、砂を取り除きます。"
+        wait: 650
+
+  - id: evaporate
+    background: frames/evaporate.png
+    script:
+      - narrator: "水を蒸発させれば、食塩だけが残ります。"
+        wait: 650
+
+  - id: outro
+    background: frames/outro.png
+    script:
+      - narrator: "続きは、プロフィールから無料で一問どうぞ。"
+        wait: 1300

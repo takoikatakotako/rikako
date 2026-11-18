@@ -1,0 +1,70 @@
+version: 1
+
+meta:
+  title: "パスワード2つで多要素認証？｜ITパスポート"
+  output: out/it-passport-mfa-pilot.mp4
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+
+export:
+  crf: 23
+  audio_bitrate: 128k
+
+audio:
+  pause_between_lines_ms: 300
+
+subtitle:
+  mode: none
+
+characters:
+  narrator:
+    name: "ナレーター"
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Sulafat, language: ja-JP, style: "ITパスポートを教える、親しみやすい先生として、自然な日本語でテンポよく明瞭に話してください。" }
+    stand: { position: none }
+
+scenes:
+  - id: hook
+    background: frames/hook.png
+    script:
+      - narrator: "パスワードを二つ使えば、多要素認証になる？"
+        wait: 600
+  - id: choices
+    background: frames/choices.png
+    script:
+      - narrator: "パスワードに足すなら、どれが多要素認証？"
+        wait: 900
+  - id: three
+    background: frames/three.png
+    script:
+      - wait: 1000
+  - id: two
+    background: frames/two.png
+    script:
+      - wait: 1000
+  - id: one
+    background: frames/one.png
+    script:
+      - wait: 1000
+  - id: answer
+    background: frames/answer.png
+    script:
+      - narrator: "正解は、シー。スマホの認証アプリ。"
+        wait: 500
+  - id: knowledge
+    background: frames/knowledge.png
+    script:
+      - narrator: "パスワードも暗証番号も、覚えている情報。どちらも知識という同じ要素です。"
+        wait: 500
+  - id: possession
+    background: frames/possession.png
+    script:
+      - narrator: "スマホの認証アプリなら、知識と所持。種類の違う二つを組み合わせます。"
+        wait: 500
+  - id: outro
+    background: frames/outro.png
+    script:
+      - narrator: "入力回数より、要素の種類がポイント。あなたは解けましたか？"
+        wait: 1300

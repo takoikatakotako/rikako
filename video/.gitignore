@@ -1,0 +1,9 @@
+# Video renders and reproducible intermediate files stay local.
+**/*.mp4
+**/frames/
+**/voice/
+**/bgm/
+**/storyboard*.png
+**/.daihon-cache/
+**/out/
+**/__pycache__/
