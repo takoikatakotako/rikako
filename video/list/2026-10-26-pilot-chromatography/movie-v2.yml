@@ -1,0 +1,94 @@
+version: 1
+
+meta:
+  title: "黒いインク、何色だと思う？｜化学基礎"
+  output: out/chromatography-editorial-v2.mp4
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+
+export:
+  crf: 23
+  audio_bitrate: 128k
+
+audio:
+  pause_between_lines_ms: 300
+
+# 画面に問いと説明を描いた背景を使うので、daihon の字幕は重ねない。
+subtitle:
+  mode: none
+
+characters:
+  rikako:
+    name: "理科子"
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Sulafat, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand:
+      position: right
+      scale: 0.32
+      offset: { x: 25, y: -155 }
+    expressions:
+      normal: ../../assets/rikako-standing.png
+  narrator:
+    name: "理科子（声のみ）"
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Sulafat, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+
+scenes:
+  - id: hook
+    background: frames/v2/hook-background.png
+    script:
+      - rikako: "黒い水性インク、ほんとうに一色かな？"
+        wait: 800
+
+  - id: choices
+    background: frames/v2/choices-background.png
+    script:
+      - exit: rikako
+      - narrator: "紙でインクの色を分ける方法は、どれ？"
+        wait: 1500
+
+  - id: three
+    background: frames/v2/three-background.png
+    script:
+      - wait: 1000
+  - id: two
+    background: frames/v2/two-background.png
+    script:
+      - wait: 1000
+  - id: one
+    background: frames/v2/one-background.png
+    script:
+      - wait: 1000
+
+  - id: answer
+    background: frames/v2/answer-background.png
+    script:
+      - rikako: "正解は、シー。ペーパークロマトグラフィー。"
+        wait: 500
+
+  - id: setup
+    background: frames/v2/setup-background.png
+    script:
+      - exit: rikako
+      - narrator: "紙の線にインクをつけて、水にひたします。"
+        wait: 600
+
+  - id: moving
+    background: frames/v2/moving-background.png
+    script:
+      - narrator: "水が上がると、色素も動きます。"
+        wait: 700
+
+  - id: separated
+    background: frames/v2/separated-background.png
+    script:
+      - narrator: "色素によって、進む速さが違います。"
+        wait: 800
+
+  - id: outro
+    background: frames/v2/outro-background.png
+    script:
+      - rikako: "続きは理科子で、一問解いてみてね。"
+        wait: 1600

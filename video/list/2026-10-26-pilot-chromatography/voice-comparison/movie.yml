@@ -1,0 +1,68 @@
+version: 1
+
+meta:
+  title: "理科子・女性声の日本語聞き比べ"
+  output: out/voice-comparison.mp4
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+
+audio:
+  pause_between_lines_ms: 0
+
+subtitle:
+  mode: none
+
+characters:
+  kore:
+    name: Kore
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Kore, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+  leda:
+    name: Leda
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Leda, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+  achernar:
+    name: Achernar
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Achernar, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+  aoede:
+    name: Aoede
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Aoede, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+  zephyr:
+    name: Zephyr
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Zephyr, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+  sulafat:
+    name: Sulafat
+    voice: { engine: gemini, model: gemini-3.8-flash-tts, voice_name: Sulafat, language: ja-JP, style: "親しみやすい理科の先生として、明るく自然な日本語で、ややゆっくり明瞭に話してください。" }
+    stand: { position: none }
+
+scenes:
+  - id: kore
+    background: ../frames/v2/hook-background.png
+    script:
+      - kore: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
+  - id: leda
+    background: ../frames/v2/hook-background.png
+    script:
+      - leda: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
+  - id: achernar
+    background: ../frames/v2/hook-background.png
+    script:
+      - achernar: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
+  - id: aoede
+    background: ../frames/v2/hook-background.png
+    script:
+      - aoede: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
+  - id: zephyr
+    background: ../frames/v2/hook-background.png
+    script:
+      - zephyr: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
+  - id: sulafat
+    background: ../frames/v2/hook-background.png
+    script:
+      - sulafat: "黒い水性インク、ほんとうに一色かな？ 紙でインクの色を分ける方法は、どれ？"
